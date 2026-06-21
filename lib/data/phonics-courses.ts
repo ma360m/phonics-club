@@ -1,0 +1,77 @@
+import type { Course } from '@/types/database'
+
+const now = new Date().toISOString()
+
+export const PHONICS_COURSES: Course[] = [
+  {
+    id: 'course-1',
+    title: 'Teaching of English through Jolly Phonics',
+    slug: 'teaching-english-jolly-phonics',
+    description:
+      'Jolly Phonics Intensive course uses fast-track teaching strategies and materials to give you a head start for the implementation of Jolly Phonics in your classroom.',
+    excerpt: '8-week intermediate course by Fatima Tuz Zahra — 28 lessons, 4 quizzes.',
+    price: 0,
+    category: 'teacher-courses',
+    level: 'intermediate',
+    duration: '8 Weeks',
+    instructor: 'Fatima Tuz Zahra',
+    image_url: '/images/course-jolly-phonics-intensive.jpg',
+    curriculum: [
+      { title: 'Week 1-2: Letter Sounds & Actions', lessons: [{ title: 'Group 1-3 sounds', duration: '45 min' }, { title: 'Blending introduction', duration: '60 min' }] },
+      { title: 'Week 3-4: Extended Phonics', lessons: [{ title: 'Group 4-7 sounds', duration: '45 min' }, { title: 'Tricky words', duration: '50 min' }] },
+      { title: 'Week 5-8: Classroom Implementation', lessons: [{ title: 'Lesson planning', duration: '60 min' }, { title: 'Assessment & review', duration: '45 min' }] },
+    ],
+    featured: true,
+    published: true,
+    metadata: { lessons: 28, quizzes: 4, format: 'online' },
+    created_at: now,
+    updated_at: now,
+  },
+  {
+    id: 'course-2',
+    title: 'Teaching of English through Jolly Phonics (Free Version)',
+    slug: 'jolly-phonics-free',
+    description: 'Free introductory course with fast-track strategies for Jolly Phonics implementation.',
+    excerpt: '2-week free course — 2 lessons, 1 quiz.',
+    price: 0,
+    category: 'teacher-courses',
+    level: 'intermediate',
+    duration: '2 Weeks',
+    instructor: 'Fatima Tuz Zahra',
+    image_url: '/images/course-jolly-phonics-free.jpg',
+    curriculum: [
+      { title: 'Introduction', lessons: [{ title: 'What is Synthetic Phonics?', duration: '30 min' }, { title: 'Getting started', duration: '40 min' }] },
+    ],
+    featured: true,
+    published: true,
+    metadata: { lessons: 2, quizzes: 1, format: 'online', free: true },
+    created_at: now,
+    updated_at: now,
+  },
+  {
+    id: 'course-3',
+    title: 'Preschool Professional',
+    slug: 'preschool-professional',
+    description:
+      'Comprehensive ECCE program: Jolly Phonics, Montessori Methodologies, STEAM, and School Management for preschool educators.',
+    excerpt: '8 weeks — ECCE, Jolly Phonics, Montessori, STEAM, School Management.',
+    price: 0,
+    category: 'teacher-courses',
+    level: 'all-levels',
+    duration: '8 Weeks',
+    instructor: 'Fatima Tuz Zahra',
+    image_url: '/images/course-preschool-professional.jpg',
+    curriculum: [
+      { title: 'Monday – ECCE', lessons: [{ title: 'Early childhood foundations', duration: '60 min' }] },
+      { title: 'Tuesday – Jolly Phonics', lessons: [{ title: 'Phonics in preschool', duration: '60 min' }] },
+      { title: 'Wednesday – Montessori', lessons: [{ title: 'Montessori methodologies', duration: '60 min' }] },
+      { title: 'Saturday – STEAM', lessons: [{ title: 'STEAM activities', duration: '60 min' }] },
+      { title: 'Sunday – School Management', lessons: [{ title: 'Administration basics', duration: '60 min' }] },
+    ],
+    featured: true,
+    published: true,
+    metadata: { lessons: 78, quizzes: 8, format: 'online' },
+    created_at: now,
+    updated_at: now,
+  },
+]
