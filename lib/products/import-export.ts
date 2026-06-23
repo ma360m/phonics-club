@@ -114,7 +114,8 @@ export function productsToCsv(products: Record<string, unknown>[]): string {
 }
 
 export function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim())
+  const normalized = text.replace(/^\uFEFF/, '')
+  const lines = normalized.split(/\r?\n/).filter((l) => l.trim())
   if (lines.length < 2) return []
 
   const parseLine = (line: string): string[] => {
@@ -137,7 +138,9 @@ export function parseCsv(text: string): Record<string, string>[] {
     return result
   }
 
-  const headers = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
+  const headers = parseLine(lines[0]).map((h) =>
+    h.replace(/^\uFEFF/, '').toLowerCase().replace(/\s+/g, '_')
+  )
   return lines.slice(1).map((line) => {
     const values = parseLine(line)
     const row: Record<string, string> = {}

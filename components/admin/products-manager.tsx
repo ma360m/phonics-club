@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dialog'
 import { formatPrice } from '@/utils/format'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
-import { bulkDeleteProductsAction, bulkUpdateProductsAction, importCatalogManifestAction } from '@/actions/admin/products-bulk'
+import { bulkDeleteProductsAction, bulkUpdateProductsAction, importCatalogManifestAction, deleteAllProductsAction } from '@/actions/admin/products-bulk'
 import { deleteProductAction } from '@/actions/admin/products'
 import { toast } from 'sonner'
 import type { Product } from '@/types/database'
@@ -202,6 +202,10 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         <Button variant="ghost" className="rounded-xl" onClick={() => router.refresh()}>
           <RefreshCw className="w-4 h-4 mr-2" /> Refresh
         </Button>
+
+        {supabaseConnected && initialProducts.length > 0 && (
+          <DeleteAllProductsDialog productCount={initialProducts.length} onDone={() => router.refresh()} />
+        )}
       </div>
 
       {/* Bulk actions */}
@@ -339,6 +343,77 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         }}
       />
     </div>
+  )
+}
+
+function DeleteAllProductsDialog({
+  productCount,
+  onDone,
+}: {
+  productCount: number
+  onDone: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="destructive" className="rounded-xl">
+          <Trash2 className="w-4 h-4 mr-2" /> Delete All Products
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete all {productCount} products?</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          This permanently removes every product from the catalog. Type <strong>DELETE ALL</strong> and enter your admin email to confirm.
+        </p>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Confirmation</Label>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="DELETE ALL"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Your admin email</Label>
+            <Input
+              type="email"
+              value={adminEmail}
+              onChange={(e) => setAdminEmail(e.target.value)}
+              placeholder="admin@example.com"
+              className="rounded-xl"
+            />
+          </div>
+        </div>
+        <Button
+          variant="destructive"
+          className="w-full rounded-xl"
+          disabled={pending || confirmText !== 'DELETE ALL' || !adminEmail.trim()}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await deleteAllProductsAction(confirmText, adminEmail)
+              if (result.success) {
+                toast.success(`Deleted ${result.data?.deleted ?? 0} products`)
+                setOpen(false)
+                setConfirmText('')
+                setAdminEmail('')
+                onDone()
+              } else toast.error(result.error)
+            })
+          }
+        >
+          {pending ? 'Deleting...' : 'Permanently delete all products'}
+        </Button>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -3,15 +3,23 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ShoppingCart } from 'lucide-react'
+import { CART_UPDATED_EVENT } from '@/lib/guest-cart-client'
 
 export function CartBadge() {
   const [count, setCount] = useState(0)
 
-  useEffect(() => {
+  function refreshCount() {
     fetch('/api/cart/count')
       .then((r) => r.json())
       .then((d) => setCount(d.count ?? 0))
       .catch(() => setCount(0))
+  }
+
+  useEffect(() => {
+    refreshCount()
+    const onUpdate = () => refreshCount()
+    window.addEventListener(CART_UPDATED_EVENT, onUpdate)
+    return () => window.removeEventListener(CART_UPDATED_EVENT, onUpdate)
   }, [])
 
   return (

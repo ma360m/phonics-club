@@ -91,7 +91,9 @@ export interface BlogPost {
 
 export interface Order {
   id: string
-  user_id: string
+  user_id: string | null
+  guest_email?: string | null
+  access_token?: string | null
   status: OrderStatus
   total: number
   subtotal?: number

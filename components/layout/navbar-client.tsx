@@ -17,7 +17,13 @@ const navigation = [
   { name: 'Contact', href: '/contact' },
 ]
 
-export function NavbarClient({ cartSlot }: { cartSlot: React.ReactNode }) {
+export function NavbarClient({
+  cartSlot,
+  wishlistSlot,
+}: {
+  cartSlot: React.ReactNode
+  wishlistSlot?: React.ReactNode
+}) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -56,6 +62,7 @@ export function NavbarClient({ cartSlot }: { cartSlot: React.ReactNode }) {
             <Link href="/dashboard" className="p-2 hover:bg-muted rounded-lg transition-colors" aria-label="Account">
               <User className="w-5 h-5 text-foreground/70" />
             </Link>
+            {wishlistSlot}
             {cartSlot}
             <Button asChild className="hidden sm:flex bg-[#D30000] hover:bg-[#D30000]/90 text-white ml-2 rounded-xl">
               <Link href="/courses">Get Started</Link>

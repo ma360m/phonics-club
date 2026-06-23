@@ -74,6 +74,31 @@ export async function bulkUpdateProductsAction(
   return { success: true, data: { updated: count ?? ids.length } }
 }
 
+export async function deleteAllProductsAction(
+  confirmText: string,
+  adminEmail: string
+): Promise<ActionResult<{ deleted: number }>> {
+  const admin = await requireAdmin()
+  if (confirmText !== 'DELETE ALL') {
+    return { success: false, error: 'Type DELETE ALL to confirm' }
+  }
+  if (adminEmail.trim().toLowerCase() !== admin.email.toLowerCase()) {
+    return { success: false, error: 'Admin email does not match your account' }
+  }
+
+  const supabase = await createClient()
+  const { error, count } = await supabase
+    .from('products')
+    .delete({ count: 'exact' })
+    .neq('id', '00000000-0000-0000-0000-000000000000')
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/products')
+  revalidatePath('/shop')
+  return { success: true, data: { deleted: count ?? 0 } }
+}
+
 export async function importCatalogManifestAction(): Promise<ActionResult<ImportStats>> {
   await requireAdmin()
   const { IMAGE_CATALOG_PRODUCTS } = await import('@/lib/data/catalog-from-images')

@@ -1,10 +1,10 @@
 import { getAllOrders } from '@/lib/data/queries'
 import { updateOrderStatusFormAction, confirmPaymentFormAction } from '@/actions/orders'
+import { AdminOrderDeleteButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
 import { formatPrice, formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES } from '@/lib/commerce'
-import Link from 'next/link'
 
 export default async function AdminOrdersPage() {
   const orders = await getAllOrders()
@@ -26,6 +26,7 @@ export default async function AdminOrdersPage() {
                   <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
                   <p className="text-sm">{addr?.fullName} · {order.phone ?? addr?.phone}</p>
                   <p className="text-sm text-muted-foreground">{addr?.email}</p>
+                  {!order.user_id && <Badge variant="outline" className="mt-1">Guest order</Badge>}
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>
@@ -70,9 +71,8 @@ export default async function AdminOrdersPage() {
                   </select>
                   <Button type="submit" size="sm" variant="outline" className="rounded-xl">Update</Button>
                 </form>
-                <Button asChild size="sm" variant="ghost" className="rounded-xl">
-                  <Link href={`/api/orders/${order.id}/invoice`} target="_blank">Invoice</Link>
-                </Button>
+                <AdminOrderInvoiceLinks orderId={order.id} />
+                <AdminOrderDeleteButton orderId={order.id} />
               </div>
             </div>
           )

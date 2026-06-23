@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { placeOrderAction } from '@/actions/orders'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { formatPrice } from '@/utils/format'
 import type { ActionResult } from '@/types'
+import { getGuestCart } from '@/lib/guest-cart-client'
 
 const initialState: ActionResult = { success: false }
 
@@ -24,14 +25,21 @@ export function CheckoutForm({
   subtotal,
   email,
   bankDetails,
+  isGuest = false,
 }: {
   subtotal: number
   email?: string
   bankDetails: BankDetails
+  isGuest?: boolean
 }) {
   const [state, formAction, pending] = useActionState(placeOrderAction, initialState)
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'credit'>('cod')
   const [showMemberHelp, setShowMemberHelp] = useState(false)
+  const [guestCartJson, setGuestCartJson] = useState('')
+
+  useEffect(() => {
+    if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
+  }, [isGuest])
 
   const shipping = SHIPPING_FEE_PKR
   const grandTotal = subtotal + shipping
@@ -71,6 +79,7 @@ export function CheckoutForm({
         </div>
       </div>
       <input type="hidden" name="country" value="Pakistan" />
+      {isGuest && <input type="hidden" name="guestCart" value={guestCartJson} />}
 
       <div className="border-t pt-4 space-y-3">
         <Label>Coupon / Member ID</Label>

@@ -19,7 +19,13 @@ export function productsToXlsxBuffer(products: Record<string, unknown>[]): Array
 }
 
 export function parseXlsxImport(buffer: ArrayBuffer) {
-  const objects = parseXlsx(buffer)
+  const objects = parseXlsx(buffer).map((obj) => {
+    const normalized: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      normalized[key.replace(/^\uFEFF/, '').toLowerCase().replace(/\s+/g, '_')] = value
+    }
+    return normalized
+  })
   return parseImportRowsFromObjects(objects)
 }
 

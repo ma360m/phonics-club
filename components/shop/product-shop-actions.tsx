@@ -5,6 +5,7 @@ import { Minus, Plus, Heart, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { setProductCartQuantityAction } from '@/actions/cart'
 import { toggleWishlistAction } from '@/actions/wishlist'
+import { addToGuestCart, syncGuestCartCookie } from '@/lib/guest-cart-client'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/types/database'
@@ -27,8 +28,11 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
       if (result.success) {
         toast.success(`Added ${qty} to cart`)
         router.refresh()
-      }
-      else toast.error(result.error ?? 'Failed to add to cart')
+      } else if (result.error?.toLowerCase().includes('sign in')) {
+        addToGuestCart(product.id, qty)
+        await syncGuestCartCookie()
+        toast.success(`Added ${qty} to cart`)
+      } else toast.error(result.error ?? 'Failed to add to cart')
     })
   }
 
@@ -113,8 +117,11 @@ export function ProductCardActions({ product }: { product: Product }) {
             if (r.success) {
               toast.success('Added to cart')
               router.refresh()
-            }
-            else toast.error(r.error)
+            } else if (r.error?.toLowerCase().includes('sign in')) {
+              addToGuestCart(product.id, qty)
+              await syncGuestCartCookie()
+              toast.success('Added to cart')
+            } else toast.error(r.error)
           })
         }
       >

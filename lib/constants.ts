@@ -46,5 +46,5 @@ export const BLOG_CATEGORIES = [
 ] as const
 
 export const ADMIN_ROUTES = ['/admin'] as const
-export const PROTECTED_ROUTES = ['/dashboard', '/checkout', '/cart', '/wishlist', '/admin'] as const
+export const PROTECTED_ROUTES = ['/dashboard', '/wishlist', '/admin'] as const
 export const AUTH_ROUTES = ['/auth/login', '/auth/signup'] as const
