@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 const courses = [
   {
     id: 1,
-    title: 'Complete Web Development Bootcamp 2024',
-    instructor: 'Sarah Johnson',
-    description: 'Learn HTML, CSS, JavaScript, React, Node.js and more',
+    title: 'Introduction to Phonics Club',
+    instructor: 'Phonics Club Team',
+    description: 'Discover phonics programs, teaching tools, and learner support resources',
     price: 99,
     originalPrice: 199,
     rating: 4.9,

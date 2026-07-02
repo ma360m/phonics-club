@@ -1,4 +1,4 @@
-export const SHIPPING_FEE_PKR = 5500
+export const SHIPPING_FEE_PKR = 550
 
 export const ORDER_STATUSES = [
   'pending',

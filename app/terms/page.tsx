@@ -10,7 +10,7 @@ export default function TermsPage() {
       <h2>Products & Orders</h2>
       <p>
         All prices are listed in PKR. We reserve the right to modify prices. Orders are subject to stock availability.
-        Shipping fee is PKR 5,500 unless otherwise stated; Phonics Club reserves the right to adjust shipping fees
+        Shipping fee is PKR 550 unless otherwise stated; Phonics Club reserves the right to adjust shipping fees
         based on quantity, distance, and product weight.
       </p>
       <h2>Payment</h2>

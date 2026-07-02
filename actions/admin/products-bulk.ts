@@ -99,12 +99,14 @@ export async function deleteAllProductsAction(
   return { success: true, data: { deleted: count ?? 0 } }
 }
 
-export async function importCatalogManifestAction(): Promise<ActionResult<ImportStats>> {
+export async function importCatalogManifestAction(
+  replaceCatalog = false
+): Promise<ActionResult<ImportStats & { deleted: number }>> {
   await requireAdmin()
-  const { IMAGE_CATALOG_PRODUCTS } = await import('@/lib/data/catalog-from-images')
+  const { PRODUCT_CATALOG_PRODUCTS } = await import('@/lib/data/product-catalog')
   const { upsertProductsByIsbn } = await import('@/lib/products/upsert')
 
-  const rows = IMAGE_CATALOG_PRODUCTS.map((p) => ({
+  const rows = PRODUCT_CATALOG_PRODUCTS.map((p) => ({
     isbn: p.isbn!,
     name: p.name,
     slug: p.slug,
@@ -119,13 +121,25 @@ export async function importCatalogManifestAction(): Promise<ActionResult<Import
   }))
 
   const supabase = await createClient()
+  let deleted = 0
+
+  if (replaceCatalog) {
+    const { error, count } = await supabase
+      .from('products')
+      .delete({ count: 'exact' })
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (error) return { success: false, error: error.message }
+    deleted = count ?? 0
+  }
+
   const result = await upsertProductsByIsbn(supabase, rows)
 
   revalidatePath('/admin/products')
   revalidatePath('/shop')
   return {
     success: result.failed === 0,
-    data: result,
+    data: { ...result, deleted },
     error: result.errors.length ? result.errors.slice(0, 3).join('; ') : undefined,
   }
 }

@@ -1,10 +1,10 @@
 import { getAllOrders } from '@/lib/data/queries'
-import { updateOrderStatusFormAction, confirmPaymentFormAction } from '@/actions/orders'
+import { updateOrderStatusFormAction, confirmPaymentFormAction, updateOrderShippingFormAction } from '@/actions/orders'
 import { AdminOrderDeleteButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
 import { formatPrice, formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ORDER_STATUSES } from '@/lib/commerce'
+import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
 
 export default async function AdminOrdersPage() {
   const orders = await getAllOrders()
@@ -43,7 +43,7 @@ export default async function AdminOrdersPage() {
 
               <div className="text-sm mb-4 grid sm:grid-cols-3 gap-2">
                 <span>Subtotal: {formatPrice(order.subtotal ?? order.total)}</span>
-                <span>Shipping: {formatPrice(order.shipping_fee ?? 5500)}</span>
+                <span>Shipping: {formatPrice(order.shipping_fee ?? SHIPPING_FEE_PKR)}</span>
                 {(order.discount_amount ?? 0) > 0 && <span>Discount: -{formatPrice(order.discount_amount!)}</span>}
               </div>
 
@@ -70,6 +70,18 @@ export default async function AdminOrdersPage() {
                     {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                   </select>
                   <Button type="submit" size="sm" variant="outline" className="rounded-xl">Update</Button>
+                </form>
+                <form action={updateOrderShippingFormAction} className="flex gap-2 items-center">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input
+                    type="number"
+                    name="shippingFee"
+                    min="0"
+                    step="1"
+                    defaultValue={Number(order.shipping_fee ?? SHIPPING_FEE_PKR)}
+                    className="w-24 rounded-xl border px-3 py-1.5 text-sm"
+                  />
+                  <Button type="submit" size="sm" variant="outline" className="rounded-xl">Set Shipping</Button>
                 </form>
                 <AdminOrderInvoiceLinks orderId={order.id} />
                 <AdminOrderDeleteButton orderId={order.id} />

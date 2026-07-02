@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
+    const replaceCatalog = formData.get('replace') === 'true'
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
@@ -47,6 +48,21 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient()
+    let deleted = 0
+
+    if (replaceCatalog) {
+      const { error, count } = await supabase
+        .from('products')
+        .delete({ count: 'exact' })
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      deleted = count ?? 0
+    }
+
     const result = await upsertProductsByIsbn(supabase, rows)
 
     revalidatePath('/admin/products')
@@ -55,9 +71,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       ...result,
+      deleted,
       skipped,
       total: rows.length,
-      message: `Import complete: ${result.created} created, ${result.updated} updated, ${result.failed} failed, ${skipped} rows skipped.`,
+      message: replaceCatalog
+        ? `Catalog replaced: ${deleted} deleted, ${result.created} created, ${result.updated} updated, ${result.failed} failed, ${skipped} rows skipped.`
+        : `Import complete: ${result.created} created, ${result.updated} updated, ${result.failed} failed, ${skipped} rows skipped.`,
     })
   } catch (err) {
     console.error('Import error:', err)

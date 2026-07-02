@@ -1,8 +1,8 @@
 import type { BlogPost } from '@/types/database'
-import { IMAGE_CATALOG_PRODUCTS } from './catalog-from-images'
+import { PRODUCT_CATALOG_PRODUCTS } from './product-catalog'
 import { PHONICS_COURSES } from './phonics-courses'
 
-export const SEED_PRODUCTS = IMAGE_CATALOG_PRODUCTS
+export const SEED_PRODUCTS = PRODUCT_CATALOG_PRODUCTS
 export { PHONICS_COURSES as SEED_COURSES }
 
 const now = new Date().toISOString()

@@ -37,7 +37,7 @@ export function parseBoolean(value: unknown): boolean {
 
 export function parseNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || value === '') return fallback
-  const n = Number(value)
+  const n = Number(String(value).replace(/,/g, '').trim())
   return Number.isFinite(n) ? n : fallback
 }
 
@@ -46,8 +46,26 @@ export function parseImages(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).filter(Boolean)
   return String(value)
     .split(/[,;|]/)
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/^"+|"+$/g, ''))
     .filter(Boolean)
+}
+
+export function isPlaceholderIsbn(value: string): boolean {
+  const compact = value.replace(/[^0-9A-Za-z]/g, '')
+  return !compact || /^0+$/.test(compact) || /^97[89]0{10}$/.test(compact)
+}
+
+function makeUniqueValue(base: string, used: Set<string>): string {
+  let value = base
+  let index = 2
+
+  while (used.has(value)) {
+    value = `${base}-${index}`
+    index += 1
+  }
+
+  used.add(value)
+  return value
 }
 
 export function normalizeImportRow(raw: Record<string, unknown>): ProductImportRow | null {
@@ -55,11 +73,13 @@ export function normalizeImportRow(raw: Record<string, unknown>): ProductImportR
   const name = String(raw.name ?? raw.Name ?? raw.title ?? raw.Title ?? '').trim()
   if (!isbn || !name) return null
 
-  const slug = String(raw.slug ?? raw.Slug ?? slugify(name)).trim() || slugify(name)
+  const rawSlug = String(raw.slug ?? raw.Slug ?? '').trim()
+  const slug = slugify(rawSlug || name)
   const category = String(raw.category ?? raw.Category ?? 'teacher-resources').trim()
   const validCategory = (PRODUCT_CATEGORIES as readonly string[]).includes(category)
     ? category
     : 'teacher-resources'
+  const compareAtPrice = raw.compare_at_price ?? raw.CompareAtPrice ?? raw['compare price']
 
   return {
     isbn,
@@ -67,11 +87,10 @@ export function normalizeImportRow(raw: Record<string, unknown>): ProductImportR
     slug,
     description: String(raw.description ?? raw.Description ?? '').trim() || null,
     price: parseNumber(raw.price ?? raw.Price ?? raw['price (pkr)']),
-    compare_at_price: raw.compare_at_price
-      ? parseNumber(raw.compare_at_price)
-      : raw['compare_at_price'] || raw['compare price']
-        ? parseNumber(raw['compare price'])
-        : null,
+    compare_at_price:
+      compareAtPrice === null || compareAtPrice === undefined || compareAtPrice === ''
+        ? null
+        : parseNumber(compareAtPrice),
     category: validCategory,
     stock: parseNumber(raw.stock ?? raw.Stock, 100),
     featured: parseBoolean(raw.featured ?? raw.Featured),
@@ -115,34 +134,42 @@ export function productsToCsv(products: Record<string, unknown>[]): string {
 
 export function parseCsv(text: string): Record<string, string>[] {
   const normalized = text.replace(/^\uFEFF/, '')
-  const lines = normalized.split(/\r?\n/).filter((l) => l.trim())
-  if (lines.length < 2) return []
+  const table: string[][] = []
+  let row: string[] = []
+  let current = ''
+  let inQuotes = false
 
-  const parseLine = (line: string): string[] => {
-    const result: string[] = []
-    let current = ''
-    let inQuotes = false
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i]
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"'
-          i++
-        } else inQuotes = !inQuotes
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim())
-        current = ''
-      } else current += ch
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized[i]
+    if (ch === '"') {
+      if (inQuotes && normalized[i + 1] === '"') {
+        current += '"'
+        i++
+      } else {
+        inQuotes = !inQuotes
+      }
+    } else if (ch === ',' && !inQuotes) {
+      row.push(current.trim())
+      current = ''
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      row.push(current.trim())
+      current = ''
+      if (row.some((cell) => cell.trim())) table.push(row)
+      row = []
+      if (ch === '\r' && normalized[i + 1] === '\n') i++
+    } else {
+      current += ch
     }
-    result.push(current.trim())
-    return result
   }
 
-  const headers = parseLine(lines[0]).map((h) =>
+  row.push(current.trim())
+  if (row.some((cell) => cell.trim())) table.push(row)
+  if (table.length < 2) return []
+
+  const headers = table[0].map((h) =>
     h.replace(/^\uFEFF/, '').toLowerCase().replace(/\s+/g, '_')
   )
-  return lines.slice(1).map((line) => {
-    const values = parseLine(line)
+  return table.slice(1).map((values) => {
     const row: Record<string, string> = {}
     headers.forEach((h, i) => {
       row[h] = values[i] ?? ''
@@ -155,12 +182,28 @@ export function parseImportRowsFromObjects(objects: Record<string, unknown>[]): 
   rows: ProductImportRow[]
   skipped: number
 } {
-  const rows: ProductImportRow[] = []
+  const parsedRows: ProductImportRow[] = []
   let skipped = 0
   for (const obj of objects) {
     const row = normalizeImportRow(obj)
-    if (row) rows.push(row)
+    if (row) parsedRows.push(row)
     else skipped++
   }
+
+  const isbnCounts = new Map<string, number>()
+  for (const row of parsedRows) {
+    isbnCounts.set(row.isbn, (isbnCounts.get(row.isbn) ?? 0) + 1)
+  }
+
+  const usedIsbns = new Set<string>()
+  const usedSlugs = new Set<string>()
+  const rows = parsedRows.map((row) => {
+    const slug = makeUniqueValue(row.slug || slugify(row.name), usedSlugs)
+    const isbnIsReusable = !isPlaceholderIsbn(row.isbn) && (isbnCounts.get(row.isbn) ?? 0) === 1
+    const isbn = makeUniqueValue(isbnIsReusable ? row.isbn : `PC-${slug}`, usedIsbns)
+
+    return { ...row, isbn, slug }
+  })
+
   return { rows, skipped }
 }

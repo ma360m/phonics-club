@@ -102,23 +102,17 @@ export function HeroSection() {
             <div className="relative">
               {/* Main Card */}
               <div className="bg-white rounded-3xl shadow-2xl p-6 lg:p-8">
-                <div className="aspect-video bg-gradient-to-br from-[#1D4ED8] to-[#60A5FA] rounded-2xl mb-6 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
-                  <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                    <Play className="w-8 h-8 text-white fill-white" />
-                  </div>
+                <div className="aspect-video bg-black rounded-2xl mb-6 overflow-hidden">
+                  <iframe
+                    className="h-full w-full"
+                    src="https://www.youtube.com/embed/8Tjs_Z1I0cM?si=0tt90QfCt687yhp3"
+                    title="Meet Phonics Club"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
                 </div>
-                <h3 className="font-bold text-lg text-[#111827] mb-2">Complete Web Development Bootcamp</h3>
-                <p className="text-[#475569] text-sm mb-4">Master modern web development from scratch</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-[#FBBF24] fill-[#FBBF24]" />
-                    ))}
-                    <span className="text-sm text-[#475569] ml-1">(2,547)</span>
-                  </div>
-                  <span className="font-bold text-[#1D4ED8]">$99</span>
-                </div>
+                <h3 className="font-bold text-lg text-[#111827] mb-2">Meet Phonics Club</h3>
+                <p className="text-[#475569] text-sm mb-4">An introduction to our phonics learning community and trusted educational resources.</p>
               </div>
 
               {/* Floating Card - Students */}

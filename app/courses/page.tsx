@@ -25,6 +25,19 @@ export default async function CoursesPage({
       <div className="max-w-7xl mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-2">Courses</h1>
         <p className="text-muted-foreground mb-8">Master phonics with structured, expert-led programs</p>
+        <section className="mb-10 rounded-3xl border bg-card p-6 shadow-sm">
+          <h2 className="text-2xl font-bold mb-2">Full training session</h2>
+          <p className="text-muted-foreground mb-4">Watch our full training session to see how Phonics Club supports teachers and learners.</p>
+          <div className="aspect-video overflow-hidden rounded-2xl border bg-black">
+            <iframe
+              className="h-full w-full"
+              src="https://www.youtube.com/embed/AyZdFB8s2IA?si=FWlYrqq3q9wndnH5"
+              title="Phonics Club full training session"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </section>
         <div className="flex flex-wrap gap-2 mb-10">
           <a href="/courses" className={`px-4 py-2 rounded-xl text-sm font-medium ${!category ? 'bg-[#1D4ED8] text-white' : 'bg-muted'}`}>
             All

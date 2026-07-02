@@ -46,6 +46,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
   const [importing, setImporting] = useState(false)
   const [uploadIsbn, setUploadIsbn] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const replaceFileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   const allSelected = selected.size === initialProducts.length && initialProducts.length > 0
@@ -62,11 +63,12 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
     setSelected(next)
   }
 
-  async function handleImport(file: File) {
+  async function handleImport(file: File, replaceCatalog = false) {
     setImporting(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
+      if (replaceCatalog) formData.append('replace', 'true')
       const res = await fetch('/api/admin/products/import', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Import failed')
@@ -103,11 +105,13 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
   }
 
   function handleSeedCatalog() {
+    if (!window.confirm('Replace all products with the built-in 134 item catalog?')) return
+
     startTransition(async () => {
-      const result = await importCatalogManifestAction()
+      const result = await importCatalogManifestAction(true)
       if (result.success || result.data) {
         toast.success(
-          `Catalog import: ${result.data?.created} created, ${result.data?.updated} updated`
+          `Catalog replaced: ${result.data?.deleted ?? 0} deleted, ${result.data?.created} created`
         )
         router.refresh()
       } else toast.error(result.error)
@@ -158,6 +162,31 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
           }}
         />
 
+        <Button
+          variant="outline"
+          className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10"
+          disabled={importing}
+          onClick={() => {
+            if (window.confirm('Delete all existing products and import the selected CSV/Excel file?')) {
+              replaceFileInputRef.current?.click()
+            }
+          }}
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          {importing ? 'Replacing...' : 'Replace Catalog'}
+        </Button>
+        <input
+          ref={replaceFileInputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleImport(f, true)
+            e.target.value = ''
+          }}
+        />
+
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" className="rounded-xl">
@@ -196,7 +225,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
           disabled={pending}
           onClick={handleSeedCatalog}
         >
-          <Database className="w-4 h-4 mr-2" /> Import Catalog ({initialProducts.length || '112'})
+          <Database className="w-4 h-4 mr-2" /> Built-in Catalog (134)
         </Button>
 
         <Button variant="ghost" className="rounded-xl" onClick={() => router.refresh()}>

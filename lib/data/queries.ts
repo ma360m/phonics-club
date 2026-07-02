@@ -50,14 +50,18 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   }
 
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
-    .single()
+    .maybeSingle()
 
-  return data ? normalizeProduct(data as Product) : null
+  if (error) {
+    return SEED_PRODUCTS.find((p) => p.slug === slug) ?? null
+  }
+
+  return data ? normalizeProduct(data as Product) : (SEED_PRODUCTS.find((p) => p.slug === slug) ?? null)
 }
 
 export async function getCourses(options?: {
@@ -90,14 +94,18 @@ export async function getCourseBySlug(slug: string): Promise<Course | null> {
   }
 
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('courses')
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
-    .single()
+    .maybeSingle()
 
-  return data as Course | null
+  if (error) {
+    return SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+  }
+
+  return (data as Course | null) ?? (SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null)
 }
 
 export async function getBlogPosts(options?: {

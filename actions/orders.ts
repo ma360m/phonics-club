@@ -204,6 +204,32 @@ export async function updateOrderStatusAction(orderId: string, status: string): 
   return { success: true }
 }
 
+export async function updateOrderShippingAction(orderId: string, shippingFee: number): Promise<ActionResult> {
+  await requireAdmin()
+  const supabase = await createClient()
+  const normalizedShipping = Math.max(0, Number(shippingFee) || 0)
+  const { data: order, error: fetchError } = await supabase
+    .from('orders')
+    .select('subtotal, discount_amount')
+    .eq('id', orderId)
+    .single()
+
+  if (fetchError || !order) return { success: false, error: fetchError?.message ?? 'Order not found' }
+
+  const subtotal = Number(order.subtotal ?? 0)
+  const discountAmount = Number(order.discount_amount ?? 0)
+  const total = Math.max(0, subtotal + normalizedShipping - discountAmount)
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ shipping_fee: normalizedShipping, total } as never)
+    .eq('id', orderId)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/admin/orders')
+  return { success: true }
+}
+
 export async function updateOrderStatusFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const status = String(formData.get('status'))
@@ -214,6 +240,13 @@ export async function updateOrderStatusFormAction(formData: FormData): Promise<v
 export async function confirmPaymentFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const result = await confirmOrderPaymentAction(orderId)
+  if (!result.success) throw new Error(result.error)
+}
+
+export async function updateOrderShippingFormAction(formData: FormData): Promise<void> {
+  const orderId = String(formData.get('orderId'))
+  const shippingFee = Number(formData.get('shippingFee'))
+  const result = await updateOrderShippingAction(orderId, shippingFee)
   if (!result.success) throw new Error(result.error)
 }
 

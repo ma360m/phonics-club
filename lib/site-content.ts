@@ -99,7 +99,7 @@ export async function getInvoiceTemplate() {
     header: 'PHONICS CLUB PVT LTD',
     tagline: COMPANY.tagline,
     footer:
-      'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight. Current standard shipping: PKR 5,500.',
+      'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight. Current standard shipping: PKR 550.',
   })
 }
 
