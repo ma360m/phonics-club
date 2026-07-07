@@ -44,6 +44,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/blog/new', label: 'New Blog Post' },
     { href: '/admin/users', label: 'View Users' },
     { href: '/admin/certificates', label: 'Certificates' },
+    { href: '/admin/catalogs', label: 'Catalog Manager' },
   ]
 
   return (

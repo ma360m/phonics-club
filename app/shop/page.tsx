@@ -2,10 +2,10 @@ import { Suspense } from 'react'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { ProductCard } from '@/components/shop/product-card'
+import { CatalogManager } from '@/components/shop/catalog-manager'
+import { CategoryFilter } from '@/components/shop/category-filter'
 import { getProducts } from '@/lib/data/queries'
 import { buildMetadata } from '@/utils/seo'
-import { PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
-import { PRODUCT_CATEGORIES } from '@/lib/constants'
 
 export const metadata = buildMetadata({
   title: 'Shop',
@@ -25,39 +25,25 @@ export default async function ShopPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <BackButton fallbackHref="/" />
-        <h1 className="text-4xl font-bold mb-2">Shop — Jolly Phonics Price List 2025</h1>
-        <p className="text-muted-foreground mb-2">Official Jolly Learning products · Prices in PKR</p>
-        <p className="text-sm text-[#D30000] mb-8">Buy only from authorized Phonics Club dealers. PCTB approved materials.</p>
+        <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Shop</h1>
+        <p className="mb-2 text-sm text-muted-foreground sm:text-base">Official Jolly Learning products · Prices in PKR</p>
+        <p className="mb-8 text-sm text-[#D30000]">Buy only from authorized Phonics Club dealers. PCTB approved materials.</p>
 
-        <div className="flex flex-wrap gap-2 mb-10">
-          <a
-            href="/shop"
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              !category ? 'bg-[#1D4ED8] text-white' : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            All
-          </a>
-          {PRODUCT_CATEGORIES.map((cat) => (
-            <a
-              key={cat}
-              href={`/shop?category=${cat}`}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                category === cat ? 'bg-[#1D4ED8] text-white' : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              {PRODUCT_CATEGORY_LABELS[cat] ?? cat}
-            </a>
-          ))}
+        <div className="mb-8">
+          <CatalogManager />
+        </div>
+
+        <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+          <CategoryFilter currentCategory={category} />
         </div>
 
         <Suspense fallback={<div className="grid grid-cols-3 gap-6">Loading...</div>}>
           {products.length === 0 ? (
-            <p className="text-muted-foreground text-center py-20">No products found.</p>
+            <p className="py-20 text-center text-muted-foreground">No products found.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
