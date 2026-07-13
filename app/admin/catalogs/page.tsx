@@ -8,6 +8,11 @@ import { FileText, ArrowLeft, Trash2, Download } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
+const CATALOG_LABELS = {
+  'jolly-learning': 'Jolly Learning Products',
+  'phonics-club': 'Phonics Club Products',
+} as const
+
 export default async function AdminCatalogsPage() {
   const profile = await getProfile()
   if (!profile || profile.role !== 'admin') {
@@ -21,7 +26,9 @@ export default async function AdminCatalogsPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Catalog Manager</h1>
-          <p className="text-muted-foreground">Upload PDF catalog files for UK and local programmes.</p>
+          <p className="text-muted-foreground">
+            Upload PDF catalog files for Jolly Learning and Phonics Club product groups.
+          </p>
         </div>
         <Button asChild variant="outline">
           <Link href="/admin">
@@ -43,9 +50,9 @@ export default async function AdminCatalogsPage() {
             </label>
             <label className="flex flex-col gap-2 text-sm">
               <span className="font-medium">Catalog type</span>
-              <select name="label" defaultValue="uk" className="rounded-xl border bg-background px-3 py-2">
-                <option value="uk">UK</option>
-                <option value="local">Local</option>
+              <select name="label" defaultValue="jolly-learning" className="rounded-xl border bg-background px-3 py-2">
+                <option value="jolly-learning">Jolly Learning Products</option>
+                <option value="phonics-club">Phonics Club Products</option>
               </select>
             </label>
             <Button type="submit">Upload catalog</Button>
@@ -66,9 +73,9 @@ export default async function AdminCatalogsPage() {
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-[#1D4ED8]" />
                   <div>
-                    <p className="font-medium">{catalog.name.replace(/^\d+-/, '').replace(/^(uk|local)-/, '')}</p>
+                    <p className="font-medium">{catalog.name.replace(/^\d+-/, '').replace(/^(jolly-learning|phonics-club|uk|local)-/, '')}</p>
                     <p className="text-xs text-muted-foreground">
-                      {catalog.label.toUpperCase()} • {(catalog.size / 1024 / 1024).toFixed(2)} MB
+                      {CATALOG_LABELS[catalog.label]} - {(catalog.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
                 </div>

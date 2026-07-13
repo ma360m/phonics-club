@@ -1,5 +1,23 @@
 import { COMPANY } from '@/lib/company'
 
+function getBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL
+  if (configured) return configured.replace(/\/$/, '')
+
+  const withProtocol = (url: string) => {
+    const clean = url.replace(/\/$/, '')
+    return /^https?:\/\//i.test(clean) ? clean : `https://${clean}`
+  }
+
+  const vercelProduction = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  if (vercelProduction) return withProtocol(vercelProduction)
+
+  const vercelUrl = process.env.VERCEL_URL
+  if (vercelUrl) return withProtocol(vercelUrl)
+
+  return 'http://localhost:3000'
+}
+
 export async function sendOrderConfirmationEmail(
   to: string,
   orderId: string,
@@ -8,8 +26,8 @@ export async function sendOrderConfirmationEmail(
   options?: { accessToken?: string; pdfBase64?: string }
 ): Promise<{ sent: boolean }> {
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.ORDER_EMAIL_FROM ?? `orders@${COMPANY.adminEmail.split('@')[1] ?? 'phonicsclub.com'}`
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const from = process.env.ORDER_EMAIL_FROM ?? 'orders@phonicsclub.com'
+  const baseUrl = getBaseUrl()
   const tokenParam = options?.accessToken ? `&token=${options.accessToken}` : ''
   const invoicePdfUrl = `${baseUrl}/api/orders/${orderId}/invoice?format=pdf${tokenParam}`
   const invoiceHtmlUrl = `${baseUrl}/api/orders/${orderId}/invoice${options?.accessToken ? `?token=${options.accessToken}` : ''}`
@@ -20,9 +38,12 @@ export async function sendOrderConfirmationEmail(
   }
 
   try {
+    const adminEmail = COMPANY.adminEmail
+    const bcc = adminEmail.toLowerCase() !== to.toLowerCase() ? [adminEmail] : undefined
     const payload: Record<string, unknown> = {
       from: `PHONICS CLUB <${from}>`,
       to: [to],
+      ...(bcc ? { bcc } : {}),
       subject: `Order Confirmation — Invoice ${invoiceNumber}`,
       html: `
         <p>Thank you for your order with Phonics Club!</p>
@@ -52,8 +73,13 @@ export async function sendOrderConfirmationEmail(
       },
       body: JSON.stringify(payload),
     })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error(`[Order email] Failed to send invoice ${invoiceNumber}: ${res.status} ${body}`)
+    }
     return { sent: res.ok }
-  } catch {
+  } catch (error) {
+    console.error(`[Order email] Failed to send invoice ${invoiceNumber}`, error)
     return { sent: false }
   }
 }

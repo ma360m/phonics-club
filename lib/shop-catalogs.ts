@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 export interface ShopCatalog {
   name: string
-  label: 'uk' | 'local'
+  label: 'jolly-learning' | 'phonics-club'
   url: string
   size: number
   uploadedAt: string
@@ -28,9 +28,12 @@ function sanitizeFilename(name: string): string {
   return clean || 'catalog'
 }
 
-function parseLabel(name: string): 'uk' | 'local' {
+function parseLabel(name: string): 'jolly-learning' | 'phonics-club' {
   const normalized = name.toLowerCase()
-  return normalized.startsWith('local-') ? 'local' : 'uk'
+  if (normalized.startsWith('phonics-club-') || normalized.startsWith('local-')) {
+    return 'phonics-club'
+  }
+  return 'jolly-learning'
 }
 
 export async function listShopCatalogs(): Promise<ShopCatalog[]> {
@@ -57,7 +60,10 @@ export async function listShopCatalogs(): Promise<ShopCatalog[]> {
   }
 }
 
-export async function saveShopCatalog(file: File, label: 'uk' | 'local' = 'uk'): Promise<ShopCatalog> {
+export async function saveShopCatalog(
+  file: File,
+  label: 'jolly-learning' | 'phonics-club' = 'jolly-learning'
+): Promise<ShopCatalog> {
   const filename = sanitizeFilename(file.name || 'catalog') || 'catalog'
   const safeName = `${label}-${Date.now()}-${filename}`
   const bytes = Buffer.from(await file.arrayBuffer())

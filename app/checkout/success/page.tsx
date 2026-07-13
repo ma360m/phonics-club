@@ -21,7 +21,7 @@ export default async function CheckoutSuccessPage({
         <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-6" />
         <h1 className="text-3xl font-bold mb-4">Order Placed!</h1>
         <p className="text-muted-foreground mb-4">
-          Thank you for your order. A confirmation email with your invoice has been sent.
+          Thank you for your order. Your invoice is ready below, and a confirmation email will be sent to your inbox.
         </p>
         <p className="text-sm text-muted-foreground mb-8">
           For bank transfer orders, we will process your order after payment confirmation.

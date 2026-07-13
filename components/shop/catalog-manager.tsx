@@ -8,19 +8,28 @@ import { Loader2, Upload, Trash2, FileText } from 'lucide-react'
 
 interface ShopCatalog {
   name: string
-  label: 'uk' | 'local'
+  label: 'jolly-learning' | 'phonics-club'
   url: string
   size: number
   uploadedAt: string
 }
 
-export function CatalogManager() {
+const CATALOG_LABELS: Record<ShopCatalog['label'], string> = {
+  'jolly-learning': 'Jolly Learning Products',
+  'phonics-club': 'Phonics Club Products',
+}
+
+export function CatalogManager({
+  activeCollection,
+}: {
+  activeCollection?: 'jolly-learning' | 'phonics-club'
+}) {
   const [catalogs, setCatalogs] = useState<ShopCatalog[]>([])
-  const [activeView, setActiveView] = useState<'all' | 'uk' | 'local'>('all')
+  const [activeView, setActiveView] = useState<ShopCatalog['label']>(activeCollection ?? 'jolly-learning')
   const [isPending, startTransition] = useTransition()
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [file, setFile] = useState<File | null>(null)
-  const [catalogType, setCatalogType] = useState<'uk' | 'local'>('uk')
+  const [catalogType, setCatalogType] = useState<ShopCatalog['label']>(activeCollection ?? 'jolly-learning')
 
   const refreshCatalogs = () => {
     startTransition(async () => {
@@ -34,6 +43,13 @@ export function CatalogManager() {
   useEffect(() => {
     refreshCatalogs()
   }, [])
+
+  useEffect(() => {
+    if (activeCollection) {
+      setActiveView(activeCollection)
+      setCatalogType(activeCollection)
+    }
+  }, [activeCollection])
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -62,7 +78,7 @@ export function CatalogManager() {
     formData.append('label', catalogType)
 
     const response = await fetch('/api/shop/catalogs', { method: 'POST', body: formData })
-    if (response.ok) {
+    if (response.ok || response.redirected) {
       setFile(null)
       refreshCatalogs()
     }
@@ -70,30 +86,39 @@ export function CatalogManager() {
 
   const handleDelete = async (name: string) => {
     const response = await fetch(`/api/shop/catalogs?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
-    if (response.ok) {
-      refreshCatalogs()
-    }
+    if (response.ok || response.redirected) refreshCatalogs()
   }
 
-  const visibleCatalogs = catalogs.filter((catalog) => activeView === 'all' || catalog.label === activeView)
+  const visibleCatalogs = catalogs.filter((catalog) => catalog.label === activeView)
 
   return (
     <div className="space-y-4 rounded-2xl border bg-background/70 p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Catalogs</h2>
-          <p className="text-sm text-muted-foreground">View or download the latest catalog, and manage uploads.</p>
+          <p className="text-sm text-muted-foreground">
+            View or download the latest product catalogs.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant={activeView === 'all' ? 'default' : 'outline'} onClick={() => setActiveView('all')}>
-            All
-          </Button>
-          <Button type="button" size="sm" variant={activeView === 'uk' ? 'default' : 'outline'} onClick={() => setActiveView('uk')}>
-            Catalog UK
-          </Button>
-          <Button type="button" size="sm" variant={activeView === 'local' ? 'default' : 'outline'} onClick={() => setActiveView('local')}>
-            Catalog Local
-          </Button>
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={activeView === 'jolly-learning' ? 'default' : 'outline'}
+              onClick={() => setActiveView('jolly-learning')}
+            >
+              Jolly Learning Products
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={activeView === 'phonics-club' ? 'default' : 'outline'}
+              onClick={() => setActiveView('phonics-club')}
+            >
+              Phonics Club Products
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -110,11 +135,11 @@ export function CatalogManager() {
           />
           <select
             value={catalogType}
-            onChange={(event) => setCatalogType(event.target.value as 'uk' | 'local')}
+            onChange={(event) => setCatalogType(event.target.value as ShopCatalog['label'])}
             className="rounded-xl border bg-background px-3 py-2 text-sm"
           >
-            <option value="uk">UK</option>
-            <option value="local">Local</option>
+            <option value="jolly-learning">Jolly Learning Products</option>
+            <option value="phonics-club">Phonics Club Products</option>
           </select>
           <Button type="submit" size="sm" disabled={!file || isPending}>
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
@@ -133,10 +158,10 @@ export function CatalogManager() {
                 <FileText className="h-5 w-5 text-[#1D4ED8]" />
                 <div>
                   <a href={catalog.url} target="_blank" rel="noreferrer" className="font-medium underline-offset-4 hover:underline">
-                    {catalog.name.replace(/^\d+-/, '').replace(/^(uk|local)-/, '')}
+                    {catalog.name.replace(/^\d+-/, '').replace(/^(jolly-learning|phonics-club|uk|local)-/, '')}
                   </a>
                   <p className="text-xs text-muted-foreground">
-                    {catalog.label.toUpperCase()} • {(catalog.size / 1024 / 1024).toFixed(2)} MB •{' '}
+                    {CATALOG_LABELS[catalog.label]} - {(catalog.size / 1024 / 1024).toFixed(2)} MB -{' '}
                     {new Date(catalog.uploadedAt).toLocaleDateString()}
                   </p>
                 </div>

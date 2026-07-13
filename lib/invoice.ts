@@ -1,4 +1,4 @@
-import { COMPANY } from '@/lib/company'
+import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { formatPrice } from '@/utils/format'
 import type { Order } from '@/types/database'
@@ -7,6 +7,13 @@ interface InvoiceTemplate {
   header?: string
   tagline?: string
   footer?: string
+  bankDetails?: {
+    bankName?: string
+    accountTitle?: string
+    accountNumber?: string
+    iban?: string
+    instructions?: string
+  }
 }
 
 export function generateInvoiceNumber(): string {
@@ -32,8 +39,13 @@ export function buildInvoiceHtml(
   const subtotal = Number(order.subtotal ?? order.total)
   const shipping = Number(order.shipping_fee ?? SHIPPING_FEE_PKR)
   const discount = Number(order.discount_amount ?? 0)
-  const grandTotal = subtotal + shipping - discount
+  const productTotalAfterDiscount = Math.max(0, subtotal - discount)
+  const grandTotal = productTotalAfterDiscount + shipping
   const addr = order.shipping_address as Record<string, string> | null
+  const bankDetails = {
+    ...COMPANY_BANK_DETAILS,
+    ...(template?.bankDetails ?? {}),
+  }
 
   const rows = items
     .map(
@@ -48,9 +60,12 @@ export function buildInvoiceHtml(
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${order.invoice_number ?? order.id.slice(0, 8)}</title></head>
 <body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:24px;color:#111">
-  <div style="border-bottom:3px solid #1D4ED8;padding-bottom:16px;margin-bottom:24px">
-    <h1 style="margin:0;color:#1D4ED8">${template?.header ?? 'PHONICS CLUB PVT LTD'}</h1>
-    <p style="margin:4px 0 0;color:#666">${template?.tagline ?? COMPANY.tagline}</p>
+  <div style="border-bottom:3px solid #1D4ED8;padding-bottom:18px;margin-bottom:24px;display:flex;align-items:center;gap:20px">
+    <img src="/logo.png" alt="Phonics Club logo" style="width:128px;height:128px;object-fit:contain" />
+    <div>
+      <h1 style="margin:0;color:#1D4ED8">${template?.header ?? 'PHONICS CLUB PVT LTD'}</h1>
+      <p style="margin:4px 0 0;color:#666">${template?.tagline ?? COMPANY.tagline}</p>
+    </div>
   </div>
   <div style="display:flex;justify-content:space-between;margin-bottom:24px">
     <div>
@@ -79,10 +94,18 @@ export function buildInvoiceHtml(
   </table>
   <div style="text-align:right;margin-bottom:24px">
     <p>Subtotal: ${formatPrice(subtotal)}</p>
-    <p>Shipping: ${formatPrice(shipping)}</p>
     ${discount > 0 ? `<p>Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}: -${formatPrice(discount)}</p>` : ''}
+    <p>Shipping: ${formatPrice(shipping)}</p>
     ${order.member_id ? `<p>Member ID: ${order.member_id}</p>` : ''}
     <p style="font-size:1.25em;font-weight:bold;color:#1D4ED8">Grand Total: ${formatPrice(grandTotal)}</p>
+  </div>
+  <div style="border:1px solid #dbe3ef;background:#f8fafc;padding:16px;border-radius:8px;margin-bottom:24px">
+    <p style="margin:0 0 8px;font-weight:bold;color:#111">Company Bank Details</p>
+    <p style="margin:4px 0"><strong>Bank:</strong> ${bankDetails.bankName}</p>
+    <p style="margin:4px 0"><strong>Account Title:</strong> ${bankDetails.accountTitle}</p>
+    <p style="margin:4px 0"><strong>Account Number:</strong> ${bankDetails.accountNumber}</p>
+    <p style="margin:4px 0"><strong>IBAN:</strong> ${bankDetails.iban}</p>
+    ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px">${bankDetails.instructions}</p>` : ''}
   </div>
   <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">
     <p style="margin:0"><strong>Shipping Notice:</strong> ${footerNote}</p>

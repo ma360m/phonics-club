@@ -1,5 +1,6 @@
-import { getAllSiteContent } from '@/lib/site-content'
+import { getAllSiteContent, getHeroVideo, getSchoolLogos, type SchoolLogo } from '@/lib/site-content'
 import { saveSiteContentFormAction } from '@/actions/admin/site-content'
+import { SchoolLogoManager } from '@/components/admin/school-logo-manager'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -8,6 +9,7 @@ const SECTIONS = [
   { key: 'announcements', label: 'Announcement Ticker / Flyers', hint: 'Array of {id, message, linkUrl, linkText, couponCode, active}' },
   { key: 'testimonials', label: 'Homepage Testimonials', hint: 'Array of {id, content, author, role, rating}' },
   { key: 'social_reels', label: 'Social Community Reels', hint: 'Array of {id, thumbnail, videoUrl, title}' },
+  { key: 'hero_video', label: 'Homepage Videos', hint: 'Object with videoUrl for the embedded homepage video and demoButtonUrl for the Watch Demo button.' },
   { key: 'vortex_learning', label: 'Vortex Learning Partnership', hint: 'Object with title, description, websiteUrl, courses[]' },
   { key: 'invoice_template', label: 'Invoice Template', hint: 'Object with header, tagline, footer' },
   { key: 'bank_details', label: 'Bank Details (Checkout)', hint: 'Object with bankName, accountTitle, accountNumber, iban, instructions' },
@@ -16,6 +18,10 @@ const SECTIONS = [
 export default async function AdminContentPage() {
   const allContent = await getAllSiteContent()
   const contentMap = Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content]))
+  const schoolLogos = Array.isArray(contentMap.school_logos)
+    ? (contentMap.school_logos as SchoolLogo[])
+    : await getSchoolLogos()
+  const heroVideo = contentMap.hero_video ?? await getHeroVideo()
 
   return (
     <div>
@@ -23,6 +29,8 @@ export default async function AdminContentPage() {
       <p className="text-muted-foreground mb-8">Manage homepage announcements, testimonials, social reels, Vortex Learning, and invoice settings.</p>
 
       <div className="space-y-8 max-w-4xl">
+        <SchoolLogoManager logos={schoolLogos} />
+
         {SECTIONS.map(({ key, label, hint }) => (
           <form key={key} action={saveSiteContentFormAction} className="bg-card rounded-2xl border p-6 space-y-3">
             <input type="hidden" name="key" value={key} />
@@ -32,7 +40,7 @@ export default async function AdminContentPage() {
               name="content"
               rows={8}
               className="rounded-xl font-mono text-xs"
-              defaultValue={JSON.stringify(contentMap[key] ?? [], null, 2)}
+              defaultValue={JSON.stringify(key === 'hero_video' ? heroVideo : (contentMap[key] ?? []), null, 2)}
             />
             <Button type="submit" className="rounded-xl bg-[#1D4ED8]">Save {label}</Button>
           </form>

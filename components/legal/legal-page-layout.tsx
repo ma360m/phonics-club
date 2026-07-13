@@ -1,5 +1,4 @@
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { APP_NAME } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
 
 export function LegalPageLayout({
@@ -13,13 +12,27 @@ export function LegalPageLayout({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <article className="max-w-3xl mx-auto px-4 py-12 prose prose-slate">
-        <h1>{title}</h1>
-        {children}
-        <hr />
-        <p className="text-sm text-muted-foreground">
-          {COMPANY.name} · {COMPANY.address} · {COMPANY.adminEmail}
-        </p>
+      <article className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16">
+        <div className="mb-8 border-b border-border pb-6">
+          <p className="mb-3 text-sm font-semibold uppercase text-[#1D4ED8]">
+            Phonics Club Policy
+          </p>
+          <h1 className="text-3xl font-bold tracking-normal text-foreground sm:text-4xl">
+            {title}
+          </h1>
+        </div>
+
+        <div className="space-y-5 rounded-2xl border bg-card p-6 leading-7 shadow-sm sm:p-8 [&_a]:font-semibold [&_a]:text-[#1D4ED8] [&_em]:text-foreground [&_h2]:border-t [&_h2]:border-border [&_h2]:pt-6 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_p]:text-muted-foreground [&_strong]:font-bold [&_strong]:text-foreground [&_ul]:space-y-2">
+          {children}
+        </div>
+
+        <div className="mt-8 rounded-2xl border bg-muted/40 p-5 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">{COMPANY.name}</p>
+          <p>{COMPANY.address}</p>
+          <p>
+            {COMPANY.adminEmail} | {COMPANY.phoneDisplay}
+          </p>
+        </div>
       </article>
       <Footer />
     </main>

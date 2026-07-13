@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import { COMPANY } from '@/lib/company'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { formatPrice } from '@/utils/format'
 import type { Order } from '@/types/database'
@@ -8,6 +10,13 @@ interface InvoiceTemplate {
   header?: string
   tagline?: string
   footer?: string
+  bankDetails?: {
+    bankName?: string
+    accountTitle?: string
+    accountNumber?: string
+    iban?: string
+    instructions?: string
+  }
 }
 
 type InvoiceOrder = Order & {
@@ -50,16 +59,31 @@ export async function buildInvoicePdf(
   const subtotal = Number(order.subtotal ?? order.total)
   const shipping = Number(order.shipping_fee ?? SHIPPING_FEE_PKR)
   const discount = Number(order.discount_amount ?? 0)
-  const grandTotal = subtotal + shipping - discount
+  const productTotalAfterDiscount = Math.max(0, subtotal - discount)
+  const grandTotal = productTotalAfterDiscount + shipping
   const addr = order.shipping_address as Record<string, string> | null
+  const bankDetails = {
+    ...COMPANY_BANK_DETAILS,
+    ...(template?.bankDetails ?? {}),
+  }
   const footerNote =
     template?.footer ??
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
 
   let y = height - 50
 
+  let headerX = 50
+  try {
+    const logoBytes = await readFile(join(process.cwd(), 'public', 'logo.png'))
+    const logo = await pdfDoc.embedPng(logoBytes)
+    page.drawImage(logo, { x: 50, y: y - 72, width: 104, height: 104 })
+    headerX = 172
+  } catch {
+    headerX = 50
+  }
+
   page.drawText(template?.header ?? 'PHONICS CLUB PVT LTD', {
-    x: 50,
+    x: headerX,
     y,
     size: 18,
     font: fontBold,
@@ -67,13 +91,13 @@ export async function buildInvoicePdf(
   })
   y -= 18
   page.drawText(template?.tagline ?? COMPANY.tagline, {
-    x: 50,
+    x: headerX,
     y,
     size: 10,
     font,
     color: rgb(0.4, 0.4, 0.4),
   })
-  y -= 30
+  y = headerX > 50 ? height - 150 : y - 30
 
   const invoiceNo = order.invoice_number ?? order.id.slice(0, 8).toUpperCase()
   page.drawText(`Invoice #: ${invoiceNo}`, { x: 50, y, size: 10, font })
@@ -132,8 +156,6 @@ export async function buildInvoicePdf(
   y -= 10
   page.drawText(`Subtotal: ${formatPrice(subtotal)}`, { x: 380, y, size: 10, font })
   y -= 14
-  page.drawText(`Shipping: ${formatPrice(shipping)}`, { x: 380, y, size: 10, font })
-  y -= 14
   if (discount > 0) {
     page.drawText(
       `Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}: -${formatPrice(discount)}`,
@@ -141,6 +163,8 @@ export async function buildInvoicePdf(
     )
     y -= 14
   }
+  page.drawText(`Shipping: ${formatPrice(shipping)}`, { x: 380, y, size: 10, font })
+  y -= 14
   if (order.member_id) {
     page.drawText(`Member ID: ${order.member_id}`, { x: 380, y, size: 10, font })
     y -= 14
@@ -152,6 +176,26 @@ export async function buildInvoicePdf(
     font: fontBold,
     color: rgb(0.11, 0.31, 0.85),
   })
+
+  y -= 30
+  if (y < 150) y = 150
+  page.drawText('Company Bank Details', { x: 50, y, size: 10, font: fontBold })
+  y -= 14
+  for (const line of [
+    `Bank: ${bankDetails.bankName}`,
+    `Account Title: ${bankDetails.accountTitle}`,
+    `Account Number: ${bankDetails.accountNumber}`,
+    `IBAN: ${bankDetails.iban}`,
+  ]) {
+    page.drawText(line, { x: 50, y, size: 9, font })
+    y -= 12
+  }
+  if (bankDetails.instructions) {
+    for (const line of wrapText(bankDetails.instructions, 82)) {
+      page.drawText(line, { x: 50, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
+      y -= 10
+    }
+  }
 
   y = 80
   for (const line of wrapText(`Shipping Notice: ${footerNote}`, 90)) {

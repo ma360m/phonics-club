@@ -65,9 +65,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             {product.description && (
               <p className="text-muted-foreground leading-relaxed mb-6">{product.description}</p>
             )}
-            <p className="text-sm text-muted-foreground mb-6">
-              {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-            </p>
             <ProductShopActions product={product} />
           </div>
         </div>

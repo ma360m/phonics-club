@@ -17,6 +17,11 @@ function getIsbn(product?: Product) {
   return product?.isbn ?? (product?.metadata?.isbn as string | undefined) ?? ''
 }
 
+function getCollection(product?: Product) {
+  const collection = product?.metadata?.collection
+  return collection === 'phonics-club' || collection === 'jolly-learning' ? collection : ''
+}
+
 export function ProductForm({ product }: { product?: Product }) {
   const action = product
     ? updateProductAction.bind(null, product.id)
@@ -51,6 +56,14 @@ export function ProductForm({ product }: { product?: Product }) {
             ))}
           </select>
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Product group</Label>
+        <select name="collection" defaultValue={getCollection(product)} className="w-full rounded-xl border px-3 py-2">
+          <option value="">Auto-detect from product name</option>
+          <option value="jolly-learning">Jolly Learning Products</option>
+          <option value="phonics-club">Phonics Club Products</option>
+        </select>
       </div>
       <div className="space-y-2">
         <Label>Description</Label>

@@ -5,6 +5,7 @@ import { ProductCard } from '@/components/shop/product-card'
 import { CatalogManager } from '@/components/shop/catalog-manager'
 import { CategoryFilter } from '@/components/shop/category-filter'
 import { getProducts } from '@/lib/data/queries'
+import { PRODUCT_COLLECTIONS, isProductCollection } from '@/lib/product-collections'
 import { buildMetadata } from '@/utils/seo'
 
 export const metadata = buildMetadata({
@@ -16,10 +17,17 @@ export const metadata = buildMetadata({
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>
+  searchParams: Promise<{ category?: string; collection?: string }>
 }) {
-  const { category } = await searchParams
-  const products = await getProducts({ category: category || undefined })
+  const { category, collection } = await searchParams
+  const activeCollection = isProductCollection(collection) ? collection : undefined
+  const collectionProducts = activeCollection
+    ? await getProducts({ collection: activeCollection })
+    : []
+  const products = category
+    ? collectionProducts.filter((product) => product.category === category)
+    : collectionProducts
+  const availableCategories = Array.from(new Set(collectionProducts.map((product) => product.category)))
 
   return (
     <main>
@@ -28,19 +36,54 @@ export default async function ShopPage({
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <BackButton fallbackHref="/" />
         <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Shop</h1>
-        <p className="mb-2 text-sm text-muted-foreground sm:text-base">Official Jolly Learning products · Prices in PKR</p>
-        <p className="mb-8 text-sm text-[#D30000]">Buy only from authorized Phonics Club dealers. PCTB approved materials.</p>
+        <p className="mb-2 text-sm text-muted-foreground sm:text-base">
+          Official Jolly Learning and Phonics Club products. Prices in PKR.
+        </p>
+        <p className="mb-8 text-sm text-[#D30000]">
+          Buy only from authorized Phonics Club dealers. PCTB approved materials.
+        </p>
+
+        <div className="mb-8 overflow-x-auto pb-2">
+          <div className="flex min-w-max gap-3">
+            {PRODUCT_COLLECTIONS.map((item) => (
+              <a
+                key={item.slug}
+                href={`/shop?collection=${item.slug}`}
+                className={`rounded-full border px-5 py-3 text-sm font-semibold transition-colors ${
+                  activeCollection === item.slug
+                    ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                    : 'border-border bg-background text-foreground hover:border-[#1D4ED8] hover:text-[#1D4ED8]'
+                }`}
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
 
         <div className="mb-8">
-          <CatalogManager />
+          <CatalogManager activeCollection={activeCollection} />
         </div>
 
-        <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
-          <CategoryFilter currentCategory={category} />
-        </div>
+        {activeCollection && (
+          <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+            <CategoryFilter
+              currentCategory={category}
+              currentCollection={activeCollection}
+              availableCategories={availableCategories}
+            />
+          </div>
+        )}
 
         <Suspense fallback={<div className="grid grid-cols-3 gap-6">Loading...</div>}>
-          {products.length === 0 ? (
+          {!activeCollection ? (
+            <div className="rounded-2xl border bg-card p-10 text-center shadow-sm">
+              <h2 className="text-2xl font-bold">Choose a product range</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+                Select Jolly Learning Products or Phonics Club Products above to view the catalog.
+              </p>
+            </div>
+          ) : products.length === 0 ? (
             <p className="py-20 text-center text-muted-foreground">No products found.</p>
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
 import { buildInvoiceHtml } from '@/lib/invoice'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
@@ -14,8 +14,8 @@ export async function GET(
   const token = searchParams.get('token')
   const format = searchParams.get('format') ?? 'html'
 
-  const supabase = await createClient()
-  const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single()
+  const serviceSupabase = await createServiceClient()
+  const { data: order, error } = await serviceSupabase.from('orders').select('*').eq('id', id).single()
 
   if (error || !order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -27,6 +27,7 @@ export async function GET(
   if (token && order.access_token && token === order.access_token) {
     authorized = true
   } else if (user) {
+    const supabase = await createClient()
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     if (order.user_id === user.id || profile?.role === 'admin') authorized = true
   }
@@ -52,7 +53,7 @@ export async function GET(
   return new NextResponse(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `attachment; filename="invoice-${invoiceNo}.html"`,
+      'Content-Disposition': `inline; filename="invoice-${invoiceNo}.html"`,
     },
   })
 }

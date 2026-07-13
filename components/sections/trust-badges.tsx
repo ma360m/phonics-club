@@ -2,52 +2,62 @@
 
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import useEmblaCarousel from 'embla-carousel-react'
+import type { SchoolLogo } from '@/lib/site-content'
 
-const SCHOOL_STRIPS = [
-  { src: '/images/schools/partners-strip-1.png', alt: 'Quixotic Academy, GMCI, Ayan Montessori, Purple Pulpo, Froebels, LGS' },
-  { src: '/images/schools/partners-strip-2.png', alt: 'Beaconhouse, RWIS, Dynamic International, Academus, ALDA, Horizon School' },
-]
+function LogoTile({ logo }: { logo: SchoolLogo }) {
+  const content = (
+    <div className="flex h-16 min-w-40 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-5 shadow-sm sm:h-20 sm:min-w-48">
+      {logo.imageUrl ? (
+        <Image
+          src={logo.imageUrl}
+          alt={logo.name}
+          width={160}
+          height={64}
+          className="max-h-12 w-auto object-contain sm:max-h-14"
+          unoptimized
+        />
+      ) : (
+        <span className="text-center text-sm font-bold text-[#1D4ED8] sm:text-base">
+          {logo.name}
+        </span>
+      )}
+    </div>
+  )
 
-const SCHOOL_NAMES = [
-  'Starfish School', 'Quixotic Academy', 'LGS', "Froebel's International", 'Ayan Montessori',
-  'Beaconhouse', 'RWIS', 'Dynamic International', 'Academus', 'ALDA', 'Horizon School System',
-]
+  if (logo.href) {
+    return (
+      <a href={logo.href} target="_blank" rel="noreferrer" className="block">
+        {content}
+      </a>
+    )
+  }
 
-export function TrustBadges() {
-  const [emblaRef] = useEmblaCarousel({ loop: true, align: 'start' })
+  return content
+}
+
+export function TrustBadges({ logos }: { logos: SchoolLogo[] }) {
+  const tickerLogos = logos.length ? [...logos, ...logos] : []
 
   return (
-    <section className="py-12 bg-white border-y border-[#E2E8F0]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="border-y border-[#E2E8F0] bg-white py-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-8"
+          className="mb-8 text-center"
         >
-          <p className="text-sm font-medium text-[#475569] uppercase tracking-wider">
+          <p className="text-sm font-medium uppercase tracking-wider text-[#475569]">
             Tested at schools throughout Pakistan
-          </p>
-          <p className="text-xs text-muted-foreground mt-2 max-w-2xl mx-auto">
-            {SCHOOL_NAMES.join(' · ')}
           </p>
         </motion.div>
 
-        <div className="overflow-hidden" ref={emblaRef}>
-          <div className="flex gap-8">
-            {SCHOOL_STRIPS.map((strip) => (
-              <div key={strip.src} className="flex-[0_0_100%] min-w-0 px-4">
-                <div className="relative h-20 sm:h-24 w-full">
-                  <Image
-                    src={strip.src}
-                    alt={strip.alt}
-                    fill
-                    className="object-contain"
-                    unoptimized
-                  />
-                </div>
-              </div>
+        <div className="relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent" />
+          <div className="flex w-max gap-4 pr-4 [animation:logo-ticker_35s_linear_infinite] hover:[animation-play-state:paused]">
+            {tickerLogos.map((logo, index) => (
+              <LogoTile key={`${logo.id}-${index}`} logo={logo} />
             ))}
           </div>
         </div>

@@ -12,7 +12,8 @@ function parseProductForm(formData: FormData) {
     ? String(imagesRaw).split(',').map((s) => s.trim()).filter(Boolean)
     : []
 
-  return productSchema.safeParse({
+  const collection = String(formData.get('collection') ?? '').trim()
+  const parsed = productSchema.safeParse({
     name: formData.get('name'),
     slug: formData.get('slug'),
     description: formData.get('description'),
@@ -25,6 +26,11 @@ function parseProductForm(formData: FormData) {
     featured: formData.get('featured') === 'on',
     published: formData.get('published') === 'on',
   })
+
+  return {
+    parsed,
+    collection: collection === 'phonics-club' || collection === 'jolly-learning' ? collection : null,
+  }
 }
 
 export async function createProductAction(
@@ -32,12 +38,15 @@ export async function createProductAction(
   formData: FormData
 ): Promise<ActionResult> {
   await requireAdmin()
-  const parsed = parseProductForm(formData)
+  const { parsed, collection } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
   if (!parsed.data.isbn) return { success: false, error: 'ISBN is required' }
 
+  const payload: Record<string, unknown> = { ...parsed.data }
+  if (collection) payload.metadata = { collection }
+
   const supabase = await createClient()
-  const { error } = await supabase.from('products').upsert(parsed.data as never, { onConflict: 'isbn' })
+  const { error } = await supabase.from('products').upsert(payload as never, { onConflict: 'isbn' })
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/products')
@@ -51,11 +60,21 @@ export async function updateProductAction(
   formData: FormData
 ): Promise<ActionResult> {
   await requireAdmin()
-  const parsed = parseProductForm(formData)
+  const { parsed, collection } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
 
   const supabase = await createClient()
-  const { error } = await supabase.from('products').update(parsed.data as never).eq('id', id)
+  const { data: existing } = await supabase.from('products').select('metadata').eq('id', id).single()
+  const metadata = {
+    ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
+  }
+  if (collection) metadata.collection = collection
+  else delete metadata.collection
+
+  const { error } = await supabase
+    .from('products')
+    .update({ ...parsed.data, metadata } as never)
+    .eq('id', id)
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/products')

@@ -9,6 +9,7 @@ const footerLinks = {
     { name: 'About Us', href: '/about' },
     { name: 'Certified Trainers', href: '/certified-trainers' },
     { name: 'Blog', href: '/blog' },
+    { name: 'Newsletters', href: '/newsletters' },
     { name: 'Shop', href: '/shop' },
   ],
   support: [

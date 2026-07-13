@@ -24,6 +24,14 @@ export const COMPANY = {
   },
 } as const
 
+export const COMPANY_BANK_DETAILS = {
+  bankName: 'Meezan Bank',
+  accountTitle: 'Phonics Club Pvt Ltd',
+  accountNumber: '01234567890123',
+  iban: 'PK00MEZN0001234567890123',
+  instructions: 'Transfer the exact order total and upload your payment receipt. Orders process after admin confirms payment.',
+} as const
+
 export const TRAINING_CALENDAR_2025 = [
   { title: 'Jolly Phonics', date: '2025-02-15', season: 'Spring/Winter', type: 'onsite' as const },
   { title: 'Jolly Grammar', date: '2025-02-22', season: 'Spring/Winter', type: 'onsite' as const },

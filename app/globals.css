@@ -152,6 +152,11 @@
   100% { background-position: 0% 50%; }
 }
 
+@keyframes logo-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }

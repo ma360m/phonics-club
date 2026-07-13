@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { signOutAction } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, ShoppingBag, Heart, GraduationCap, Shield, Award, Play } from 'lucide-react'
+import { BookOpen, ShoppingBag, Heart, GraduationCap, Shield, Award, Play, FileText, Download } from 'lucide-react'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { formatPrice, formatDate } from '@/utils/format'
 
@@ -140,10 +140,24 @@ export default async function DashboardPage() {
             ) : (
               <ul className="space-y-3">
                 {orders.map((o) => (
-                  <li key={o.id} className="flex justify-between items-center text-sm">
+                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
                     <span className="text-muted-foreground">{formatDate(o.created_at)}</span>
                     <span className="font-medium">{formatPrice(o.total)}</span>
                     <Badge variant="outline">{o.status}</Badge>
+                    <div className="flex items-center gap-1">
+                      <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
+                        <Link href={`/api/orders/${o.id}/invoice`} target="_blank">
+                          <FileText className="mr-1 h-3.5 w-3.5" />
+                          Invoice
+                        </Link>
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
+                        <Link href={`/api/orders/${o.id}/invoice?format=pdf`} target="_blank">
+                          <Download className="mr-1 h-3.5 w-3.5" />
+                          PDF
+                        </Link>
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Mail, ArrowRight, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -83,6 +84,13 @@ export function Newsletter() {
           <p className="text-white/60 text-sm mt-4">
             No spam, unsubscribe at any time. By subscribing you agree to our Privacy Policy.
           </p>
+
+          <Button asChild variant="outline" className="mt-6 rounded-xl border-white/40 bg-white/10 text-white hover:bg-white hover:text-[#1D4ED8]">
+            <Link href="/newsletters">
+              View Newsletter Archive
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
         </motion.div>
       </div>
     </section>

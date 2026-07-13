@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
-import { CERTIFIED_TRAINERS, COMPANY } from '@/lib/company'
+import { CERTIFIED_TRAINERS, COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 
 export interface Announcement {
   id: string
@@ -27,12 +27,27 @@ export interface SocialReel {
   title: string
 }
 
+export interface SchoolLogo {
+  id: string
+  name: string
+  imageUrl?: string
+  href?: string
+  sortOrder: number
+}
+
 export interface VortexLearning {
   title: string
   description: string
   websiteUrl: string
   courses: { title: string; description: string; href: string }[]
 }
+
+export interface HeroVideo {
+  videoUrl: string
+  demoButtonUrl?: string
+}
+
+export const VORTEX_LEARNING_URL = 'https://officialvortexlear.wixsite.com/vortex-learning'
 
 const DEFAULT_TESTIMONIALS: Testimonial[] = [
   { id: '1', content: 'Phonics Club transformed our school reading program. Jolly Phonics implementation was seamless.', author: 'Beaconhouse School', role: 'Lahore', rating: 5 },
@@ -53,16 +68,35 @@ const DEFAULT_SOCIAL_REELS: SocialReel[] = [
   { id: '6', thumbnail: '', videoUrl: COMPANY.social.youtube, title: 'Phonics Club community' },
 ]
 
+const DEFAULT_SCHOOL_LOGOS: SchoolLogo[] = [
+  { id: 'tns', name: 'TNS', imageUrl: '', sortOrder: 1 },
+  { id: 'froebels', name: "Froebel's International", imageUrl: '', sortOrder: 2 },
+  { id: 'starfish', name: 'Starfish School', imageUrl: '', sortOrder: 3 },
+  { id: 'quixotic', name: 'Quixotic Academy', imageUrl: '', sortOrder: 4 },
+  { id: 'lgs', name: 'LGS', imageUrl: '', sortOrder: 5 },
+  { id: 'beaconhouse', name: 'Beaconhouse', imageUrl: '', sortOrder: 6 },
+  { id: 'rwis', name: 'RWIS', imageUrl: '', sortOrder: 7 },
+  { id: 'dynamic', name: 'Dynamic International', imageUrl: '', sortOrder: 8 },
+  { id: 'academus', name: 'Academus', imageUrl: '', sortOrder: 9 },
+  { id: 'alda', name: 'ALDA', imageUrl: '', sortOrder: 10 },
+  { id: 'horizon', name: 'Horizon School System', imageUrl: '', sortOrder: 11 },
+]
+
 const DEFAULT_VORTEX: VortexLearning = {
   title: 'Vortex Learning Partnership',
   description:
     'In collaboration with Vortex Learning — a leading online education platform offering live teachers, interactive courses, and professional development for students and educators across Pakistan.',
-  websiteUrl: 'https://vortexlearning.com',
+  websiteUrl: VORTEX_LEARNING_URL,
   courses: [
     { title: 'Live Online Tutoring', description: 'One-on-one and group sessions with certified teachers', href: '/courses' },
     { title: 'Professional Development', description: 'CPD courses for educators', href: '/courses?category=teacher-courses' },
     { title: 'Student Programs', description: 'Structured learning paths for all ages', href: '/courses' },
   ],
+}
+
+const DEFAULT_HERO_VIDEO: HeroVideo = {
+  videoUrl: 'https://youtu.be/8Tjs_Z1I0cM?si=jlpQPO-_UfeqUwVa',
+  demoButtonUrl: 'https://youtu.be/AyZdFB8s2IA?si=NeSy2O37jZCVQdmf',
 }
 
 async function getContent<T>(key: string, fallback: T): Promise<T> {
@@ -90,8 +124,18 @@ export async function getSocialReels(): Promise<SocialReel[]> {
   return getContent('social_reels', DEFAULT_SOCIAL_REELS)
 }
 
+export async function getSchoolLogos(): Promise<SchoolLogo[]> {
+  const logos = await getContent('school_logos', DEFAULT_SCHOOL_LOGOS)
+  return [...logos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+}
+
 export async function getVortexLearning(): Promise<VortexLearning> {
-  return getContent('vortex_learning', DEFAULT_VORTEX)
+  const data = await getContent('vortex_learning', DEFAULT_VORTEX)
+  return { ...data, websiteUrl: VORTEX_LEARNING_URL }
+}
+
+export async function getHeroVideo(): Promise<HeroVideo> {
+  return getContent('hero_video', DEFAULT_HERO_VIDEO)
 }
 
 export async function getInvoiceTemplate() {
@@ -100,17 +144,12 @@ export async function getInvoiceTemplate() {
     tagline: COMPANY.tagline,
     footer:
       'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight. Current standard shipping: PKR 550.',
+    bankDetails: COMPANY_BANK_DETAILS,
   })
 }
 
 export async function getBankDetails() {
-  return getContent('bank_details', {
-    bankName: 'Meezan Bank',
-    accountTitle: 'Phonics Club Pvt Ltd',
-    accountNumber: '01234567890123',
-    iban: 'PK00MEZN0001234567890123',
-    instructions: 'Transfer the exact order total and upload your payment receipt. Orders process after admin confirms payment.',
-  })
+  return getContent('bank_details', COMPANY_BANK_DETAILS)
 }
 
 export async function getTrainers() {

@@ -17,6 +17,12 @@ const navigation = [
   { name: 'Contact', href: '/contact' },
 ]
 
+const mobileUtilityLinks = [
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Wishlist', href: '/wishlist' },
+  { name: 'Cart', href: '/cart' },
+]
+
 export function NavbarClient({
   cartSlot,
   wishlistSlot,
@@ -43,36 +49,39 @@ export function NavbarClient({
         <div className="flex items-center justify-between h-16 lg:h-20">
           <SiteLogo />
 
-          <div className="hidden lg:flex items-center gap-1">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="px-3 py-2 text-sm font-medium text-foreground/80 hover:text-[#1D4ED8] transition-colors rounded-lg hover:bg-[#1D4ED8]/5"
-              >
-                {item.name}
-              </Link>
-            ))}
+          <div className="hidden flex-1 items-center justify-center px-4 lg:flex">
+            <div className="flex items-center gap-1">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="rounded-full border border-transparent px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:border-[#1D4ED8]/30 hover:bg-[#1D4ED8]/5 hover:text-[#1D4ED8]"
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors" aria-label="Search">
+            <button className="hidden p-2 hover:bg-muted rounded-lg transition-colors sm:inline-flex" aria-label="Search">
               <Search className="w-5 h-5 text-foreground/70" />
             </button>
-            <Link href="/dashboard" className="p-2 hover:bg-muted rounded-lg transition-colors" aria-label="Account">
+            <Link href="/dashboard" className="hidden p-2 hover:bg-muted rounded-lg transition-colors sm:inline-flex" aria-label="Account">
               <User className="w-5 h-5 text-foreground/70" />
             </Link>
-            {wishlistSlot}
-            {cartSlot}
+            <span className="hidden sm:inline-flex">{wishlistSlot}</span>
+            <span className="hidden sm:inline-flex">{cartSlot}</span>
             <Button asChild className="hidden sm:flex bg-[#D30000] hover:bg-[#D30000]/90 text-white ml-2 rounded-xl">
               <Link href="/courses">Get Started</Link>
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 hover:bg-muted rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted lg:hidden"
               aria-label="Toggle menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              Menu
             </button>
           </div>
         </div>
@@ -96,6 +105,18 @@ export function NavbarClient({
                     {item.name}
                   </Link>
                 ))}
+                <div className="border-t border-border pt-2">
+                  {mobileUtilityLinks.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block px-4 py-3 text-base font-medium hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 rounded-lg"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}

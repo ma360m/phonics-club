@@ -45,6 +45,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/users', label: 'View Users' },
     { href: '/admin/certificates', label: 'Certificates' },
     { href: '/admin/catalogs', label: 'Catalog Manager' },
+    { href: '/admin/newsletters', label: 'Newsletter Archive' },
   ]
 
   return (

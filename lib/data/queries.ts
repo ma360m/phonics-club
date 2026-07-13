@@ -1,24 +1,29 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
+import { filterProductsByCollection } from '@/lib/product-collections'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
 
 function normalizeProduct(p: Product): Product {
+  const compareAtPrice = Number(p.compare_at_price ?? 0)
   return {
     ...p,
     isbn: p.isbn ?? (p.metadata?.isbn as string) ?? null,
     price: Number(p.price),
+    compare_at_price: compareAtPrice > 0 ? compareAtPrice : null,
   }
 }
 
 export async function getProducts(options?: {
   category?: string
+  collection?: string
   featured?: boolean
   limit?: number
 }): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    let items = [...SEED_PRODUCTS]
+    let items = SEED_PRODUCTS.map(normalizeProduct)
     if (options?.category) items = items.filter((p) => p.category === options.category)
+    items = filterProductsByCollection(items, options?.collection)
     if (options?.featured) items = items.filter((p) => p.featured)
     if (options?.limit) items = items.slice(0, options.limit)
     return items
@@ -29,24 +34,28 @@ export async function getProducts(options?: {
 
   if (options?.category) query = query.eq('category', options.category)
   if (options?.featured) query = query.eq('featured', true)
-  if (options?.limit) query = query.limit(options.limit)
 
   const { data, error } = await query.order('name', { ascending: true })
 
   if (error || !data?.length) {
-    let items = [...SEED_PRODUCTS]
+    let items = SEED_PRODUCTS.map(normalizeProduct)
     if (options?.category) items = items.filter((p) => p.category === options.category)
+    items = filterProductsByCollection(items, options?.collection)
     if (options?.featured) items = items.filter((p) => p.featured)
     if (options?.limit) items = items.slice(0, options.limit)
     return items
   }
 
-  return (data as Product[]).map(normalizeProduct)
+  let items = (data as Product[]).map(normalizeProduct)
+  items = filterProductsByCollection(items, options?.collection)
+  if (options?.limit) items = items.slice(0, options.limit)
+  return items
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    return SEED_PRODUCTS.find((p) => p.slug === slug) ?? null
+    const product = SEED_PRODUCTS.find((p) => p.slug === slug)
+    return product ? normalizeProduct(product) : null
   }
 
   const supabase = await createClient()
@@ -58,10 +67,12 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .maybeSingle()
 
   if (error) {
-    return SEED_PRODUCTS.find((p) => p.slug === slug) ?? null
+    const product = SEED_PRODUCTS.find((p) => p.slug === slug)
+    return product ? normalizeProduct(product) : null
   }
 
-  return data ? normalizeProduct(data as Product) : (SEED_PRODUCTS.find((p) => p.slug === slug) ?? null)
+  const fallback = SEED_PRODUCTS.find((p) => p.slug === slug)
+  return data ? normalizeProduct(data as Product) : (fallback ? normalizeProduct(fallback) : null)
 }
 
 export async function getCourses(options?: {

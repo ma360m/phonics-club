@@ -5,7 +5,29 @@ import Link from 'next/link'
 import { ArrowRight, Play, Star, Users, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export function HeroSection() {
+function toYouTubeEmbedUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const videoId = parsed.hostname.includes('youtu.be')
+      ? parsed.pathname.slice(1)
+      : parsed.searchParams.get('v')
+    const startSeconds = parsed.searchParams.get('t')?.replace('s', '') ?? ''
+    const startParam = startSeconds ? `?start=${Number.parseInt(startSeconds, 10) || 0}` : ''
+    return videoId ? `https://www.youtube.com/embed/${videoId}${startParam}` : url
+  } catch {
+    return url
+  }
+}
+
+export function HeroSection({
+  videoUrl,
+  demoButtonUrl,
+}: {
+  videoUrl: string
+  demoButtonUrl?: string
+}) {
+  const embedUrl = toYouTubeEmbedUrl(videoUrl)
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-white to-[#60A5FA]/10">
       {/* Background Elements */}
@@ -28,13 +50,12 @@ export function HeroSection() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#111827] leading-tight mb-6">
-              Master{' '}
-              <span className="text-[#1D4ED8]">Phonics</span>
+              Teaching Children
               <br />
-              Build Lifelong
+              to Read with
               <br />
               <span className="relative">
-                Reading Skills
+                Confidence.
                 <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
                   <path d="M2 10C50 4 150 4 198 10" stroke="#FBBF24" strokeWidth="4" strokeLinecap="round" />
                 </svg>
@@ -53,10 +74,10 @@ export function HeroSection() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="h-14 text-base border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/5">
-                <Link href="/about">
+                <a href={demoButtonUrl ?? videoUrl} target="_blank" rel="noreferrer">
                   <Play className="mr-2 w-5 h-5" />
                   Watch Demo
-                </Link>
+                </a>
               </Button>
             </div>
 
@@ -67,8 +88,8 @@ export function HeroSection() {
                   <Users className="w-6 h-6 text-[#1D4ED8]" />
                 </div>
                 <div>
-                  <p className="font-bold text-xl text-[#111827]">50K+</p>
-                  <p className="text-sm text-[#475569]">Students</p>
+                  <p className="font-bold text-xl text-[#111827]">2.5K</p>
+                  <p className="text-sm text-[#475569]">Enrolled</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -101,11 +122,11 @@ export function HeroSection() {
           >
             <div className="relative">
               {/* Main Card */}
-              <div className="bg-white rounded-3xl shadow-2xl p-6 lg:p-8">
+              <div id="watch-demo" className="bg-white rounded-3xl shadow-2xl p-6 lg:p-8 scroll-mt-28">
                 <div className="aspect-video bg-black rounded-2xl mb-6 overflow-hidden">
                   <iframe
                     className="h-full w-full"
-                    src="https://www.youtube.com/embed/8Tjs_Z1I0cM?si=0tt90QfCt687yhp3"
+                    src={embedUrl}
                     title="Meet Phonics Club"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -129,8 +150,8 @@ export function HeroSection() {
                     ))}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm text-[#111827]">+2.5k</p>
-                    <p className="text-xs text-[#475569]">Enrolled Today</p>
+                    <p className="font-semibold text-sm text-[#111827]">2.5K</p>
+                    <p className="text-xs text-[#475569]">Enrolled</p>
                   </div>
                 </div>
               </motion.div>

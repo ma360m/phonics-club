@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import { PhonicsAssistant } from '@/components/assistant/phonics-assistant'
 import { WhatsAppFloating } from '@/components/layout/whatsapp-button'
+import { ShopNowPopup } from '@/components/layout/shop-now-popup'
 import { buildMetadata, organizationJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import './globals.css'
@@ -34,6 +35,7 @@ export default function RootLayout({
         <JsonLd data={organizationJsonLd()} />
         <Providers>
           {children}
+          <ShopNowPopup />
           <PhonicsAssistant />
           <WhatsAppFloating />
         </Providers>

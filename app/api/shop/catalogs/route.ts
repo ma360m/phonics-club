@@ -31,7 +31,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   }
 
-  const catalog = await saveShopCatalog(file, label === 'local' ? 'local' : 'uk')
+  await saveShopCatalog(
+    file,
+    label === 'phonics-club' ? 'phonics-club' : 'jolly-learning'
+  )
   return NextResponse.redirect(new URL('/admin/catalogs', request.url))
 }
 

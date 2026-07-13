@@ -35,6 +35,7 @@ const links = [
   { href: '/admin/trainers', label: 'Trainers', icon: Award },
   { href: '/admin/upload', label: 'Upload', icon: Upload },
   { href: '/admin/catalogs', label: 'Catalogs', icon: FileText },
+  { href: '/admin/newsletters', label: 'Newsletters', icon: FileText },
   { href: '/admin/trainings', label: 'Registrations', icon: Calendar },
   { href: '/admin/coupons', label: 'Coupons', icon: Ticket },
   { href: '/admin/certificates', label: 'Certificates', icon: Award },
