@@ -55,6 +55,14 @@ export async function buildInvoicePdf(
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const { width, height } = page.getSize()
 
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width,
+    height,
+    color: rgb(1, 0.97, 0.82),
+  })
+
   const items = order.items as { name: string; quantity: number; price: number }[]
   const subtotal = Number(order.subtotal ?? order.total)
   const shipping = Number(order.shipping_fee ?? SHIPPING_FEE_PKR)

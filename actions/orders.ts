@@ -7,14 +7,36 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession, requireAdmin } from '@/lib/auth'
 import { checkoutSchema, normalizePhone } from '@/lib/validations/checkout'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
-import { generateInvoiceNumber, buildInvoiceHtml } from '@/lib/invoice'
+import { buildInvoiceHtml } from '@/lib/invoice'
+import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { buildInvoicePdf, generateOrderAccessToken } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
-import { sendOrderConfirmationEmail } from '@/lib/email/send-order-email'
+import { sendLowStockAlertEmail, sendOrderConfirmationEmail, type LowStockEmailAlert } from '@/lib/email/send-order-email'
 import { uploadOrderReceipt } from '@/lib/orders/receipt-upload'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
 import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import type { ActionResult, OrderItem } from '@/types'
+
+async function applyStockChangesForOrder(orderId: string, items: OrderItem[]): Promise<LowStockEmailAlert[]> {
+  try {
+    const supabase = await createServiceClient()
+    const { data, error } = await supabase.rpc('apply_order_stock_changes' as never, {
+      p_order_id: orderId,
+      p_items: items,
+      p_threshold: 20,
+    } as never)
+
+    if (error) {
+      console.error('[Stock alerts] Could not apply stock changes:', error.message)
+      return []
+    }
+
+    return (data ?? []) as LowStockEmailAlert[]
+  } catch (error) {
+    console.error('[Stock alerts] Could not apply stock changes:', error)
+    return []
+  }
+}
 
 async function validateCoupon(code: string, subtotal: number) {
   const supabase = await createClient()
@@ -87,7 +109,7 @@ export async function placeOrderAction(
   const status = paymentMethod === 'credit' ? 'awaiting_payment' : 'pending'
 
   const accessToken = user ? null : generateOrderAccessToken()
-  const invoiceNumber = generateInvoiceNumber()
+  const invoiceNumber = await getNextInvoiceNumber()
   const orderIdForReceipt = user?.id ?? `guest-${Date.now()}`
 
   let receiptUrl: string | null = null
@@ -138,6 +160,8 @@ export async function placeOrderAction(
 
   if (error) return { success: false, error: error.message }
 
+  const lowStockAlerts = await applyStockChangesForOrder(order.id, items)
+
   if (couponCode) {
     const couponClient = await createClient()
     const { data: coupon } = await couponClient
@@ -170,6 +194,8 @@ export async function placeOrderAction(
     accessToken: accessToken ?? undefined,
     pdfBase64,
   })
+
+  await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
 
   revalidatePath('/dashboard')
   revalidatePath('/cart')
@@ -230,6 +256,22 @@ export async function updateOrderShippingAction(orderId: string, shippingFee: nu
   return { success: true }
 }
 
+export async function updateOrderInvoiceNumberAction(orderId: string, invoiceNumber: string): Promise<ActionResult> {
+  await requireAdmin()
+  const cleanInvoiceNumber = invoiceNumber.trim()
+  if (!cleanInvoiceNumber) return { success: false, error: 'Invoice number is required' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('orders')
+    .update({ invoice_number: cleanInvoiceNumber } as never)
+    .eq('id', orderId)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/admin/orders')
+  return { success: true }
+}
+
 export async function updateOrderStatusFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const status = String(formData.get('status'))
@@ -247,6 +289,13 @@ export async function updateOrderShippingFormAction(formData: FormData): Promise
   const orderId = String(formData.get('orderId'))
   const shippingFee = Number(formData.get('shippingFee'))
   const result = await updateOrderShippingAction(orderId, shippingFee)
+  if (!result.success) throw new Error(result.error)
+}
+
+export async function updateOrderInvoiceNumberFormAction(formData: FormData): Promise<void> {
+  const orderId = String(formData.get('orderId'))
+  const invoiceNumber = String(formData.get('invoiceNumber'))
+  const result = await updateOrderInvoiceNumberAction(orderId, invoiceNumber)
   if (!result.success) throw new Error(result.error)
 }
 

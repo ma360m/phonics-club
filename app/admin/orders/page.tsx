@@ -1,5 +1,10 @@
 import { getAllOrders } from '@/lib/data/queries'
-import { updateOrderStatusFormAction, confirmPaymentFormAction, updateOrderShippingFormAction } from '@/actions/orders'
+import {
+  confirmPaymentFormAction,
+  updateOrderInvoiceNumberFormAction,
+  updateOrderShippingFormAction,
+  updateOrderStatusFormAction,
+} from '@/actions/orders'
 import { AdminOrderDeleteButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
 import { formatPrice, formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +32,18 @@ export default async function AdminOrdersPage() {
                   <p className="text-sm">{addr?.fullName} · {order.phone ?? addr?.phone}</p>
                   <p className="text-sm text-muted-foreground">{addr?.email}</p>
                   {!order.user_id && <Badge variant="outline" className="mt-1">Guest order</Badge>}
+                  <form action={updateOrderInvoiceNumberFormAction} className="mt-3 flex max-w-sm flex-wrap items-center gap-2">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <input
+                      name="invoiceNumber"
+                      defaultValue={order.invoice_number ?? ''}
+                      placeholder="INV_001"
+                      className="w-36 rounded-xl border px-3 py-1.5 font-mono text-sm"
+                    />
+                    <Button type="submit" size="sm" variant="outline" className="rounded-xl">
+                      Save invoice #
+                    </Button>
+                  </form>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>

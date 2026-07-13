@@ -6,6 +6,7 @@ import { signupAction } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/auth/password-input'
 import type { ActionResult } from '@/types'
 
 const initialState: ActionResult = { success: false }
@@ -28,11 +29,11 @@ export function SignupForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required minLength={8} className="rounded-xl" />
+        <PasswordInput id="password" name="password" required minLength={8} className="rounded-xl" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">Confirm Password</Label>
-        <Input id="confirmPassword" name="confirmPassword" type="password" required className="rounded-xl" />
+        <PasswordInput id="confirmPassword" name="confirmPassword" required className="rounded-xl" />
       </div>
       <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
         {pending ? 'Creating account...' : 'Create Account'}

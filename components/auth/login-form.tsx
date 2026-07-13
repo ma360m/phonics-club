@@ -6,6 +6,7 @@ import { loginAction } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/auth/password-input'
 import type { ActionResult } from '@/types'
 
 const initialState: ActionResult = { success: false }
@@ -24,7 +25,7 @@ export function LoginForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required className="rounded-xl" />
+        <PasswordInput id="password" name="password" required className="rounded-xl" />
       </div>
       <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
         {pending ? 'Signing in...' : 'Sign In'}

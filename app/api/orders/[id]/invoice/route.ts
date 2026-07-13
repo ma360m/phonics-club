@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
-import { buildInvoiceHtml } from '@/lib/invoice'
+import { buildInvoiceHtml, invoiceFileBaseName } from '@/lib/invoice'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
 
@@ -38,13 +38,14 @@ export async function GET(
 
   const template = await getInvoiceTemplate()
   const invoiceNo = order.invoice_number ?? id.slice(0, 8)
+  const invoiceFileName = invoiceFileBaseName(invoiceNo)
 
   if (format === 'pdf') {
     const pdfBytes = await buildInvoicePdf(order as never, template)
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="invoice-${invoiceNo}.pdf"`,
+        'Content-Disposition': `attachment; filename="${invoiceFileName}.pdf"`,
       },
     })
   }
@@ -53,7 +54,7 @@ export async function GET(
   return new NextResponse(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `inline; filename="invoice-${invoiceNo}.html"`,
+      'Content-Disposition': `inline; filename="${invoiceFileName}.html"`,
     },
   })
 }

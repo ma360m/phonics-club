@@ -19,7 +19,15 @@ interface InvoiceTemplate {
 export function generateInvoiceNumber(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase()
-  return `PC-${date}-${rand}`
+  return `INV_${date}_${rand}`
+}
+
+export function invoiceFileBaseName(invoiceNumber: string): string {
+  return (
+    invoiceNumber
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'invoice'
+  )
 }
 
 export function buildInvoiceHtml(
@@ -59,7 +67,8 @@ export function buildInvoiceHtml(
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${order.invoice_number ?? order.id.slice(0, 8)}</title></head>
-<body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:24px;color:#111">
+<body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:24px;color:#111;background:#FBF3D2">
+  <main style="background:#FFF8E1;border:1px solid #E8DFAE;border-radius:12px;padding:24px">
   <div style="border-bottom:3px solid #1D4ED8;padding-bottom:18px;margin-bottom:24px;display:flex;align-items:center;gap:20px">
     <img src="/logo.png" alt="Phonics Club logo" style="width:128px;height:128px;object-fit:contain" />
     <div>
@@ -74,7 +83,7 @@ export function buildInvoiceHtml(
       <p><strong>Status:</strong> ${order.status}</p>
       <p><strong>Payment:</strong> ${order.payment_method === 'credit' ? 'Bank Transfer' : 'Cash on Delivery'}</p>
     </div>
-    <div style="text-align:right">
+    <div style="text-align:left;min-width:220px">
       <p><strong>Bill To:</strong></p>
       <p>${addr?.fullName ?? ''}</p>
       <p>${addr?.email ?? ''}</p>
@@ -111,5 +120,6 @@ export function buildInvoiceHtml(
     <p style="margin:0"><strong>Shipping Notice:</strong> ${footerNote}</p>
     <p style="margin:8px 0 0">Contact: ${COMPANY.adminEmail} | ${COMPANY.phoneDisplay}</p>
   </div>
+  </main>
 </body></html>`
 }
