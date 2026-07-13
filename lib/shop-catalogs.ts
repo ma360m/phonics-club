@@ -1,40 +1,14 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import {
+  buildCatalogObjectName,
+  CATALOGS_BUCKET,
+  parseCatalogLabel,
+  toCatalogPublicUrl,
+  type CatalogLabel,
+  type ShopCatalog,
+} from '@/lib/shop-catalog-shared'
 
-export interface ShopCatalog {
-  name: string
-  label: 'jolly-learning' | 'phonics-club'
-  url: string
-  size: number
-  uploadedAt: string
-}
-
-const CATALOGS_BUCKET = 'shop-catalogs'
-
-function toPublicUrl(filename: string): string {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!base) return `/catalogs/${filename}`
-  return `${base}/storage/v1/object/public/${CATALOGS_BUCKET}/${filename}`
-}
-
-function sanitizeFilename(name: string): string {
-  const clean = (name || 'catalog')
-    .replace(/\\/g, '-')
-    .replace(/\//g, '-')
-    .replace(/[^a-zA-Z0-9._-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .toLowerCase()
-
-  return clean || 'catalog'
-}
-
-function parseLabel(name: string): 'jolly-learning' | 'phonics-club' {
-  const normalized = name.toLowerCase()
-  if (normalized.startsWith('phonics-club-') || normalized.startsWith('local-')) {
-    return 'phonics-club'
-  }
-  return 'jolly-learning'
-}
+export type { ShopCatalog } from '@/lib/shop-catalog-shared'
 
 export async function listShopCatalogs(): Promise<ShopCatalog[]> {
   try {
@@ -50,8 +24,8 @@ export async function listShopCatalogs(): Promise<ShopCatalog[]> {
       .filter((item) => item.name)
       .map((item) => ({
         name: item.name,
-        label: parseLabel(item.name),
-        url: toPublicUrl(item.name),
+        label: parseCatalogLabel(item.name),
+        url: toCatalogPublicUrl(item.name),
         size: item.metadata?.size ?? 0,
         uploadedAt: item.created_at ?? new Date().toISOString(),
       }))
@@ -62,10 +36,9 @@ export async function listShopCatalogs(): Promise<ShopCatalog[]> {
 
 export async function saveShopCatalog(
   file: File,
-  label: 'jolly-learning' | 'phonics-club' = 'jolly-learning'
+  label: CatalogLabel = 'jolly-learning'
 ): Promise<ShopCatalog> {
-  const filename = sanitizeFilename(file.name || 'catalog') || 'catalog'
-  const safeName = `${label}-${Date.now()}-${filename}`
+  const safeName = buildCatalogObjectName(file.name, label)
   const bytes = Buffer.from(await file.arrayBuffer())
 
   const supabase = await createServiceClient()
@@ -79,7 +52,7 @@ export async function saveShopCatalog(
   return {
     name: safeName,
     label,
-    url: toPublicUrl(safeName),
+    url: toCatalogPublicUrl(safeName),
     size: bytes.length,
     uploadedAt: new Date().toISOString(),
   }

@@ -1,23 +1,19 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Upload, Trash2, FileText } from 'lucide-react'
-
-interface ShopCatalog {
-  name: string
-  label: 'jolly-learning' | 'phonics-club'
-  url: string
-  size: number
-  uploadedAt: string
-}
-
-const CATALOG_LABELS: Record<ShopCatalog['label'], string> = {
-  'jolly-learning': 'Jolly Learning Products',
-  'phonics-club': 'Phonics Club Products',
-}
+import { uploadShopCatalogDirect } from '@/lib/shop-catalog-upload'
+import {
+  CATALOG_LABELS,
+  displayCatalogName,
+  MAX_CATALOG_SIZE,
+  type CatalogLabel,
+  type ShopCatalog,
+} from '@/lib/shop-catalog-shared'
 
 export function CatalogManager({
   activeCollection,
@@ -25,11 +21,12 @@ export function CatalogManager({
   activeCollection?: 'jolly-learning' | 'phonics-club'
 }) {
   const [catalogs, setCatalogs] = useState<ShopCatalog[]>([])
-  const [activeView, setActiveView] = useState<ShopCatalog['label']>(activeCollection ?? 'jolly-learning')
+  const [activeView, setActiveView] = useState<CatalogLabel>(activeCollection ?? 'jolly-learning')
   const [isPending, startTransition] = useTransition()
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [file, setFile] = useState<File | null>(null)
-  const [catalogType, setCatalogType] = useState<ShopCatalog['label']>(activeCollection ?? 'jolly-learning')
+  const [catalogType, setCatalogType] = useState<CatalogLabel>(activeCollection ?? 'jolly-learning')
+  const [uploading, setUploading] = useState(false)
 
   const refreshCatalogs = () => {
     startTransition(async () => {
@@ -73,14 +70,21 @@ export function CatalogManager({
     event.preventDefault()
     if (!file) return
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('label', catalogType)
+    if (file.size > MAX_CATALOG_SIZE) {
+      toast.error('Catalog file must be 50 MB or smaller.')
+      return
+    }
 
-    const response = await fetch('/api/shop/catalogs', { method: 'POST', body: formData })
-    if (response.ok || response.redirected) {
+    setUploading(true)
+    try {
+      await uploadShopCatalogDirect(file, catalogType)
+      toast.success('Catalog uploaded to Supabase Storage.')
       setFile(null)
       refreshCatalogs()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Catalog upload failed.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -135,14 +139,14 @@ export function CatalogManager({
           />
           <select
             value={catalogType}
-            onChange={(event) => setCatalogType(event.target.value as ShopCatalog['label'])}
+            onChange={(event) => setCatalogType(event.target.value as CatalogLabel)}
             className="rounded-xl border bg-background px-3 py-2 text-sm"
           >
             <option value="jolly-learning">Jolly Learning Products</option>
             <option value="phonics-club">Phonics Club Products</option>
           </select>
-          <Button type="submit" size="sm" disabled={!file || isPending}>
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+          <Button type="submit" size="sm" disabled={!file || uploading || isPending}>
+            {uploading || isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
             Upload
           </Button>
         </form>
@@ -158,7 +162,7 @@ export function CatalogManager({
                 <FileText className="h-5 w-5 text-[#1D4ED8]" />
                 <div>
                   <a href={catalog.url} target="_blank" rel="noreferrer" className="font-medium underline-offset-4 hover:underline">
-                    {catalog.name.replace(/^\d+-/, '').replace(/^(jolly-learning|phonics-club|uk|local)-/, '')}
+                    {displayCatalogName(catalog.name)}
                   </a>
                   <p className="text-xs text-muted-foreground">
                     {CATALOG_LABELS[catalog.label]} - {(catalog.size / 1024 / 1024).toFixed(2)} MB -{' '}
