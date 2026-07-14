@@ -75,7 +75,7 @@ export function SchoolLogoManager({ logos: initialLogos }: { logos: SchoolLogo[]
               <Input
                 value={logo.imageUrl ?? ''}
                 onChange={(event) => updateLogo(index, { imageUrl: event.target.value })}
-                placeholder="/images/schools/logo.png or https://..."
+                placeholder="/images/logos/tns.jpg or https://..."
                 className="rounded-xl"
               />
             </div>

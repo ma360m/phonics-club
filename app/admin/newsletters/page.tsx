@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { uploadNewsletterFormAction, deleteNewsletterFormAction } from '@/actions/admin/newsletters'
-import { listNewsletterIssues, formatNewsletterMonth } from '@/lib/newsletters'
+import { NEWSLETTER_MAX_FILE_SIZE_MB, listNewsletterIssues, formatNewsletterMonth } from '@/lib/newsletters'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +62,7 @@ export default async function AdminNewslettersPage() {
             <label className="flex flex-col gap-2 text-sm sm:col-span-3">
               <span className="font-medium">PDF file</span>
               <input name="file" type="file" accept=".pdf" required className="rounded-xl border bg-background px-3 py-2" />
+              <span className="text-xs text-muted-foreground">PDF only, up to {NEWSLETTER_MAX_FILE_SIZE_MB} MB.</span>
             </label>
             <div className="flex items-end sm:col-span-2">
               <Button type="submit" className="rounded-xl bg-[#1D4ED8]">Upload newsletter</Button>

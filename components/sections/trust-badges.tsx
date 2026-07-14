@@ -1,26 +1,35 @@
 'use client'
 
-import Image from 'next/image'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { SchoolLogo } from '@/lib/site-content'
 
+function LogoArtwork({ logo }: { logo: SchoolLogo }) {
+  const [failed, setFailed] = useState(false)
+
+  if (!logo.imageUrl || failed) {
+    return (
+      <span className="text-center text-sm font-bold leading-tight text-[#1D4ED8] sm:text-base">
+        {logo.name}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      src={logo.imageUrl}
+      alt={logo.name}
+      className="max-h-16 max-w-[180px] object-contain sm:max-h-20 sm:max-w-[220px]"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function LogoTile({ logo }: { logo: SchoolLogo }) {
   const content = (
-    <div className="flex h-16 min-w-40 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-5 shadow-sm sm:h-20 sm:min-w-48">
-      {logo.imageUrl ? (
-        <Image
-          src={logo.imageUrl}
-          alt={logo.name}
-          width={160}
-          height={64}
-          className="max-h-12 w-auto object-contain sm:max-h-14"
-          unoptimized
-        />
-      ) : (
-        <span className="text-center text-sm font-bold text-[#1D4ED8] sm:text-base">
-          {logo.name}
-        </span>
-      )}
+    <div className="flex h-24 min-w-56 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white px-6 shadow-sm sm:h-28 sm:min-w-64">
+      <LogoArtwork logo={logo} />
     </div>
   )
 

@@ -146,6 +146,19 @@ export interface Enrollment {
   courses?: Course
 }
 
+export interface NewsletterIssue {
+  id: string
+  title: string
+  month: number
+  year: number
+  file_url: string
+  file_path: string
+  file_size: number
+  published: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -157,6 +170,7 @@ export interface Database {
       cart_items: { Row: CartItem; Insert: Partial<CartItem>; Update: Partial<CartItem> }
       wishlist_items: { Row: WishlistItem; Insert: Partial<WishlistItem>; Update: Partial<WishlistItem> }
       enrollments: { Row: Enrollment; Insert: Partial<Enrollment>; Update: Partial<Enrollment> }
+      newsletter_issues: { Row: NewsletterIssue; Insert: Partial<NewsletterIssue>; Update: Partial<NewsletterIssue> }
     }
   }
 }

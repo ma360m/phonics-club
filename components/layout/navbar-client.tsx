@@ -12,6 +12,7 @@ const navigation = [
   { name: 'Shop', href: '/shop' },
   { name: 'Online Courses', href: '/courses' },
   { name: 'Training', href: '/trainings' },
+  { name: 'Newsletters', href: '/newsletters' },
   { name: 'About', href: '/about' },
   { name: 'FAQs', href: '/faqs' },
   { name: 'Contact', href: '/contact' },

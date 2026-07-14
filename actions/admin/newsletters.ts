@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/auth'
-import { deleteNewsletterIssue, uploadNewsletterIssue } from '@/lib/newsletters'
+import {
+  NEWSLETTER_MAX_FILE_SIZE_BYTES,
+  NEWSLETTER_MAX_FILE_SIZE_MB,
+  deleteNewsletterIssue,
+  uploadNewsletterIssue,
+} from '@/lib/newsletters'
 import type { ActionResult } from '@/types'
 
 function parseMonth(value: FormDataEntryValue | null): number {
@@ -27,6 +32,9 @@ export async function uploadNewsletterFormAction(formData: FormData): Promise<vo
   const file = formData.get('file')
   if (!file || typeof file === 'string' || !file.name) {
     throw new Error('Choose a PDF newsletter file')
+  }
+  if (file.size > NEWSLETTER_MAX_FILE_SIZE_BYTES) {
+    throw new Error(`Newsletter PDFs must be ${NEWSLETTER_MAX_FILE_SIZE_MB}MB or smaller`)
   }
 
   const title = String(formData.get('title') ?? '').trim() || file.name.replace(/\.[^.]+$/, '')

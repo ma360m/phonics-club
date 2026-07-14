@@ -15,15 +15,28 @@ export interface NewsletterIssue {
 }
 
 export const NEWSLETTERS_BUCKET = 'newsletters'
+export const NEWSLETTER_MAX_FILE_SIZE_MB = 50
+export const NEWSLETTER_MAX_FILE_SIZE_BYTES = NEWSLETTER_MAX_FILE_SIZE_MB * 1024 * 1024
 
 export function formatNewsletterMonth(month: number): string {
   return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(2026, month - 1, 1))
 }
 
-function getNewsletterPublicUrl(path: string): string {
+export function getNewsletterPublicUrl(path: string): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!base) return path
   return `${base}/storage/v1/object/public/${NEWSLETTERS_BUCKET}/${path}`
+}
+
+function isPdfFile(file: File): boolean {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
+function normalizeNewsletterIssue(issue: NewsletterIssue): NewsletterIssue {
+  return {
+    ...issue,
+    file_url: issue.file_path ? getNewsletterPublicUrl(issue.file_path) : issue.file_url,
+  }
 }
 
 function sanitizeFilename(name: string): string {
@@ -50,7 +63,7 @@ export async function listNewsletterIssues(options?: { admin?: boolean }): Promi
       .order('created_at', { ascending: false })
 
     if (error) return []
-    return (data ?? []) as NewsletterIssue[]
+    return ((data ?? []) as NewsletterIssue[]).map(normalizeNewsletterIssue)
   } catch {
     return []
   }
@@ -63,6 +76,14 @@ export async function uploadNewsletterIssue(input: {
   year: number
   published: boolean
 }): Promise<NewsletterIssue> {
+  if (!isPdfFile(input.file)) {
+    throw new Error('Choose a PDF newsletter file')
+  }
+
+  if (input.file.size > NEWSLETTER_MAX_FILE_SIZE_BYTES) {
+    throw new Error(`Newsletter PDFs must be ${NEWSLETTER_MAX_FILE_SIZE_MB}MB or smaller`)
+  }
+
   const safeName = sanitizeFilename(input.file.name)
   const path = `${input.year}/${String(input.month).padStart(2, '0')}-${Date.now()}-${safeName}`
   const bytes = Buffer.from(await input.file.arrayBuffer())
@@ -94,7 +115,7 @@ export async function uploadNewsletterIssue(input: {
     .single()
 
   if (error) throw new Error(error.message)
-  return data as NewsletterIssue
+  return normalizeNewsletterIssue(data as NewsletterIssue)
 }
 
 export async function deleteNewsletterIssue(id: string): Promise<void> {

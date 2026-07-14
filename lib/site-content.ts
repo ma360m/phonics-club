@@ -68,18 +68,35 @@ const DEFAULT_SOCIAL_REELS: SocialReel[] = [
   { id: '6', thumbnail: '', videoUrl: COMPANY.social.youtube, title: 'Phonics Club community' },
 ]
 
+const SCHOOL_LOGO_PATHS: Record<string, string> = {
+  tns: '/images/logos/tns.jpg',
+  froebels: '/images/logos/froebels.jpg',
+  starfish: '/images/logos/starfish.jpg',
+  quixotic: '/images/logos/quixotic.jpg',
+  lgs: '/images/logos/lgs.jpg',
+  beaconhouse: '/images/logos/beaconhouse.png',
+  rwis: '/images/logos/RWIS.jpg',
+  academus: '/images/logos/ACADEMUS.png',
+  alda: '/images/logos/ALDA.png',
+  horizon: '/images/logos/HORIZON.jpg',
+  aksp: '/images/logos/AKSP.png',
+  akrsp: '/images/logos/AKRSP.jpg',
+}
+
 const DEFAULT_SCHOOL_LOGOS: SchoolLogo[] = [
-  { id: 'tns', name: 'TNS', imageUrl: '', sortOrder: 1 },
-  { id: 'froebels', name: "Froebel's International", imageUrl: '', sortOrder: 2 },
-  { id: 'starfish', name: 'Starfish School', imageUrl: '', sortOrder: 3 },
-  { id: 'quixotic', name: 'Quixotic Academy', imageUrl: '', sortOrder: 4 },
-  { id: 'lgs', name: 'LGS', imageUrl: '', sortOrder: 5 },
-  { id: 'beaconhouse', name: 'Beaconhouse', imageUrl: '', sortOrder: 6 },
-  { id: 'rwis', name: 'RWIS', imageUrl: '', sortOrder: 7 },
+  { id: 'tns', name: 'TNS', imageUrl: SCHOOL_LOGO_PATHS.tns, sortOrder: 1 },
+  { id: 'froebels', name: "Froebel's International", imageUrl: SCHOOL_LOGO_PATHS.froebels, sortOrder: 2 },
+  { id: 'starfish', name: 'Starfish School', imageUrl: SCHOOL_LOGO_PATHS.starfish, sortOrder: 3 },
+  { id: 'quixotic', name: 'Quixotic Academy', imageUrl: SCHOOL_LOGO_PATHS.quixotic, sortOrder: 4 },
+  { id: 'lgs', name: 'LGS', imageUrl: SCHOOL_LOGO_PATHS.lgs, sortOrder: 5 },
+  { id: 'beaconhouse', name: 'Beaconhouse', imageUrl: SCHOOL_LOGO_PATHS.beaconhouse, sortOrder: 6 },
+  { id: 'rwis', name: 'RWIS', imageUrl: SCHOOL_LOGO_PATHS.rwis, sortOrder: 7 },
   { id: 'dynamic', name: 'Dynamic International', imageUrl: '', sortOrder: 8 },
-  { id: 'academus', name: 'Academus', imageUrl: '', sortOrder: 9 },
-  { id: 'alda', name: 'ALDA', imageUrl: '', sortOrder: 10 },
-  { id: 'horizon', name: 'Horizon School System', imageUrl: '', sortOrder: 11 },
+  { id: 'academus', name: 'Academus', imageUrl: SCHOOL_LOGO_PATHS.academus, sortOrder: 9 },
+  { id: 'alda', name: 'ALDA', imageUrl: SCHOOL_LOGO_PATHS.alda, sortOrder: 10 },
+  { id: 'horizon', name: 'Horizon School System', imageUrl: SCHOOL_LOGO_PATHS.horizon, sortOrder: 11 },
+  { id: 'aksp', name: 'AKSP', imageUrl: SCHOOL_LOGO_PATHS.aksp, sortOrder: 12 },
+  { id: 'akrsp', name: 'AKRSP', imageUrl: SCHOOL_LOGO_PATHS.akrsp, sortOrder: 13 },
 ]
 
 const DEFAULT_VORTEX: VortexLearning = {
@@ -111,6 +128,36 @@ async function getContent<T>(key: string, fallback: T): Promise<T> {
   return fallback
 }
 
+function logoIdFromName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function normalizeLogoUrl(value: string | undefined): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed || /\s/.test(trimmed) || trimmed === '/images/schools/logo.png') return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (trimmed.startsWith('/public/')) return trimmed.replace(/^\/public/, '')
+  if (trimmed.startsWith('public/')) return `/${trimmed.replace(/^public\//, '')}`
+  if (trimmed.startsWith('/')) return trimmed
+  if (trimmed.startsWith('images/')) return `/${trimmed}`
+  return ''
+}
+
+function normalizeSchoolLogo(logo: SchoolLogo, index: number): SchoolLogo {
+  const id = logo.id || logoIdFromName(logo.name)
+  const normalizedUrl = normalizeLogoUrl(logo.imageUrl)
+  const imageUrl = /^https?:\/\//i.test(normalizedUrl)
+    ? normalizedUrl
+    : SCHOOL_LOGO_PATHS[id] ?? normalizedUrl
+
+  return {
+    ...logo,
+    id,
+    imageUrl,
+    sortOrder: Number(logo.sortOrder) || index + 1,
+  }
+}
+
 export async function getAnnouncements(): Promise<Announcement[]> {
   const items = await getContent<Announcement[]>('announcements', DEFAULT_ANNOUNCEMENTS)
   return items.filter((a) => a.active)
@@ -126,7 +173,9 @@ export async function getSocialReels(): Promise<SocialReel[]> {
 
 export async function getSchoolLogos(): Promise<SchoolLogo[]> {
   const logos = await getContent('school_logos', DEFAULT_SCHOOL_LOGOS)
-  return [...logos].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  return [...logos]
+    .map(normalizeSchoolLogo)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 }
 
 export async function getVortexLearning(): Promise<VortexLearning> {

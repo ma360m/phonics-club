@@ -1,4 +1,4 @@
-import { getAllSiteContent, getHeroVideo, getSchoolLogos, type SchoolLogo } from '@/lib/site-content'
+import { getAllSiteContent, getHeroVideo, getSchoolLogos } from '@/lib/site-content'
 import { saveSiteContentFormAction } from '@/actions/admin/site-content'
 import { SchoolLogoManager } from '@/components/admin/school-logo-manager'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,7 @@ const SECTIONS = [
 export default async function AdminContentPage() {
   const allContent = await getAllSiteContent()
   const contentMap = Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content]))
-  const schoolLogos = Array.isArray(contentMap.school_logos)
-    ? (contentMap.school_logos as SchoolLogo[])
-    : await getSchoolLogos()
+  const schoolLogos = await getSchoolLogos()
   const heroVideo = contentMap.hero_video ?? await getHeroVideo()
 
   return (
