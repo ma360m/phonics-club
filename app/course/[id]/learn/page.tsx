@@ -1,35 +1,41 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { requireAuth, isSupabaseConfigured } from '@/lib/auth'
-import { getUserEnrollments } from '@/actions/enrollments'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth'
 import { CourseLearnPlayer } from '@/components/courses/course-learn-player'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft } from 'lucide-react'
-import { SEED_COURSES } from '@/lib/data/seed'
-import type { Course } from '@/types/database'
+import {
+  getCourseById,
+  getCourseModules,
+  getCourseQuizzes,
+  getCourseResources,
+  getLessonProgress,
+  getUserEnrollment,
+  isEnrollmentActive,
+} from '@/lib/lms'
+import type { Metadata } from 'next'
 
-async function getCourseById(id: string): Promise<Course | null> {
-  if (!isSupabaseConfigured()) {
-    return SEED_COURSES.find((c) => c.id === id) ?? null
-  }
-  const supabase = await createClient()
-  const { data } = await supabase.from('courses').select('*').eq('id', id).single()
-  return data as Course | null
+export const metadata: Metadata = {
+  title: 'Course Learning',
+  robots: { index: false, follow: false },
 }
 
 export default async function CourseLearnPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAuth()
+  const user = await requireAuth()
   const { id } = await params
   const course = await getCourseById(id)
   if (!course) notFound()
 
-  const enrollments = await getUserEnrollments()
-  const enrolled = enrollments.some((e) => e.course_id === id)
-  if (!enrolled) redirect(`/courses/${course.slug}`)
-
-  const enrollment = enrollments.find((e) => e.course_id === id)
+  const enrollment = await getUserEnrollment(user.id, id)
+  if (!enrollment) redirect(`/courses/${course.slug}`)
+  if (!isEnrollmentActive(enrollment)) redirect('/dashboard/my-courses')
+  const [modules, progressItems, resources, quizzes] = await Promise.all([
+    getCourseModules(course),
+    getLessonProgress(user.id, id),
+    getCourseResources(id),
+    getCourseQuizzes(id),
+  ])
 
   return (
     <main>
@@ -43,6 +49,10 @@ export default async function CourseLearnPage({ params }: { params: Promise<{ id
         </Button>
         <CourseLearnPlayer
           course={course}
+          modules={modules}
+          progressItems={progressItems}
+          resources={resources}
+          quizzes={quizzes}
           initialProgress={enrollment?.progress ?? 0}
         />
       </div>

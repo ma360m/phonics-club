@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getAdminCourses, deleteCourseAction } from '@/actions/admin/courses'
 import { Button } from '@/components/ui/button'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ListTree } from 'lucide-react'
 
 export default async function AdminCoursesPage() {
   const courses = await getAdminCourses()
@@ -24,6 +24,9 @@ export default async function AdminCoursesPage() {
             <div className="flex gap-2">
               <Button asChild size="sm" variant="outline" className="rounded-lg">
                 <Link href={`/admin/courses/${c.id}`}><Pencil className="w-3.5 h-3.5" /></Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="rounded-lg">
+                <Link href={`/admin/courses/${c.id}/builder`}><ListTree className="w-3.5 h-3.5" /></Link>
               </Button>
               <form action={deleteCourseAction.bind(null, c.id)}>
                 <Button type="submit" size="sm" variant="destructive" className="rounded-lg">

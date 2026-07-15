@@ -16,8 +16,18 @@ const initial: ActionResult = { success: false }
 
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'all-levels']
 
-function linesToArray(text: string) {
-  return text.split('\n').map((s) => s.trim()).filter(Boolean)
+function metaString(course: Course | undefined, key: string): string {
+  const value = course?.metadata?.[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function metaLines(course: Course | undefined, key: string): string {
+  const value = course?.metadata?.[key]
+  return Array.isArray(value) ? value.join('\n') : ''
+}
+
+function datetimeValue(value?: string | null): string {
+  return value ? value.slice(0, 16) : ''
 }
 
 export function CourseForm({ course }: { course?: Course }) {
@@ -43,6 +53,11 @@ export function CourseForm({ course }: { course?: Course }) {
       </div>
 
       <div className="space-y-2">
+        <Label>Subtitle</Label>
+        <Input name="subtitle" defaultValue={course?.subtitle ?? ''} className="rounded-xl" />
+      </div>
+
+      <div className="space-y-2">
         <Label>Short Description (excerpt)</Label>
         <Input name="excerpt" defaultValue={course?.excerpt ?? ''} className="rounded-xl" />
       </div>
@@ -52,10 +67,23 @@ export function CourseForm({ course }: { course?: Course }) {
         <Textarea name="description" defaultValue={course?.description ?? ''} className="rounded-xl" rows={4} />
       </div>
 
+      <div className="space-y-2">
+        <Label>Rich LMS Description</Label>
+        <Textarea name="rich_description" defaultValue={course?.rich_description ?? ''} className="rounded-xl" rows={5} />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Price (PKR, 0 = free)</Label>
+          <Label>Price</Label>
           <Input name="price" type="number" step="1" defaultValue={course?.price ?? 0} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Discounted Price</Label>
+          <Input name="discounted_price" type="number" step="1" defaultValue={course?.discounted_price ?? ''} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Currency</Label>
+          <Input name="currency" defaultValue={course?.currency ?? 'PKR'} className="rounded-xl" />
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
@@ -72,6 +100,10 @@ export function CourseForm({ course }: { course?: Course }) {
           </select>
         </div>
         <div className="space-y-2">
+          <Label>Language</Label>
+          <Input name="language" defaultValue={course?.language ?? 'English'} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
           <Label>Duration</Label>
           <Input name="duration" defaultValue={course?.duration ?? ''} placeholder="8 Weeks" className="rounded-xl" />
         </div>
@@ -86,12 +118,45 @@ export function CourseForm({ course }: { course?: Course }) {
           <Label>Instructor Bio</Label>
           <Input name="instructor_bio" defaultValue={course?.instructor_bio ?? ''} className="rounded-xl" />
         </div>
+        <div className="space-y-2">
+          <Label>Instructor Image URL</Label>
+          <Input name="instructor_image_url" defaultValue={course?.instructor_image_url ?? course?.instructor_avatar ?? ''} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Hero Video URL</Label>
+          <Input name="hero_video_url" defaultValue={course?.hero_video_url ?? ''} className="rounded-xl" />
+        </div>
       </div>
 
       <div className="space-y-2">
         <Label>Course Thumbnail</Label>
         <Input name="image_url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="rounded-xl" />
         <ImageUpload folder="phonics-club/courses" onUpload={setImageUrl} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Thumbnail URL</Label>
+          <Input name="thumbnail_url" defaultValue={course?.thumbnail_url ?? course?.image_url ?? ''} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Banner URL</Label>
+          <Input name="banner_url" defaultValue={course?.banner_url ?? ''} className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Certificate Background URL</Label>
+          <Input name="certificate_background_url" defaultValue={course?.certificate_background_url ?? ''} className="rounded-xl" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Preview Video URL</Label>
+        <Input
+          name="preview_video_url"
+          defaultValue={metaString(course, 'previewVideoUrl')}
+          placeholder="https://youtu.be/rEF-BMA30Vg"
+          className="rounded-xl"
+        />
       </div>
 
       <div className="space-y-2">
@@ -102,6 +167,51 @@ export function CourseForm({ course }: { course?: Course }) {
           rows={4}
           className="rounded-xl"
           placeholder="Master synthetic phonics&#10;Plan effective lessons"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Course Highlights (one per line)</Label>
+        <Textarea
+          name="highlights"
+          defaultValue={metaLines(course, 'highlights')}
+          rows={4}
+          className="rounded-xl"
+          placeholder="Learning 42 letter sounds through actions"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Core Materials (one per line)</Label>
+          <Textarea
+            name="core_materials"
+            defaultValue={metaLines(course, 'coreMaterials')}
+            rows={4}
+            className="rounded-xl"
+            placeholder="Jolly Phonics Pupil Books 1 and 2"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Intended Audience (one per line)</Label>
+          <Textarea
+            name="intended_audience"
+            defaultValue={metaLines(course, 'intendedAudience')}
+            rows={4}
+            className="rounded-xl"
+            placeholder="English teachers"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Target Audience (one per line)</Label>
+        <Textarea
+          name="target_audience"
+          defaultValue={(course?.target_audience ?? []).join('\n')}
+          rows={3}
+          className="rounded-xl"
+          placeholder="Early years teachers&#10;School literacy coordinators"
         />
       </div>
 
@@ -118,6 +228,56 @@ export function CourseForm({ course }: { course?: Course }) {
 
       <input type="hidden" name="curriculum" value={JSON.stringify(curriculum)} />
       <CurriculumBuilder value={curriculum} onChange={setCurriculum} />
+
+      <div className="rounded-2xl border bg-muted/20 p-4">
+        <h2 className="mb-4 text-lg font-semibold">Access, Time and Completion Rules</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Enrolment Opens</Label>
+            <Input name="enrolment_opens_at" type="datetime-local" defaultValue={datetimeValue(course?.enrolment_opens_at)} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Enrolment Closes</Label>
+            <Input name="enrolment_closes_at" type="datetime-local" defaultValue={datetimeValue(course?.enrolment_closes_at)} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Max Students</Label>
+            <Input name="max_students" type="number" min="1" defaultValue={course?.max_students ?? ''} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Access Duration (days)</Label>
+            <Input name="access_duration_days" type="number" min="1" defaultValue={course?.access_duration_days ?? 90} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Required Online Minutes</Label>
+            <Input name="required_online_minutes" type="number" min="0" defaultValue={course?.required_online_minutes ?? 0} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Required Offline Minutes</Label>
+            <Input name="required_offline_minutes" type="number" min="0" defaultValue={course?.required_offline_minutes ?? 0} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Passing Quiz %</Label>
+            <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={course?.passing_quiz_percentage ?? 70} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Required Assignment Passes</Label>
+            <Input name="required_assignment_passes" type="number" min="0" defaultValue={course?.required_assignment_passes ?? 0} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Daily Online Cap</Label>
+            <Input name="daily_online_minutes_cap" type="number" min="1" defaultValue={course?.daily_online_minutes_cap ?? 480} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Inactivity Timeout (sec)</Label>
+            <Input name="inactivity_timeout_seconds" type="number" min="180" max="300" defaultValue={course?.inactivity_timeout_seconds ?? 240} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Max Offline Entry Minutes</Label>
+            <Input name="max_offline_entry_minutes" type="number" min="1" defaultValue={course?.max_offline_entry_minutes ?? 360} className="rounded-xl" />
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -137,6 +297,31 @@ export function CourseForm({ course }: { course?: Course }) {
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="published" defaultChecked={course?.published ?? true} /> Published
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="certificate_enabled"
+            defaultChecked={course?.certificate_enabled ?? course?.metadata?.certificateEnabled !== false}
+          /> Certificate
+        </label>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border bg-card p-4 sm:grid-cols-2">
+        {[
+          ['completion_requires_lessons', 'Require compulsory lessons', course?.completion_requires_lessons ?? true],
+          ['completion_requires_online_minutes', 'Require online minutes', course?.completion_requires_online_minutes ?? false],
+          ['completion_requires_offline_minutes', 'Require offline minutes', course?.completion_requires_offline_minutes ?? false],
+          ['completion_requires_quiz', 'Require final quiz', course?.completion_requires_quiz ?? false],
+          ['completion_requires_assignments', 'Require assignments', course?.completion_requires_assignments ?? false],
+          ['completion_requires_active_enrollment', 'Require active access', course?.completion_requires_active_enrollment ?? true],
+          ['completion_requires_instructor_approval', 'Require instructor approval', course?.completion_requires_instructor_approval ?? false],
+          ['offline_evidence_required', 'Require offline evidence', course?.offline_evidence_required ?? false],
+        ].map(([name, label, checked]) => (
+          <label key={String(name)} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name={String(name)} defaultChecked={Boolean(checked)} />
+            {String(label)}
+          </label>
+        ))}
       </div>
 
       <Button type="submit" disabled={pending} className="rounded-xl bg-[#1D4ED8]">

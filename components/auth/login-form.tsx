@@ -11,11 +11,12 @@ import type { ActionResult } from '@/types'
 
 const initialState: ActionResult = { success: false }
 
-export function LoginForm() {
+export function LoginForm({ redirectTo = '/dashboard' }: { redirectTo?: string }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState)
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="redirect" value={redirectTo} />
       {state.error && (
         <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">{state.error}</p>
       )}

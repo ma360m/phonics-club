@@ -15,6 +15,8 @@ import {
   Award,
   Megaphone,
   Calendar,
+  BarChart3,
+  CreditCard,
   Menu,
   X,
 } from 'lucide-react'
@@ -28,6 +30,8 @@ const links = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/courses', label: 'Courses', icon: GraduationCap },
+  { href: '/admin/course-payments', label: 'Course Payments', icon: CreditCard },
+  { href: '/admin/lms-reports', label: 'LMS Reports', icon: BarChart3 },
   { href: '/admin/blog', label: 'Blog', icon: FileText },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },

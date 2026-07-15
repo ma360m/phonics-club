@@ -10,11 +10,14 @@ export const metadata = buildMetadata({
   path: '/auth/login',
 })
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>
+  searchParams: Promise<{ message?: string; error?: string; redirect?: string }>
 }) {
+  const { redirect } = await searchParams
+  const redirectTo = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
+
   return (
     <main className="min-h-screen flex flex-col">
       <AnnouncementBar />
@@ -30,7 +33,7 @@ export default function LoginPage({
             <p className="text-muted-foreground mt-1">Sign in to {APP_NAME}</p>
           </div>
           <div className="bg-card rounded-2xl border border-border p-8 shadow-xl glass">
-            <LoginForm />
+            <LoginForm redirectTo={redirectTo} />
           </div>
         </div>
       </div>

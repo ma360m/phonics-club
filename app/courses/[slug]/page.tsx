@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { CourseDetailView } from '@/components/courses/course-detail-view'
-import { getCourseBySlug, getCourses } from '@/lib/data/queries'
+import { getCourseBySlug } from '@/lib/data/queries'
+import { getCourseDetailBundle, getUserEnrollment } from '@/lib/lms'
+import { getSession } from '@/lib/auth'
 import { buildMetadata, courseJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 
@@ -19,21 +21,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const course = await getCourseBySlug(slug)
-  if (!course) notFound()
-
-  const allCourses = await getCourses()
-  const relatedCourses = allCourses
-    .filter((c) => c.id !== course.id && c.category === course.category)
-    .slice(0, 3)
+  const bundle = await getCourseDetailBundle(slug)
+  if (!bundle) notFound()
+  const user = await getSession()
+  const enrollment = user ? await getUserEnrollment(user.id, bundle.course.id) : null
 
   return (
     <main>
-      <JsonLd data={courseJsonLd(course)} />
+      <JsonLd data={courseJsonLd(bundle.course)} />
       <AnnouncementBar />
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <CourseDetailView course={course} relatedCourses={relatedCourses} />
+        <CourseDetailView {...bundle} enrolled={Boolean(enrollment)} />
       </div>
       <Footer />
     </main>

@@ -5,6 +5,10 @@ import { isSupabaseConfigured } from '@/lib/auth'
 const PROTECTED_PREFIXES = ['/dashboard', '/wishlist', '/admin', '/course']
 const AUTH_ROUTES = ['/auth/login', '/auth/signup']
 
+function matchesRoutePrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`)
+}
+
 export async function middleware(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.next()
@@ -13,8 +17,8 @@ export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request)
   const pathname = request.nextUrl.pathname
 
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-  const isAuthRoute = AUTH_ROUTES.some((p) => pathname.startsWith(p))
+  const isProtected = PROTECTED_PREFIXES.some((p) => matchesRoutePrefix(pathname, p))
+  const isAuthRoute = AUTH_ROUTES.some((p) => matchesRoutePrefix(pathname, p))
   const isAdmin = pathname.startsWith('/admin')
 
   if (isProtected && !user) {

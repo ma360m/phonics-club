@@ -24,34 +24,79 @@ function parseCourseForm(formData: FormData) {
   const parsed = courseSchema.safeParse({
     title: formData.get('title'),
     slug: formData.get('slug'),
+    subtitle: formData.get('subtitle'),
     description: formData.get('description'),
+    rich_description: formData.get('rich_description'),
     excerpt: formData.get('excerpt'),
     price: formData.get('price'),
+    discounted_price: formData.get('discounted_price') || null,
+    currency: formData.get('currency') || 'PKR',
     category: formData.get('category'),
     level: formData.get('level'),
+    language: formData.get('language') || 'English',
     duration: formData.get('duration'),
     instructor: formData.get('instructor'),
     instructor_bio: formData.get('instructor_bio'),
     image_url: formData.get('image_url') || null,
+    thumbnail_url: formData.get('thumbnail_url') || formData.get('image_url') || null,
+    banner_url: formData.get('banner_url') || null,
+    instructor_image_url: formData.get('instructor_image_url') || null,
+    certificate_background_url: formData.get('certificate_background_url') || null,
+    hero_video_url: formData.get('hero_video_url') || null,
+    enrolment_opens_at: formData.get('enrolment_opens_at') || null,
+    enrolment_closes_at: formData.get('enrolment_closes_at') || null,
+    max_students: formData.get('max_students') || null,
+    access_duration_days: formData.get('access_duration_days') || 90,
+    required_online_minutes: formData.get('required_online_minutes') || 0,
+    required_offline_minutes: formData.get('required_offline_minutes') || 0,
+    passing_quiz_percentage: formData.get('passing_quiz_percentage') || 70,
+    required_assignment_passes: formData.get('required_assignment_passes') || 0,
+    daily_online_minutes_cap: formData.get('daily_online_minutes_cap') || 480,
+    inactivity_timeout_seconds: formData.get('inactivity_timeout_seconds') || 240,
+    max_offline_entry_minutes: formData.get('max_offline_entry_minutes') || 360,
     objectives: formData.get('objectives'),
     requirements: formData.get('requirements'),
     seo_title: formData.get('seo_title'),
     seo_description: formData.get('seo_description'),
     featured: formData.get('featured') === 'on',
     published: formData.get('published') === 'on',
+    certificate_enabled: formData.get('certificate_enabled') === 'on',
+    completion_requires_lessons: formData.get('completion_requires_lessons') === 'on',
+    completion_requires_online_minutes: formData.get('completion_requires_online_minutes') === 'on',
+    completion_requires_offline_minutes: formData.get('completion_requires_offline_minutes') === 'on',
+    completion_requires_quiz: formData.get('completion_requires_quiz') === 'on',
+    completion_requires_assignments: formData.get('completion_requires_assignments') === 'on',
+    completion_requires_active_enrollment: formData.get('completion_requires_active_enrollment') === 'on',
+    completion_requires_instructor_approval: formData.get('completion_requires_instructor_approval') === 'on',
+    offline_evidence_required: formData.get('offline_evidence_required') === 'on',
   })
 
   if (!parsed.success) return { ok: false as const, error: parsed.error.errors[0]?.message }
 
   const price = parsed.data.price
+  const previewVideoUrl = String(formData.get('preview_video_url') ?? '').trim()
+  const highlights = parseLines(formData, 'highlights')
+  const coreMaterials = parseLines(formData, 'core_materials')
+  const intendedAudience = parseLines(formData, 'intended_audience')
+  const targetAudience = parseLines(formData, 'target_audience')
+  const metadata: Record<string, unknown> = {
+    certificateEnabled: formData.get('certificate_enabled') === 'on',
+  }
+  if (previewVideoUrl) metadata.previewVideoUrl = previewVideoUrl
+  if (highlights.length) metadata.highlights = highlights
+  if (coreMaterials.length) metadata.coreMaterials = coreMaterials
+  if (intendedAudience.length) metadata.intendedAudience = intendedAudience
+
   return {
     ok: true as const,
     data: {
       ...parsed.data,
       objectives: parseLines(formData, 'objectives'),
       requirements: parseLines(formData, 'requirements'),
+      target_audience: targetAudience.length ? targetAudience : intendedAudience,
       is_free: price === 0,
       curriculum,
+      metadata,
     },
   }
 }

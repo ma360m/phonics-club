@@ -29,7 +29,8 @@ export async function loginAction(
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  const redirectTo = String(formData.get('redirect') ?? '/dashboard')
+  redirect(redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/dashboard')
 }
 
 export async function signupAction(

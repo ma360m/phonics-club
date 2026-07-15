@@ -95,7 +95,14 @@ export async function getCourses(options?: {
   if (options?.featured) query = query.eq('featured', true)
   if (options?.limit) query = query.limit(options.limit)
 
-  const { data } = await query.order('created_at', { ascending: false })
+  const { data, error } = await query.order('created_at', { ascending: false })
+  if (error || !data?.length) {
+    let items = [...SEED_COURSES]
+    if (options?.category) items = items.filter((c) => c.category === options.category)
+    if (options?.featured) items = items.filter((c) => c.featured)
+    if (options?.limit) items = items.slice(0, options.limit)
+    return items
+  }
   return (data as Course[]) ?? []
 }
 
