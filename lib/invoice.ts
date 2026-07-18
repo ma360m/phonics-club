@@ -1,5 +1,6 @@
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 
 interface InvoiceTemplate {
@@ -38,10 +39,6 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#039;')
 }
 
-function paymentLabel(method?: string | null) {
-  return method === 'credit' ? 'Bank Transfer' : 'Cash on Delivery'
-}
-
 function invoiceTagline(value?: string) {
   const tagline = value?.trim() ?? ''
   if (/official\s+jolly.*distributor/i.test(tagline)) return ''
@@ -63,11 +60,11 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         ? `${formatDiscountPercent(line.discountPercent)}<br><span style="color:#64748b">-${formatPrice(line.lineDiscount)}</span>`
         : '-'
       return `<tr>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(line.item.name)}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center">${line.item.quantity}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${formatPrice(line.item.price)}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${discountText}</td>
-        <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${formatPrice(line.lineTotal)}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.lineTotal)}</td>
       </tr>`
     })
     .join('')
@@ -93,7 +90,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <p style="margin:4px 0"><strong>Invoice #:</strong> ${escapeHtml(order.invoice_number ?? order.id.slice(0, 8).toUpperCase())}</p>
         <p style="margin:4px 0"><strong>Status:</strong> ${escapeHtml(order.status)}</p>
         <p style="margin:4px 0"><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-PK')}</p>
-        <p style="margin:4px 0"><strong>Payment:</strong> ${paymentLabel(order.payment_method)}</p>
+        <p style="margin:4px 0"><strong>Payment:</strong> ${shopPaymentLabel(order.payment_method)}</p>
       </div>
       <div style="min-width:240px;text-align:left">
         <p style="margin:4px 0 8px"><strong>Bill To:</strong></p>
@@ -105,25 +102,25 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       </div>
     </div>
 
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:white;border:1px solid #e5e7eb">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:white;border:1px solid #b6c3d8">
       <thead><tr style="background:#f1f5f9">
-        <th style="padding:10px;text-align:left">Item</th>
-        <th style="padding:10px;text-align:center">Qty</th>
-        <th style="padding:10px;text-align:right">Price</th>
-        <th style="padding:10px;text-align:right">Discount</th>
-        <th style="padding:10px;text-align:right">Total</th>
+        <th style="padding:10px;text-align:left;border:1px solid #b6c3d8">Item</th>
+        <th style="padding:10px;text-align:center;border:1px solid #b6c3d8">Qty</th>
+        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Price</th>
+        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Discount</th>
+        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Total</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
-      <div style="width:320px">
-        <p style="display:flex;justify-content:space-between;margin:8px 0"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
-        ${summary.discount > 0 ? `<p style="display:flex;justify-content:space-between;margin:8px 0"><span>Discount${order.coupon_code ? ` (${escapeHtml(order.coupon_code)})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
-        <p style="display:flex;justify-content:space-between;margin:8px 0;border-top:1px solid #e5e7eb;padding-top:8px"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>
-        <p style="display:flex;justify-content:space-between;margin:8px 0"><span>Shipping</span><strong>${formatPrice(summary.shipping)}</strong></p>
-        ${order.member_id ? `<p style="display:flex;justify-content:space-between;margin:8px 0"><span>Member ID</span><strong>${escapeHtml(order.member_id)}</strong></p>` : ''}
-        <p style="display:flex;justify-content:space-between;margin:12px 0 0;border-top:2px solid #1D4ED8;padding-top:10px;font-size:1.2em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
+      <div style="width:340px;border:1px solid #b6c3d8;background:white;border-radius:8px;overflow:hidden">
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
+        ${summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount${order.coupon_code ? ` (${escapeHtml(order.coupon_code)})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
+        ${order.member_id ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Member ID</span><strong>${escapeHtml(order.member_id)}</strong></p>` : ''}
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
       </div>
     </div>
 

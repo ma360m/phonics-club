@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { friendlyErrorMessage } from '@/lib/friendly-error'
 
 export function SiteMediaUpload({
   label = 'Upload supporting media',
@@ -34,7 +35,7 @@ export function SiteMediaUpload({
       onUploaded?.(data.url)
       toast.success('Media uploaded')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toast.error(friendlyErrorMessage(err, 'Upload failed.'))
     } finally {
       setUploading(false)
     }

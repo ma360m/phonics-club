@@ -10,6 +10,7 @@ import { formatPrice, formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
+import { shopPaymentLabel } from '@/lib/payment-methods'
 
 export default async function AdminOrdersPage() {
   const orders = await getAllOrders()
@@ -48,7 +49,7 @@ export default async function AdminOrdersPage() {
                 <div className="text-right">
                   <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>
                   <Badge className="mt-1">{order.status}</Badge>
-                  <p className="text-xs text-muted-foreground mt-1 capitalize">{order.payment_method ?? 'cod'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{shopPaymentLabel(order.payment_method)}</p>
                 </div>
               </div>
 

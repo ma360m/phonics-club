@@ -12,6 +12,7 @@ import {
 } from '@/lib/lms'
 import { buildCertificatePdf } from '@/lib/certificate-pdf'
 import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
+import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
 
@@ -23,7 +24,7 @@ async function requireCurrentUser() {
 
 async function getServiceSupabase() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for this LMS action')
+    throw toError('SUPABASE_SERVICE_ROLE_KEY is required for this LMS action', 'LMS action could not run.')
   }
   return createServiceClient()
 }
@@ -77,7 +78,7 @@ export async function markLessonCompleteAction(
       } as never,
       { onConflict: 'user_id,lesson_id' },
     )
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     const [{ count: totalLessons }, { count: completedLessons }] = await Promise.all([
       supabase
@@ -106,7 +107,7 @@ export async function markLessonCompleteAction(
     revalidatePath('/dashboard/my-courses')
     return { success: true, data: { progress } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to update progress' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to update progress.') }
   }
 }
 
@@ -125,7 +126,7 @@ export async function toggleCourseWishlistAction(
 
     if (existing?.id) {
       const { error } = await supabase.from('course_wishlists').delete().eq('id', existing.id)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
       revalidatePath('/dashboard/my-courses')
       return { success: true, data: { wishlisted: false } }
     }
@@ -134,12 +135,12 @@ export async function toggleCourseWishlistAction(
       user_id: user.id,
       course_id: courseId,
     } as never)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     revalidatePath('/dashboard/my-courses')
     return { success: true, data: { wishlisted: true } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to update wishlist' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to update wishlist.') }
   }
 }
 
@@ -192,7 +193,7 @@ export async function createCourseCheckoutAction(
         )
         .select('id')
         .single()
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
       revalidatePath('/dashboard/my-courses')
       revalidatePath(`/courses/${currentCourse.slug}`)
       return { success: true, data: { enrollmentId: enrollment.id, redirectTo: '/dashboard/my-courses' } }
@@ -250,7 +251,7 @@ export async function createCourseCheckoutAction(
     revalidatePath('/dashboard/my-courses')
     return { success: true, data: { paymentId: payment.id, enrollmentId: enrollment.id, redirectTo: '/dashboard/my-courses?tab=payments' } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to start checkout' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to start checkout.') }
   }
 }
 
@@ -293,7 +294,7 @@ export async function submitCoursePaymentReceiptAction(
         submitted_at: new Date().toISOString(),
       } as never)
       .eq('id', paymentId)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     await supabase.from('course_payment_events').insert({
       payment_id: paymentId,
@@ -308,7 +309,7 @@ export async function submitCoursePaymentReceiptAction(
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to submit receipt' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to submit receipt.') }
   }
 }
 
@@ -354,7 +355,7 @@ export async function approveCoursePaymentAction(paymentId: string): Promise<Act
         approved_by: admin.id,
       } as never)
       .eq('id', paymentId)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     await supabase.from('course_payment_events').insert({
       payment_id: paymentId,
@@ -370,7 +371,7 @@ export async function approveCoursePaymentAction(paymentId: string): Promise<Act
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to approve payment' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to approve payment.') }
   }
 }
 
@@ -390,7 +391,7 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
         rejection_reason: reason.trim() || 'Payment could not be verified',
       } as never)
       .eq('id', paymentId)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     await supabase
       .from('enrollments')
@@ -411,7 +412,7 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
     revalidatePath('/admin/course-payments')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to reject payment' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to reject payment.') }
   }
 }
 
@@ -433,7 +434,7 @@ export async function getSignedCourseResourceAction(resourceId: string): Promise
 
     return { success: true, data: { url: signed.url } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to open resource' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to open resource.') }
   }
 }
 
@@ -525,7 +526,7 @@ export async function submitQuizAttemptAction(
       answers,
       attempt_number: (attempts ?? 0) + 1,
     } as never)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     const course = await getCourseById(courseId)
     if (course) await evaluateCourseCompletion(course, user.id)
@@ -533,7 +534,7 @@ export async function submitQuizAttemptAction(
     revalidatePath(`/course/${courseId}/quiz`)
     return { success: true, data: { score, passed, correct, total: quizQuestions.length } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to submit quiz' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to submit quiz.') }
   }
 }
 
@@ -562,10 +563,10 @@ export async function startLearningSessionAction(input: {
       .select('id')
       .single()
 
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
     return { success: true, data: { sessionId: data.id } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to start learning session' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to start learning session.') }
   }
 }
 
@@ -667,7 +668,7 @@ export async function recordLearningHeartbeatAction(input: {
 
     return { success: true, data: { creditedSeconds, totalSeconds, flags } }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to record learning time' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to record learning time.') }
   }
 }
 
@@ -728,12 +729,12 @@ export async function submitOfflineActivityAction(formData: FormData): Promise<A
       status,
       submitted_at: status === 'submitted' ? new Date().toISOString() : null,
     } as never)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to submit offline activity' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to submit offline activity.') }
   }
 }
 
@@ -760,7 +761,7 @@ export async function reviewOfflineActivityAction(
         adjustment_reason: notes,
       } as never)
       .eq('id', entryId)
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
     await supabase.from('offline_activity_reviews').insert({
       entry_id: entryId,
@@ -778,7 +779,7 @@ export async function reviewOfflineActivityAction(
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to review offline activity' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to review offline activity.') }
   }
 }
 
@@ -852,12 +853,12 @@ export async function requestCertificateAction(courseId: string): Promise<Action
       status: 'issued',
     } as never)
 
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'Certificate request could not be saved.') }
     revalidatePath(`/course/${courseId}/certificate`)
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unable to request certificate' }
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to request certificate.') }
   }
 }
 
@@ -880,6 +881,6 @@ export async function saveCourseReviewAction(courseId: string, formData: FormDat
     } as never,
     { onConflict: 'course_id,user_id' },
   )
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Course review could not be saved.')
   revalidatePath('/courses')
 }

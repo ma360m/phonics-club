@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { toError } from '@/lib/friendly-error'
 
 export const PRODUCT_IMAGES_BUCKET = 'product-images'
 export const SITE_MEDIA_BUCKET = 'site-media'
@@ -24,6 +25,9 @@ export async function uploadProductImageToStorage(
   filename: string,
   contentType: string
 ): Promise<{ url: string; path: string }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw toError('SUPABASE_SERVICE_ROLE_KEY is missing', 'Product image upload failed.')
+  }
   const supabase = await createServiceClient()
   const path = safeStoragePath(filename)
 
@@ -31,7 +35,7 @@ export async function uploadProductImageToStorage(
     .from(PRODUCT_IMAGES_BUCKET)
     .upload(path, file, { contentType, upsert: false })
 
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Product image upload failed.')
 
   return { url: getStoragePublicUrl(path, PRODUCT_IMAGES_BUCKET), path }
 }
@@ -42,6 +46,9 @@ export async function uploadSiteMediaToStorage(
   contentType: string,
   folder = 'site-content'
 ): Promise<{ url: string; path: string }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw toError('SUPABASE_SERVICE_ROLE_KEY is missing', 'Media upload failed.')
+  }
   const supabase = await createServiceClient()
   const path = safeStoragePath(filename, folder)
 
@@ -49,7 +56,7 @@ export async function uploadSiteMediaToStorage(
     .from(SITE_MEDIA_BUCKET)
     .upload(path, file, { contentType, upsert: false })
 
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Media upload failed.')
 
   return { url: getStoragePublicUrl(path, SITE_MEDIA_BUCKET), path }
 }

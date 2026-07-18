@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { TRAINING_MONTHS_2026 } from '@/lib/company'
 import type { ActionResult } from '@/types'
 
 const initial: ActionResult = { success: false }
@@ -14,10 +15,13 @@ interface Props {
   trainingType: 'online_webinar' | 'onsite_classroom'
   eventTitle: string
   eventDate?: string
+  eventOptions?: string[]
 }
 
-export function TrainingRegistrationForm({ trainingType, eventTitle, eventDate }: Props) {
+export function TrainingRegistrationForm({ trainingType, eventTitle, eventDate, eventOptions }: Props) {
   const [state, formAction, pending] = useActionState(submitTrainingRegistrationAction, initial)
+  const selectableEvents = eventOptions?.length ? eventOptions : [eventTitle]
+  const eventSelectId = `${trainingType}-${eventDate ?? eventTitle}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
   if (state.success) {
     return (
@@ -31,10 +35,26 @@ export function TrainingRegistrationForm({ trainingType, eventTitle, eventDate }
   return (
     <form action={formAction} className="space-y-4 bg-card rounded-2xl border p-6">
       <input type="hidden" name="training_type" value={trainingType} />
-      <input type="hidden" name="event_title" value={eventTitle} />
       {eventDate && <input type="hidden" name="event_date" value={eventDate} />}
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+
+      <div className="space-y-2">
+        <Label htmlFor={eventSelectId}>{trainingType === 'online_webinar' ? 'Webinar Name *' : 'Training Name *'}</Label>
+        <select
+          id={eventSelectId}
+          name="event_title"
+          defaultValue={eventTitle}
+          required
+          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        >
+          {selectableEvents.map((title) => (
+            <option key={title} value={title}>
+              {title}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -52,6 +72,21 @@ export function TrainingRegistrationForm({ trainingType, eventTitle, eventDate }
         <div className="space-y-2">
           <Label>School / Organization</Label>
           <Input name="organization" className="rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label>Preferred Month *</Label>
+          <select name="preferred_month" required className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
+            <option value="">Choose month</option>
+            {TRAINING_MONTHS_2026.map((month) => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label>Approx. Participants *</Label>
+          <Input name="approx_participants" type="number" min="1" max="10000" required className="rounded-xl" placeholder="25" />
         </div>
       </div>
       <div className="space-y-2">

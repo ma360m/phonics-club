@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const checkoutPaymentMethods = ['cod', 'bank_transfer', 'jazzcash', 'easypaisa', 'credit'] as const
+
 const pakistanPhone = z
   .string()
   .min(10, 'Phone number is required')
@@ -16,16 +18,18 @@ const pakistanPhone = z
   )
 
 export const checkoutSchema = z.object({
-  fullName: z.string().min(2, 'Full name is required'),
-  email: z.string().email('Enter a valid email address'),
+  fullName: z.string().trim().min(2, 'Enter your full name.'),
+  email: z.string().trim().email('Enter a valid email address.'),
   phone: pakistanPhone,
-  address: z.string().min(5, 'Address is required'),
-  city: z.string().min(2, 'City is required'),
-  zip: z.string().optional(),
+  address: z.string().trim().min(5, 'Enter a complete delivery address.'),
+  city: z.string().trim().min(2, 'Enter your city.'),
+  zip: z.string().trim().optional(),
   country: z.string().default('Pakistan'),
-  paymentMethod: z.enum(['cod', 'credit']),
-  couponCode: z.string().optional(),
-  memberId: z.string().optional(),
+  paymentMethod: z.enum(checkoutPaymentMethods, {
+    errorMap: () => ({ message: 'Choose Cash on Delivery, bank transfer, JazzCash, or EasyPaisa.' }),
+  }),
+  couponCode: z.string().trim().optional(),
+  memberId: z.string().trim().optional(),
 })
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>

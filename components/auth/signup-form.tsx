@@ -29,11 +29,21 @@ export function SignupForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <PasswordInput id="password" name="password" required minLength={8} className="rounded-xl" />
+        <PasswordInput
+          id="password"
+          name="password"
+          required
+          minLength={8}
+          pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}"
+          title="Use at least 8 characters with uppercase, lowercase, and a number."
+          autoComplete="new-password"
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">Use at least 8 characters with uppercase, lowercase, and a number.</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">Confirm Password</Label>
-        <PasswordInput id="confirmPassword" name="confirmPassword" required className="rounded-xl" />
+        <PasswordInput id="confirmPassword" name="confirmPassword" required autoComplete="new-password" className="rounded-xl" />
       </div>
       <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
         {pending ? 'Creating account...' : 'Create Account'}

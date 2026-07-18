@@ -44,7 +44,8 @@ export const PHONICS_COURSES: Course[] = [
     instructor: 'Dr. Fatima Tuz Zahra',
     instructor_bio:
       'Dr. Fatima Tuz Zahra supports teachers with practical Jolly Phonics implementation, reading instruction and classroom assessment.',
-    image_url: '/images/resources/Jolly-Phonics-Handbook.jpg',
+    image_url: '/images/courses/Instructor Name Dr. Fatima Tuz Zahra.png',
+    thumbnail_url: '/images/courses/Instructor Name Dr. Fatima Tuz Zahra.png',
     curriculum: [
       {
         title: 'Introduction to Jolly Phonics',

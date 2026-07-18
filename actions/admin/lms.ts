@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { LMS_ALLOWED_MIME_TYPES, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { approveCoursePaymentAction, rejectCoursePaymentAction } from '@/actions/lms'
+import { toError } from '@/lib/friendly-error'
 
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
@@ -25,6 +26,10 @@ export async function getAdminCourseLms(courseId: string) {
     supabase.from('course_quizzes').select('*').eq('course_id', courseId).order('sort_order', { ascending: true }),
     supabase.from('course_assignments').select('*').eq('course_id', courseId).order('sort_order', { ascending: true }),
   ])
+
+  if (course.error) throw toError(course.error, 'Course builder could not load this course.')
+  const lmsError = modules.error ?? resources.error ?? quizzes.error ?? assignments.error
+  if (lmsError) throw toError(lmsError, 'Course builder could not load LMS content.')
 
   return {
     course: course.data,
@@ -47,7 +52,7 @@ export async function createCourseModuleFormAction(courseId: string, formData: F
     unlock_animation: text(formData, 'unlock_animation') || 'progress-ring',
     sort_order: num(formData, 'sort_order', 0),
   } as never)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Module could not be added.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -65,7 +70,7 @@ export async function updateCourseModuleFormAction(moduleId: string, courseId: s
       sort_order: num(formData, 'sort_order', 0),
     } as never)
     .eq('id', moduleId)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Module could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -73,7 +78,7 @@ export async function deleteCourseModuleAction(moduleId: string, courseId: strin
   await requireAdmin()
   const supabase = await createClient()
   const { error } = await supabase.from('course_modules').delete().eq('id', moduleId)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Module could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -117,7 +122,7 @@ export async function createCourseLessonFormAction(courseId: string, moduleId: s
     confetti_enabled: formData.get('confetti_enabled') === 'on',
     published: formData.get('published') === 'on',
   } as never)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Lesson could not be added.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -162,7 +167,7 @@ export async function updateCourseLessonFormAction(lessonId: string, courseId: s
       published: formData.get('published') === 'on',
     } as never)
     .eq('id', lessonId)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Lesson could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -170,7 +175,7 @@ export async function deleteCourseLessonAction(lessonId: string, courseId: strin
   await requireAdmin()
   const supabase = await createClient()
   const { error } = await supabase.from('course_lessons').delete().eq('id', lessonId)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Lesson could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -210,7 +215,7 @@ export async function uploadCourseResourceFormAction(courseId: string, formData:
     sort_order: num(formData, 'sort_order', 0),
     uploaded_by: admin.id,
   } as never)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Course resource could not be saved.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -222,7 +227,7 @@ export async function deleteCourseResourceAction(resourceId: string, courseId: s
     await supabase.storage.from(resource.storage_bucket).remove([resource.storage_path])
   }
   const { error } = await supabase.from('course_resources').delete().eq('id', resourceId)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Course resource could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -249,12 +254,12 @@ export async function getAdminCoursePayments(status?: string) {
 
 export async function approveCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await approveCoursePaymentAction(String(formData.get('payment_id')))
-  if (!result.success) throw new Error(result.error)
+  if (!result.success) throw toError(result.error, 'Course payment could not be approved.')
 }
 
 export async function rejectCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await rejectCoursePaymentAction(String(formData.get('payment_id')), text(formData, 'reason'))
-  if (!result.success) throw new Error(result.error)
+  if (!result.success) throw toError(result.error, 'Course payment could not be rejected.')
 }
 
 export async function getAdminLmsReport() {

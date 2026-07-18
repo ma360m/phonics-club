@@ -5,6 +5,7 @@ import { Upload, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { friendlyErrorMessage } from '@/lib/friendly-error'
 
 interface ImageUploadProps {
   onUpload: (url: string) => void
@@ -57,7 +58,7 @@ export function ImageUpload({
             : 'Image uploaded'
       )
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toast.error(friendlyErrorMessage(err, 'Upload failed.'))
     } finally {
       setUploading(false)
       e.target.value = ''

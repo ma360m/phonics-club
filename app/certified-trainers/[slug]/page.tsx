@@ -74,7 +74,7 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
             <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Certified Trainer</p>
             <h1 className="mt-2 text-4xl font-bold">{trainer.name}</h1>
             <p className="mt-2 text-lg text-[#1D4ED8]">{trainer.title ?? 'Jolly Phonics Certified Trainer'}</p>
-            {trainer.bio ? <p className="mt-5 max-w-3xl leading-8 text-muted-foreground">{trainer.bio}</p> : null}
+            {trainer.bio && !trainer.profile_details ? <p className="mt-5 max-w-3xl leading-8 text-muted-foreground">{trainer.bio}</p> : null}
           </div>
         </section>
 

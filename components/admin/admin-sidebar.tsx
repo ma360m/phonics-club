@@ -35,7 +35,7 @@ const links = [
   { href: '/admin/blog', label: 'Blog', icon: FileText },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { href: '/admin/content', label: 'Content & Policies', icon: Megaphone },
+  { href: '/admin/content', label: 'Content & Videos', icon: Megaphone },
   { href: '/admin/trainers', label: 'Trainers', icon: Award },
   { href: '/admin/upload', label: 'Upload', icon: Upload },
   { href: '/admin/catalogs', label: 'Catalogs', icon: FileText },

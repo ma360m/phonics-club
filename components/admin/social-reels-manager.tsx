@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { friendlyErrorMessage } from '@/lib/friendly-error'
 import type { SocialReel } from '@/lib/site-content'
 
 function newReel(): SocialReel {
@@ -40,7 +41,7 @@ export function SocialReelsManager({ reels }: { reels: SocialReel[] }) {
       update(index, { [field]: data.url })
       toast.success(field === 'videoUrl' ? 'Reel video uploaded' : 'Thumbnail uploaded')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toast.error(friendlyErrorMessage(err, 'Upload failed.'))
     } finally {
       setUploadingKey(null)
     }
@@ -59,7 +60,7 @@ export function SocialReelsManager({ reels }: { reels: SocialReel[] }) {
 
       const result = await saveSiteContentAction('social_reels', cleanItems)
       if (result.success) toast.success('Social reels saved')
-      else toast.error(result.error ?? 'Could not save social reels')
+      else toast.error(friendlyErrorMessage(result.error, 'Could not save social reels.'))
     })
   }
 

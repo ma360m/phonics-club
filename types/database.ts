@@ -161,10 +161,20 @@ export interface Course {
   updated_at: string
 }
 
+export interface CurriculumLesson {
+  title: string
+  duration?: string
+  description?: string
+  thumbnail_url?: string
+  video_url?: string
+  material_url?: string
+}
+
 export interface CurriculumModule {
   title: string
   duration?: string
-  lessons: { title: string; duration?: string; description?: string }[]
+  thumbnail_url?: string
+  lessons: CurriculumLesson[]
 }
 
 export interface BlogPost {

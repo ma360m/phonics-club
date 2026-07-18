@@ -31,6 +31,7 @@ import { formatPrice } from '@/utils/format'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
 import { bulkDeleteProductsAction, bulkUpdateProductsAction, importCatalogManifestAction, deleteAllProductsAction } from '@/actions/admin/products-bulk'
 import { deleteProductAction } from '@/actions/admin/products'
+import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { toast } from 'sonner'
 import type { Product } from '@/types/database'
 
@@ -75,7 +76,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
       toast.success(data.message)
       router.refresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Import failed')
+      toast.error(friendlyErrorMessage(err, 'Import failed.'))
     } finally {
       setImporting(false)
     }
@@ -107,7 +108,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         toast.success(`Deleted ${result.data?.deleted} products`)
         setSelected(new Set())
         router.refresh()
-      } else toast.error(result.error)
+      } else toast.error(friendlyErrorMessage(result.error, 'Bulk delete failed.'))
     })
   }
 
@@ -121,7 +122,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
           `Catalog replaced: ${result.data?.deleted ?? 0} deleted, ${result.data?.created} created`
         )
         router.refresh()
-      } else toast.error(result.error)
+      } else toast.error(friendlyErrorMessage(result.error, 'Catalog import failed.'))
     })
   }
 
@@ -220,7 +221,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                 multiple
                 onChange={(e) => {
                   const files = e.target.files
-                  if (files?.length) handleImageUpload(files).catch((err) => toast.error(err.message))
+                  if (files?.length) handleImageUpload(files).catch((err) => toast.error(friendlyErrorMessage(err, 'Image upload failed.')))
                   e.target.value = ''
                 }}
               />
@@ -377,7 +378,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         className="hidden"
         onChange={(e) => {
           const files = e.target.files
-          if (files?.length) handleImageUpload(files).catch((err) => toast.error(err.message))
+          if (files?.length) handleImageUpload(files).catch((err) => toast.error(friendlyErrorMessage(err, 'Image upload failed.')))
           e.target.value = ''
         }}
       />
@@ -445,7 +446,7 @@ function DeleteAllProductsDialog({
                 setConfirmText('')
                 setAdminEmail('')
                 onDone()
-              } else toast.error(result.error)
+              } else toast.error(friendlyErrorMessage(result.error, 'Products could not be deleted.'))
             })
           }
         >
@@ -489,7 +490,7 @@ function BulkUpdateDialog({ ids, onDone }: { ids: string[]; onDone: () => void }
                 toast.success(`Updated ${result.data?.updated} products`)
                 setOpen(false)
                 onDone()
-              } else toast.error(result.error)
+              } else toast.error(friendlyErrorMessage(result.error, 'Products could not be updated.'))
             })
           }}
         >

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { ArrowRight, Play, Star, Users, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-function toYouTubeEmbedUrl(url: string): string {
+function toYouTubeEmbedUrl(url?: string | null): string | null {
+  if (!url) return null
   try {
     const parsed = new URL(url)
     const videoId = parsed.hostname.includes('youtu.be')
@@ -19,14 +20,20 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
+function isDirectVideo(url?: string | null) {
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url ?? '')
+}
+
 export function HeroSection({
   videoUrl,
   demoButtonUrl,
 }: {
-  videoUrl: string
-  demoButtonUrl?: string
+  videoUrl?: string | null
+  demoButtonUrl?: string | null
 }) {
   const embedUrl = toYouTubeEmbedUrl(videoUrl)
+  const hasVideo = Boolean(embedUrl)
+  const directVideo = isDirectVideo(videoUrl)
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-white to-[#60A5FA]/10">
@@ -37,7 +44,7 @@ export function HeroSection({
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className={`grid gap-12 lg:gap-16 items-center ${hasVideo ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -73,12 +80,14 @@ export function HeroSection({
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="h-14 text-base border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/5">
-                <a href={demoButtonUrl ?? videoUrl} target="_blank" rel="noreferrer">
-                  <Play className="mr-2 w-5 h-5" />
-                  Watch Demo
-                </a>
-              </Button>
+              {demoButtonUrl || videoUrl ? (
+                <Button asChild variant="outline" size="lg" className="h-14 text-base border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/5">
+                  <a href={demoButtonUrl ?? videoUrl ?? '#'} target="_blank" rel="noreferrer">
+                    <Play className="mr-2 w-5 h-5" />
+                    Watch Demo
+                  </a>
+                </Button>
+              ) : null}
             </div>
 
             {/* Stats */}
@@ -113,7 +122,7 @@ export function HeroSection({
             </div>
           </motion.div>
 
-          {/* Right Content - Hero Image/Cards */}
+          {hasVideo ? (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -124,13 +133,17 @@ export function HeroSection({
               {/* Main Card */}
               <div id="watch-demo" className="bg-white rounded-3xl shadow-2xl p-6 lg:p-8 scroll-mt-28">
                 <div className="aspect-video bg-black rounded-2xl mb-6 overflow-hidden">
-                  <iframe
-                    className="h-full w-full"
-                    src={embedUrl}
-                    title="Meet Phonics Club"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
+                  {directVideo ? (
+                    <video src={videoUrl ?? ''} controls playsInline className="h-full w-full object-contain" />
+                  ) : (
+                    <iframe
+                      className="h-full w-full"
+                      src={embedUrl ?? ''}
+                      title="Meet Phonics Club"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  )}
                 </div>
                 <h3 className="font-bold text-lg text-[#111827] mb-2">Meet Phonics Club</h3>
                 <p className="text-[#475569] text-sm mb-4">An introduction to our phonics learning community and trusted educational resources.</p>
@@ -177,6 +190,7 @@ export function HeroSection({
               </motion.div>
             </div>
           </motion.div>
+          ) : null}
         </div>
       </div>
     </section>

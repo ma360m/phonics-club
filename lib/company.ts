@@ -33,25 +33,39 @@ export const COMPANY_BANK_DETAILS = {
     'Other payment options: Standard Chartered, title Fatima Tuz Zahra, account 001917781701. JazzCash and EasyPaisa: 03084432015, Fatima Tuz Zahra. Upload your payment receipt after transfer.',
 } as const
 
-export const TRAINING_CALENDAR_2025 = [
-  { title: 'Jolly Phonics', date: '2025-02-15', season: 'Spring/Winter', type: 'onsite' as const },
-  { title: 'Jolly Grammar', date: '2025-02-22', season: 'Spring/Winter', type: 'onsite' as const },
-  { title: 'Jolly Phonics', date: '2025-08-02', season: 'Summer/Fall', type: 'onsite' as const },
-  { title: 'Jolly Grammar', date: '2025-08-09', season: 'Summer/Fall', type: 'onsite' as const },
+export const TRAINING_MONTHS_2026 = [
+  { value: '2026-08', label: 'August 2026' },
+  { value: '2026-09', label: 'September 2026' },
+  { value: '2026-10', label: 'October 2026' },
+  { value: '2026-11', label: 'November 2026' },
+  { value: '2026-12', label: 'December 2026' },
+] as const
+
+export const TRAINING_CALENDAR_2026 = [
+  { title: 'Jolly Phonics', date: '2026-08-08', season: 'August Cohort', type: 'onsite' as const },
+  { title: 'Jolly Literacy Training', date: '2026-08-22', season: 'August Cohort', type: 'onsite' as const },
+  { title: 'Jolly Phonics', date: '2026-09-12', season: 'September Cohort', type: 'onsite' as const },
+  { title: 'Jolly Literacy Training', date: '2026-10-10', season: 'October Cohort', type: 'onsite' as const },
 ]
 
 export const ONLINE_WEBINARS = [
-  { title: 'Jolly Phonics Webinar – Spring 2025', date: '2025-03-01', status: 'open' },
-  { title: 'Jolly Grammar Webinar – Spring 2025', date: '2025-03-08', status: 'open' },
-  { title: 'Classroom Implementation Masterclass', date: '2025-06-15', status: 'upcoming' },
+  { title: 'Learning to Read & Write', date: '2026-08-15', status: 'open' },
+  { title: 'Synthetic Phonics for Early Years', date: '2026-09-05', status: 'open' },
+  { title: 'Jolly Literacy Training Webinar', date: '2026-10-17', status: 'upcoming' },
+  { title: 'Supporting Struggling Readers', date: '2026-11-14', status: 'upcoming' },
 ]
 
 export const CERTIFIED_TRAINERS = [
   'Fatima Tuz Zahra',
   'Anum Zehra Zaidi',
-  'Erum Tehreem',
   'Zaibunnissa Sadozai',
   'Tahira Sheikh',
+  'Tamkanat Zafar',
+  'Fatemah Imran',
+  'Erum Tehreem',
+  'Sadaf Asif',
+  'Ambreen Owais',
+  'Sonia Saleem',
 ]
 
 export const LATEST_NEWS = {
@@ -60,9 +74,9 @@ export const LATEST_NEWS = {
 }
 
 export const WEEKLY_PLAN = [
-  { day: 'Day 1', activity: 'Phonics lesson from Pupil/Grammar books' },
-  { day: 'Day 2', activity: 'Grammar lesson from Pupil/Grammar books' },
-  { day: 'Day 3', activity: 'Reading Comprehension from reading scheme' },
+  { day: 'Day 1', activity: 'Phonics lesson from Pupil/Literacy books' },
+  { day: 'Day 2', activity: 'Literacy lesson from Pupil/Literacy books' },
+  { day: 'Day 3', activity: 'Reading comprehension from the reading scheme' },
   { day: 'Day 4', activity: 'Independent writing' },
   { day: 'Day 5', activity: 'Review and assessment' },
 ]

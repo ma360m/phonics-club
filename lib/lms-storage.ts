@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
+import { toError } from '@/lib/friendly-error'
 import type { CourseResource } from '@/types/database'
 
 export const LMS_BUCKETS = {
@@ -46,9 +47,11 @@ export function validateLmsFile(
 ) {
   const maxBytes = options.maxBytes ?? 100 * 1024 * 1024
   const allowedMimeTypes = options.allowedMimeTypes ?? LMS_ALLOWED_MIME_TYPES
-  if (!file || file.size <= 0) throw new Error('Choose a file to upload')
-  if (file.size > maxBytes) throw new Error(`File must be ${Math.round(maxBytes / 1024 / 1024)}MB or smaller`)
-  if (file.type && !allowedMimeTypes.includes(file.type)) throw new Error('This file type is not allowed')
+  if (!file || file.size <= 0) throw new Error('Choose a file to upload.')
+  if (file.size > maxBytes) throw new Error(`File must be ${Math.round(maxBytes / 1024 / 1024)}MB or smaller.`)
+  if (file.type && !allowedMimeTypes.includes(file.type)) {
+    throw new Error('This file type is not allowed. Use PDF, Word, PowerPoint, Excel, JPG, PNG, WebP, MP3, WAV, MP4, WebM, or ZIP.')
+  }
 }
 
 export async function uploadLmsFile(
@@ -58,6 +61,9 @@ export async function uploadLmsFile(
   options: { allowedMimeTypes?: string[]; maxBytes?: number } = {}
 ) {
   validateLmsFile(file, options)
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw toError('SUPABASE_SERVICE_ROLE_KEY is missing', 'Course file upload failed.')
+  }
   const supabase = await createServiceClient()
   const bytes = Buffer.from(await file.arrayBuffer())
   const path = `${prefix.replace(/^\/+|\/+$/g, '')}/${Date.now()}-${crypto.randomUUID()}-${safeObjectName(file.name)}`
@@ -65,7 +71,7 @@ export async function uploadLmsFile(
     contentType: file.type || 'application/octet-stream',
     upsert: false,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Course file upload failed.')
 
   return {
     bucket,

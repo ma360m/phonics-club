@@ -3,11 +3,12 @@ import { revalidatePath } from 'next/cache'
 import { getProfile } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { uploadProductImageToStorage } from '@/lib/supabase/storage'
+import { friendlyErrorMessage } from '@/lib/friendly-error'
 
 export async function POST(request: Request) {
   const profile = await getProfile()
   if (!profile || profile.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'You must be signed in as an admin before uploading product images.' }, { status: 401 })
   }
 
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const isbn = formData.get('isbn') as string | null
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json({ error: 'Choose an image file before uploading.' }, { status: 400 })
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
         .eq('isbn', isbn)
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: friendlyErrorMessage(error, 'Product image was uploaded, but the product could not be updated.') }, { status: 500 })
       }
 
       revalidatePath('/admin/products')
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Storage upload error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Upload failed' },
+      { error: friendlyErrorMessage(err, 'Product image upload failed.') },
       { status: 500 }
     )
   }

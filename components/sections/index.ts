@@ -1,5 +1,6 @@
 export { HeroSection } from './hero-section'
 export { TrustBadges } from './trust-badges'
+export { ReadingSuccessVideo } from './reading-success-video'
 export { FeaturedCategories } from './featured-categories'
 export { FeaturedProducts } from './featured-products'
 export { FeaturedCourses } from './featured-courses'

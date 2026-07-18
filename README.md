@@ -45,6 +45,10 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+
+RESEND_API_KEY=your_resend_api_key
+ORDER_EMAIL_FROM=orders@yourdomain.com
+ORDER_ADMIN_EMAIL=admin@yourdomain.com
 ```
 
 ### 3. Supabase setup
@@ -97,6 +101,18 @@ supabase/         # Database schema
 2. Import in Vercel
 3. Add all environment variables from `.env.example`
 4. Deploy
+
+## Order confirmation emails
+
+Orders send confirmation emails to both the customer and the admin through Resend.
+
+1. Create a Resend account and verify the sending domain you want to use.
+2. Add `RESEND_API_KEY` in `.env.local` and in Vercel project environment variables.
+3. Set `ORDER_EMAIL_FROM` to an address on the verified domain, for example `orders@yourdomain.com`.
+4. Set `ORDER_ADMIN_EMAIL` to the inbox that should receive new order notifications.
+5. Set `NEXT_PUBLIC_APP_URL` to the live site URL so invoice links in emails open the deployed website.
+
+Without `RESEND_API_KEY`, orders still save, invoices still generate, and the server logs which emails would have been sent.
 
 ## Scripts
 

@@ -57,15 +57,10 @@ export function ShopNowPopup() {
             Shop approved phonics books, workbooks, readers, and classroom resources from Phonics Club.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button asChild className="rounded-xl bg-[#1D4ED8]" onClick={close}>
-              <Link href="/shop?collection=jolly-learning">
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Shop Now
-              </Link>
-            </Button>
+          <div className="grid gap-3">
             <Button asChild className="rounded-xl bg-[#D30000] hover:bg-[#D30000]/90" onClick={close}>
               <Link href="/shop?collection=phonics-club">
+                <ShoppingBag className="mr-2 h-4 w-4" />
                 Order Now
               </Link>
             </Button>

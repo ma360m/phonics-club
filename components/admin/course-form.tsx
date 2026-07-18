@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ImageUpload } from './image-upload'
+import { CourseMediaUpload } from './course-media-upload'
 import { CurriculumBuilder } from './curriculum-builder'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import type { Course, CurriculumModule } from '@/types/database'
@@ -34,12 +34,11 @@ export function CourseForm({ course }: { course?: Course }) {
   const action = course ? updateCourseAction.bind(null, course.id) : createCourseAction
   const [state, formAction, pending] = useActionState(action, initial)
   const [curriculum, setCurriculum] = useState<CurriculumModule[]>(course?.curriculum ?? [])
-  const [imageUrl, setImageUrl] = useState(course?.image_url ?? '')
 
   return (
-    <form action={formAction} className="space-y-6 max-w-3xl">
-      {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-      {state.success && <p className="text-emerald-600 text-sm">Saved successfully!</p>}
+    <form action={formAction} className="max-w-5xl space-y-6">
+      {state.error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p>}
+      {state.success && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Saved successfully!</p>}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -122,42 +121,56 @@ export function CourseForm({ course }: { course?: Course }) {
           <Label>Instructor Image URL</Label>
           <Input name="instructor_image_url" defaultValue={course?.instructor_image_url ?? course?.instructor_avatar ?? ''} className="rounded-xl" />
         </div>
-        <div className="space-y-2">
-          <Label>Hero Video URL</Label>
-          <Input name="hero_video_url" defaultValue={course?.hero_video_url ?? ''} className="rounded-xl" />
-        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Course Thumbnail</Label>
-        <Input name="image_url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="rounded-xl" />
-        <ImageUpload folder="phonics-club/courses" onUpload={setImageUrl} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Thumbnail URL</Label>
-          <Input name="thumbnail_url" defaultValue={course?.thumbnail_url ?? course?.image_url ?? ''} className="rounded-xl" />
+      <section className="rounded-2xl border bg-muted/20 p-4">
+        <h2 className="mb-4 text-lg font-semibold">Course Media</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CourseMediaUpload
+            name="image_url"
+            label="Course Thumbnail"
+            defaultValue={course?.image_url ?? ''}
+            folder="courses/thumbnails"
+            kind="image"
+          />
+          <CourseMediaUpload
+            name="thumbnail_url"
+            label="Library Thumbnail"
+            defaultValue={course?.thumbnail_url ?? course?.image_url ?? ''}
+            folder="courses/thumbnails"
+            kind="image"
+          />
+          <CourseMediaUpload
+            name="banner_url"
+            label="Course Banner"
+            defaultValue={course?.banner_url ?? ''}
+            folder="courses/banners"
+            kind="image"
+          />
+          <CourseMediaUpload
+            name="certificate_background_url"
+            label="Certificate Background"
+            defaultValue={course?.certificate_background_url ?? ''}
+            folder="courses/certificates"
+            kind="image"
+          />
+          <CourseMediaUpload
+            name="hero_video_url"
+            label="Hero Video"
+            defaultValue={course?.hero_video_url ?? ''}
+            folder="courses/videos"
+            kind="video"
+          />
+          <CourseMediaUpload
+            name="preview_video_url"
+            label="Preview Video"
+            defaultValue={metaString(course, 'previewVideoUrl')}
+            folder="courses/videos"
+            kind="video"
+            placeholder="Upload or paste YouTube/video URL"
+          />
         </div>
-        <div className="space-y-2">
-          <Label>Banner URL</Label>
-          <Input name="banner_url" defaultValue={course?.banner_url ?? ''} className="rounded-xl" />
-        </div>
-        <div className="space-y-2">
-          <Label>Certificate Background URL</Label>
-          <Input name="certificate_background_url" defaultValue={course?.certificate_background_url ?? ''} className="rounded-xl" />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Preview Video URL</Label>
-        <Input
-          name="preview_video_url"
-          defaultValue={metaString(course, 'previewVideoUrl')}
-          placeholder="https://youtu.be/rEF-BMA30Vg"
-          className="rounded-xl"
-        />
-      </div>
+      </section>
 
       <div className="space-y-2">
         <Label>Learning Objectives (one per line)</Label>

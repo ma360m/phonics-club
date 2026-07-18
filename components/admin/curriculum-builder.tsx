@@ -5,6 +5,8 @@ import { Plus, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { CourseMediaUpload } from './course-media-upload'
 import type { CurriculumModule } from '@/types/database'
 
 interface Props {
@@ -43,7 +45,12 @@ export function CurriculumBuilder({ value, onChange }: Props) {
     update(next)
   }
 
-  function updateLesson(mi: number, li: number, field: 'title' | 'duration', val: string) {
+  function updateLesson(
+    mi: number,
+    li: number,
+    field: 'title' | 'duration' | 'description' | 'thumbnail_url' | 'video_url' | 'material_url',
+    val: string
+  ) {
     const next = [...modules]
     const lessons = [...next[mi].lessons]
     lessons[li] = { ...lessons[li], [field]: val }
@@ -81,22 +88,53 @@ export function CurriculumBuilder({ value, onChange }: Props) {
           </div>
           <div className="pl-6 space-y-2">
             {mod.lessons.map((lesson, li) => (
-              <div key={li} className="flex gap-2">
-                <Input
-                  value={lesson.title}
-                  onChange={(e) => updateLesson(mi, li, 'title', e.target.value)}
-                  className="rounded-xl text-sm flex-1"
-                  placeholder="Lesson title"
+              <div key={li} className="rounded-xl border bg-background p-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={lesson.title}
+                    onChange={(e) => updateLesson(mi, li, 'title', e.target.value)}
+                    className="flex-1 rounded-xl text-sm"
+                    placeholder="Lesson title"
+                  />
+                  <Input
+                    value={lesson.duration ?? ''}
+                    onChange={(e) => updateLesson(mi, li, 'duration', e.target.value)}
+                    className="w-28 rounded-xl text-sm"
+                    placeholder="Duration"
+                  />
+                  <Button type="button" size="icon" variant="ghost" onClick={() => removeLesson(mi, li)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea
+                  value={lesson.description ?? ''}
+                  onChange={(e) => updateLesson(mi, li, 'description', e.target.value)}
+                  className="mt-2 rounded-xl text-sm"
+                  placeholder="Lesson description"
+                  rows={2}
                 />
+                <div className="mt-2 grid gap-3 lg:grid-cols-2">
+                  <CourseMediaUpload
+                    label="Lesson Thumbnail"
+                    value={lesson.thumbnail_url ?? ''}
+                    onChange={(url) => updateLesson(mi, li, 'thumbnail_url', url)}
+                    folder="courses/lessons"
+                    kind="image"
+                  />
+                  <CourseMediaUpload
+                    label="Lesson Video"
+                    value={lesson.video_url ?? ''}
+                    onChange={(url) => updateLesson(mi, li, 'video_url', url)}
+                    folder="courses/videos"
+                    kind="video"
+                  />
+                </div>
                 <Input
-                  value={lesson.duration ?? ''}
-                  onChange={(e) => updateLesson(mi, li, 'duration', e.target.value)}
-                  className="rounded-xl text-sm w-28"
-                  placeholder="Duration"
+                  value={lesson.material_url ?? ''}
+                  onChange={(e) => updateLesson(mi, li, 'material_url', e.target.value)}
+                  className="mt-2 rounded-xl text-sm"
+                  placeholder="Material URL"
                 />
-                <Button type="button" size="icon" variant="ghost" onClick={() => removeLesson(mi, li)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
               </div>
             ))}
             <Button type="button" size="sm" variant="outline" onClick={() => addLesson(mi)} className="rounded-xl text-xs">

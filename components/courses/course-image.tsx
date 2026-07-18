@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useState } from 'react'
 import { BookOpen } from 'lucide-react'
+import { normalizeMediaUrl } from '@/lib/media-url'
 
 export function CourseImage({
   src,
@@ -16,8 +17,9 @@ export function CourseImage({
   priority?: boolean
 }) {
   const [failed, setFailed] = useState(false)
+  const safeSrc = normalizeMediaUrl(src)
 
-  if (!src || failed) {
+  if (!safeSrc || failed) {
     return (
       <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#D30000]/10 via-white to-[#60A5FA]/20 ${className}`}>
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
@@ -29,7 +31,7 @@ export function CourseImage({
 
   return (
     <Image
-      src={src}
+      src={safeSrc}
       alt={alt}
       fill
       className={`object-cover ${className}`}

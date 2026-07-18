@@ -13,5 +13,8 @@ export const ORDER_STATUSES = [
 
 export const PAYMENT_METHODS = {
   cod: 'Cash on Delivery',
-  credit: 'Bank Transfer / Credit',
+  bank_transfer: 'Bank Transfer',
+  jazzcash: 'JazzCash',
+  easypaisa: 'EasyPaisa',
+  credit: 'Bank Transfer',
 } as const

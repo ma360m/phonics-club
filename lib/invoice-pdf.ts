@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 
 interface InvoiceTemplate {
@@ -17,6 +18,8 @@ interface InvoiceTemplate {
     instructions?: string
   }
 }
+
+type PdfColor = ReturnType<typeof rgb>
 
 function wrapText(text: string, maxChars: number): string[] {
   const words = text.split(/\s+/)
@@ -35,9 +38,9 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines
 }
 
-function drawRight(page: PDFPage, text: string, xRight: number, y: number, size: number, font: PDFFont) {
+function drawRight(page: PDFPage, text: string, xRight: number, y: number, size: number, font: PDFFont, color = rgb(0, 0, 0)) {
   const width = font.widthOfTextAtSize(text, size)
-  page.drawText(text, { x: xRight - width, y, size, font })
+  page.drawText(text, { x: xRight - width, y, size, font, color })
 }
 
 function drawCentered(page: PDFPage, text: string, xCenter: number, y: number, size: number, font: PDFFont, color = rgb(0, 0, 0)) {
@@ -45,8 +48,73 @@ function drawCentered(page: PDFPage, text: string, xCenter: number, y: number, s
   page.drawText(text, { x: xCenter - textWidth / 2, y, size, font, color })
 }
 
-function paymentLabel(method?: string | null) {
-  return method === 'credit' ? 'Bank Transfer' : 'Cash on Delivery'
+function drawCell(
+  page: PDFPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: { fill?: PdfColor; border?: PdfColor; borderWidth?: number } = {}
+) {
+  page.drawRectangle({
+    x,
+    y,
+    width,
+    height,
+    color: options.fill,
+    borderColor: options.border ?? rgb(0.68, 0.76, 0.9),
+    borderWidth: options.borderWidth ?? 0.75,
+  })
+}
+
+function drawCellText(
+  page: PDFPage,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  size: number,
+  font: PDFFont,
+  align: 'left' | 'right' | 'center' = 'left',
+  color = rgb(0.07, 0.09, 0.15)
+) {
+  const padding = 7
+  const textY = y + height - size - 7
+  if (align === 'right') {
+    drawRight(page, text, x + width - padding, textY, size, font, color)
+    return
+  }
+  if (align === 'center') {
+    drawCentered(page, text, x + width / 2, textY, size, font, color)
+    return
+  }
+  page.drawText(text, { x: x + padding, y: textY, size, font, color })
+}
+
+function drawCellLines(
+  page: PDFPage,
+  lines: string[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  size: number,
+  font: PDFFont,
+  align: 'left' | 'right' = 'left',
+  color = rgb(0.07, 0.09, 0.15)
+) {
+  const padding = 7
+  const lineHeight = size + 3
+  let textY = y + height - size - 7
+  for (const line of lines) {
+    if (align === 'right') {
+      drawRight(page, line, x + width - padding, textY, size, font, color)
+    } else {
+      page.drawText(line, { x: x + padding, y: textY, size, font, color })
+    }
+    textY -= lineHeight
+  }
 }
 
 function invoiceTagline(value?: string) {
@@ -104,7 +172,7 @@ export async function buildInvoicePdf(
   y -= 14
   page.drawText(`Date: ${new Date(order.created_at).toLocaleDateString('en-PK')}`, { x: margin, y, size: 10, font })
   y -= 14
-  page.drawText(`Payment: ${paymentLabel(order.payment_method)}`, { x: margin, y, size: 10, font })
+  page.drawText(`Payment: ${shopPaymentLabel(order.payment_method)}`, { x: margin, y, size: 10, font })
 
   let billY = height - 146
   page.drawText('Bill To:', { x: 330, y: billY, size: 10, font: fontBold })
@@ -122,62 +190,98 @@ export async function buildInvoicePdf(
     }
   }
 
-  y = Math.min(y, billY) - 22
-  page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: rgb(0.85, 0.85, 0.85) })
-  y -= 20
+  y = Math.min(y, billY) - 24
 
-  page.drawText('Item', { x: margin, y, size: 9, font: fontBold })
-  page.drawText('Qty', { x: 280, y, size: 9, font: fontBold })
-  page.drawText('Price', { x: 320, y, size: 9, font: fontBold })
-  page.drawText('Discount', { x: 390, y, size: 9, font: fontBold })
-  page.drawText('Total', { x: 500, y, size: 9, font: fontBold })
-  y -= 14
+  const tableBorder = rgb(0.68, 0.76, 0.9)
+  const tableHeaderFill = rgb(0.92, 0.95, 1)
+  const tableX = margin
+  const tableWidth = width - margin * 2
+  const tableColumns = [
+    { label: 'Item', x: tableX, width: 222, align: 'left' as const },
+    { label: 'Qty', x: tableX + 222, width: 42, align: 'center' as const },
+    { label: 'Price', x: tableX + 264, width: 74, align: 'right' as const },
+    { label: 'Discount', x: tableX + 338, width: 92, align: 'right' as const },
+    { label: 'Total', x: tableX + 430, width: tableWidth - 430, align: 'right' as const },
+  ]
+  const headerHeight = 24
+  let tableBottom = y - headerHeight
 
+  for (const column of tableColumns) {
+    drawCell(page, column.x, tableBottom, column.width, headerHeight, {
+      fill: tableHeaderFill,
+      border: tableBorder,
+      borderWidth: 0.9,
+    })
+    drawCellText(page, column.label, column.x, tableBottom, column.width, headerHeight, 9, fontBold, column.align)
+  }
+
+  y = tableBottom
+  let renderedLines = 0
   for (const line of summary.lines) {
-    if (y < 190) break
-    const nameLines = wrapText(line.item.name, 36)
-    page.drawText(nameLines[0] ?? line.item.name, { x: margin, y, size: 9, font })
-    page.drawText(String(line.item.quantity), { x: 284, y, size: 9, font })
-    page.drawText(formatPrice(line.item.price), { x: 320, y, size: 9, font })
-    const discountLabel = line.lineDiscount > 0
-      ? `${formatDiscountPercent(line.discountPercent)} (-${formatPrice(line.lineDiscount)})`
-      : '-'
-    page.drawText(discountLabel, { x: 390, y, size: 8, font })
-    drawRight(page, formatPrice(line.lineTotal), width - margin, y, 9, font)
-    y -= 12
-    for (let i = 1; i < nameLines.length; i++) {
-      page.drawText(nameLines[i], { x: margin, y, size: 9, font })
-      y -= 12
+    const nameLines = wrapText(line.item.name, 34).slice(0, 4)
+    const discountLines = line.lineDiscount > 0
+      ? [formatDiscountPercent(line.discountPercent), `-${formatPrice(line.lineDiscount)}`]
+      : ['-']
+    const rowHeight = Math.max(30, Math.max(nameLines.length, discountLines.length) * 11 + 14)
+    if (y - rowHeight < 335) break
+
+    const rowBottom = y - rowHeight
+    for (const column of tableColumns) {
+      drawCell(page, column.x, rowBottom, column.width, rowHeight, {
+        fill: rgb(1, 1, 1),
+        border: tableBorder,
+      })
     }
-    y -= 5
+    drawCellLines(page, nameLines, tableColumns[0].x, rowBottom, tableColumns[0].width, rowHeight, 8.5, font)
+    drawCellText(page, String(line.item.quantity), tableColumns[1].x, rowBottom, tableColumns[1].width, rowHeight, 8.5, font, 'center')
+    drawCellText(page, formatPrice(line.item.price), tableColumns[2].x, rowBottom, tableColumns[2].width, rowHeight, 8.5, font, 'right')
+    drawCellLines(page, discountLines, tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 8, font, 'right', rgb(0.3, 0.36, 0.45))
+    drawCellText(page, formatPrice(line.lineTotal), tableColumns[4].x, rowBottom, tableColumns[4].width, rowHeight, 8.5, fontBold, 'right')
+
+    y = rowBottom
+    renderedLines += 1
   }
 
-  y -= 8
-  const totalsX = 350
-  const totalsRight = width - margin
-  page.drawText('Items Total', { x: totalsX, y, size: 10, font })
-  drawRight(page, formatPrice(summary.subtotal), totalsRight, y, 10, fontBold)
-  y -= 14
+  if (renderedLines < summary.lines.length && y - 24 >= 335) {
+    const rowBottom = y - 24
+    drawCell(page, tableX, rowBottom, tableWidth, 24, { fill: rgb(1, 1, 1), border: tableBorder })
+    drawCellText(page, `${summary.lines.length - renderedLines} more item(s) continue in the order record`, tableX, rowBottom, tableWidth, 24, 8, font, 'left', rgb(0.3, 0.36, 0.45))
+    y = rowBottom
+  }
+
+  y -= 18
+  const totalsRows: Array<[string, string, boolean]> = [
+    ['Items Total', formatPrice(summary.subtotal), false],
+  ]
   if (summary.discount > 0) {
-    page.drawText(`Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}`, { x: totalsX, y, size: 10, font })
-    drawRight(page, `-${formatPrice(summary.discount)}`, totalsRight, y, 10, fontBold)
-    y -= 14
+    totalsRows.push([
+      `Final Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}`,
+      `-${formatPrice(summary.discount)}`,
+      false,
+    ])
   }
-  page.drawText('Total after Discount', { x: totalsX, y, size: 10, font })
-  drawRight(page, formatPrice(summary.totalAfterDiscount), totalsRight, y, 10, fontBold)
-  y -= 14
-  page.drawText('Shipping', { x: totalsX, y, size: 10, font })
-  drawRight(page, formatPrice(summary.shipping), totalsRight, y, 10, fontBold)
-  y -= 14
-  if (order.member_id) {
-    page.drawText(`Member ID: ${order.member_id}`, { x: totalsX, y, size: 9, font })
-    y -= 14
-  }
-  page.drawLine({ start: { x: totalsX, y: y + 18 }, end: { x: totalsRight, y: y + 18 }, thickness: 1.5, color: rgb(0.11, 0.31, 0.85) })
-  page.drawText('Balance Due', { x: totalsX, y, size: 12, font: fontBold, color: rgb(0.11, 0.31, 0.85) })
-  drawRight(page, formatPrice(summary.balanceDue), totalsRight, y, 12, fontBold)
+  totalsRows.push(['Total after Discount', formatPrice(summary.totalAfterDiscount), false])
+  totalsRows.push(['Shipping Fee', formatPrice(summary.shipping), false])
+  if (order.member_id) totalsRows.push(['Member ID', order.member_id, false])
+  totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
+  const totalsBoxWidth = 270
+  const totalsLabelWidth = 154
+  const totalsValueWidth = totalsBoxWidth - totalsLabelWidth
+  const totalsX = width - margin - totalsBoxWidth
+  const totalsRowHeight = 23
 
-  y -= 34
+  totalsRows.forEach(([label, value, strong], index) => {
+    const rowBottom = y - (index + 1) * totalsRowHeight
+    const fill = strong ? rgb(0.9, 0.94, 1) : rgb(1, 1, 1)
+    const color = strong ? rgb(0.11, 0.31, 0.85) : rgb(0.07, 0.09, 0.15)
+    const rowFont = strong ? fontBold : font
+    drawCell(page, totalsX, rowBottom, totalsLabelWidth, totalsRowHeight, { fill, border: tableBorder, borderWidth: 0.9 })
+    drawCell(page, totalsX + totalsLabelWidth, rowBottom, totalsValueWidth, totalsRowHeight, { fill, border: tableBorder, borderWidth: 0.9 })
+    drawCellText(page, label, totalsX, rowBottom, totalsLabelWidth, totalsRowHeight, strong ? 10.5 : 9, rowFont, 'left', color)
+    drawCellText(page, value, totalsX + totalsLabelWidth, rowBottom, totalsValueWidth, totalsRowHeight, strong ? 10.5 : 9, rowFont, 'right', color)
+  })
+
+  y -= totalsRows.length * totalsRowHeight + 28
   if (y < 150) y = 150
 
   const bankLines = [

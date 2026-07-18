@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
 import { filterProductsByCollection } from '@/lib/product-collections'
+import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
 
 function normalizeProduct(p: Product): Product {
@@ -11,6 +12,19 @@ function normalizeProduct(p: Product): Product {
     isbn: p.isbn ?? (p.metadata?.isbn as string) ?? null,
     price: Number(p.price),
     compare_at_price: compareAtPrice > 0 ? compareAtPrice : null,
+  }
+}
+
+function normalizeCourse(c: Course): Course {
+  return {
+    ...c,
+    image_url: normalizeMediaUrl(c.image_url),
+    thumbnail_url: normalizeMediaUrl(c.thumbnail_url),
+    banner_url: normalizeMediaUrl(c.banner_url),
+    instructor_image_url: normalizeMediaUrl(c.instructor_image_url),
+    instructor_avatar: normalizeMediaUrl(c.instructor_avatar),
+    certificate_background_url: normalizeMediaUrl(c.certificate_background_url),
+    hero_video_url: normalizeMediaUrl(c.hero_video_url),
   }
 }
 
@@ -81,7 +95,7 @@ export async function getCourses(options?: {
   limit?: number
 }): Promise<Course[]> {
   if (!isSupabaseConfigured()) {
-    let items = [...SEED_COURSES]
+    let items = SEED_COURSES.map(normalizeCourse)
     if (options?.category) items = items.filter((c) => c.category === options.category)
     if (options?.featured) items = items.filter((c) => c.featured)
     if (options?.limit) items = items.slice(0, options.limit)
@@ -97,18 +111,19 @@ export async function getCourses(options?: {
 
   const { data, error } = await query.order('created_at', { ascending: false })
   if (error || !data?.length) {
-    let items = [...SEED_COURSES]
+    let items = SEED_COURSES.map(normalizeCourse)
     if (options?.category) items = items.filter((c) => c.category === options.category)
     if (options?.featured) items = items.filter((c) => c.featured)
     if (options?.limit) items = items.slice(0, options.limit)
     return items
   }
-  return (data as Course[]) ?? []
+  return ((data as Course[]) ?? []).map(normalizeCourse)
 }
 
 export async function getCourseBySlug(slug: string): Promise<Course | null> {
   if (!isSupabaseConfigured()) {
-    return SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    const course = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    return course ? normalizeCourse(course) : null
   }
 
   const supabase = await createClient()
@@ -120,10 +135,12 @@ export async function getCourseBySlug(slug: string): Promise<Course | null> {
     .maybeSingle()
 
   if (error) {
-    return SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    const course = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    return course ? normalizeCourse(course) : null
   }
 
-  return (data as Course | null) ?? (SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null)
+  const fallback = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+  return data ? normalizeCourse(data as Course) : (fallback ? normalizeCourse(fallback) : null)
 }
 
 export async function getBlogPosts(options?: {

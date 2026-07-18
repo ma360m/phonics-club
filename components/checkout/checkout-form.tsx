@@ -7,11 +7,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
+import { shopPaymentNeedsReceipt, type ShopPaymentMethod } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import type { ActionResult } from '@/types'
 import { getGuestCart } from '@/lib/guest-cart-client'
 
 const initialState: ActionResult = { success: false }
+const paymentOptions: Array<{
+  value: ShopPaymentMethod
+  title: string
+  description: string
+}> = [
+  { value: 'cod', title: 'Cash on Delivery', description: 'Pay when your order is delivered.' },
+  { value: 'bank_transfer', title: 'Bank Transfer', description: 'Transfer to the Phonics Club bank account.' },
+  { value: 'jazzcash', title: 'JazzCash', description: 'Send payment to the listed JazzCash number.' },
+  { value: 'easypaisa', title: 'EasyPaisa', description: 'Send payment to the listed EasyPaisa number.' },
+]
 
 interface BankDetails {
   bankName: string
@@ -33,7 +44,7 @@ export function CheckoutForm({
   isGuest?: boolean
 }) {
   const [state, formAction, pending] = useActionState(placeOrderAction, initialState)
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'credit'>('cod')
+  const [paymentMethod, setPaymentMethod] = useState<ShopPaymentMethod>('cod')
   const [showMemberHelp, setShowMemberHelp] = useState(false)
   const [guestCartJson, setGuestCartJson] = useState('')
 
@@ -43,6 +54,7 @@ export function CheckoutForm({
 
   const shipping = SHIPPING_FEE_PKR
   const grandTotal = subtotal + shipping
+  const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
 
   return (
     <form action={formAction} encType="multipart/form-data" className="space-y-4 bg-card rounded-2xl border p-6">
@@ -106,30 +118,63 @@ export function CheckoutForm({
 
       <div className="border-t pt-4 space-y-3">
         <Label>Payment Method *</Label>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <label className={`border rounded-xl p-4 cursor-pointer ${paymentMethod === 'cod' ? 'border-[#1D4ED8] bg-[#1D4ED8]/5' : ''}`}>
-            <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="mr-2" />
-            Cash on Delivery
-          </label>
-          <label className={`border rounded-xl p-4 cursor-pointer ${paymentMethod === 'credit' ? 'border-[#1D4ED8] bg-[#1D4ED8]/5' : ''}`}>
-            <input type="radio" name="paymentMethod" value="credit" checked={paymentMethod === 'credit'} onChange={() => setPaymentMethod('credit')} className="mr-2" />
-            Bank Transfer / Credit
-          </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {paymentOptions.map((option) => (
+            <label
+              key={option.value}
+              className={`flex min-h-28 cursor-pointer gap-3 rounded-xl border p-4 transition-colors ${
+                paymentMethod === option.value ? 'border-[#1D4ED8] bg-[#1D4ED8]/5' : 'hover:border-[#1D4ED8]/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value={option.value}
+                checked={paymentMethod === option.value}
+                onChange={() => setPaymentMethod(option.value)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-semibold">{option.title}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{option.description}</span>
+              </span>
+            </label>
+          ))}
         </div>
 
-        {paymentMethod === 'credit' && (
+        {receiptRequired && (
           <div className="bg-muted/50 rounded-xl p-4 text-sm space-y-2">
-            <p className="font-semibold">Bank Account Details</p>
-            <p>Bank: {bankDetails.bankName}</p>
-            <p>Account: {bankDetails.accountTitle}</p>
-            <p>A/C No: {bankDetails.accountNumber}</p>
-            <p>IBAN: {bankDetails.iban}</p>
+            <p className="font-semibold">
+              {paymentMethod === 'bank_transfer' ? 'Bank Account Details' : `${paymentOptions.find((option) => option.value === paymentMethod)?.title} Details`}
+            </p>
+            {paymentMethod === 'bank_transfer' ? (
+              <>
+                <p>Bank: {bankDetails.bankName}</p>
+                <p>Account: {bankDetails.accountTitle}</p>
+                <p>A/C No: {bankDetails.accountNumber}</p>
+                <p>IBAN: {bankDetails.iban}</p>
+              </>
+            ) : (
+              <>
+                <p>Account title: Fatima Tuz Zahra</p>
+                <p>Number: 03084432015</p>
+              </>
+            )}
             <p className="text-muted-foreground">{bankDetails.instructions}</p>
             <div className="space-y-2 pt-2">
               <Label htmlFor="receipt">Upload Payment Receipt *</Label>
-              <Input id="receipt" name="receipt" type="file" accept="image/*,.pdf" className="rounded-xl" required={paymentMethod === 'credit'} />
+              <Input
+                id="receipt"
+                name="receipt"
+                type="file"
+                accept="image/jpeg,image/png,application/pdf"
+                className="rounded-xl"
+                required={receiptRequired}
+              />
             </div>
-            <p className="text-xs text-amber-700">Order will be processed after admin confirms your payment.</p>
+            <p className="text-xs text-amber-700">
+              Upload a JPG, PNG, or PDF receipt. The order will be processed after admin confirms your payment.
+            </p>
           </div>
         )}
       </div>
@@ -150,7 +195,7 @@ export function CheckoutForm({
         {pending ? 'Placing order...' : 'Place Order'}
       </Button>
       <p className="text-xs text-center text-muted-foreground">
-        A confirmation email with your invoice will be sent to your email address.
+        Confirmation emails with the invoice will be sent to you and the admin.
       </p>
     </form>
   )

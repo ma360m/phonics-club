@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { courseSchema } from '@/lib/validations/course'
+import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
+import { normalizeMediaUrl } from '@/lib/media-url'
 import type { ActionResult, CurriculumModule } from '@/types'
 
 function parseLines(formData: FormData, key: string): string[] {
@@ -37,12 +39,12 @@ function parseCourseForm(formData: FormData) {
     duration: formData.get('duration'),
     instructor: formData.get('instructor'),
     instructor_bio: formData.get('instructor_bio'),
-    image_url: formData.get('image_url') || null,
-    thumbnail_url: formData.get('thumbnail_url') || formData.get('image_url') || null,
-    banner_url: formData.get('banner_url') || null,
-    instructor_image_url: formData.get('instructor_image_url') || null,
-    certificate_background_url: formData.get('certificate_background_url') || null,
-    hero_video_url: formData.get('hero_video_url') || null,
+    image_url: normalizeMediaUrl(String(formData.get('image_url') ?? '')),
+    thumbnail_url: normalizeMediaUrl(String(formData.get('thumbnail_url') || formData.get('image_url') || '')),
+    banner_url: normalizeMediaUrl(String(formData.get('banner_url') ?? '')),
+    instructor_image_url: normalizeMediaUrl(String(formData.get('instructor_image_url') ?? '')),
+    certificate_background_url: normalizeMediaUrl(String(formData.get('certificate_background_url') ?? '')),
+    hero_video_url: normalizeMediaUrl(String(formData.get('hero_video_url') ?? '')),
     enrolment_opens_at: formData.get('enrolment_opens_at') || null,
     enrolment_closes_at: formData.get('enrolment_closes_at') || null,
     max_students: formData.get('max_students') || null,
@@ -71,7 +73,12 @@ function parseCourseForm(formData: FormData) {
     offline_evidence_required: formData.get('offline_evidence_required') === 'on',
   })
 
-  if (!parsed.success) return { ok: false as const, error: parsed.error.errors[0]?.message }
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: friendlyErrorMessage(parsed.error.errors[0]?.message, 'Course details are incomplete.'),
+    }
+  }
 
   const price = parsed.data.price
   const previewVideoUrl = String(formData.get('preview_video_url') ?? '').trim()
@@ -111,7 +118,7 @@ export async function createCourseAction(
 
   const supabase = await createClient()
   const { error } = await supabase.from('courses').insert(parsed.data as never)
-  if (error) return { success: false, error: error.message }
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Course could not be created.') }
 
   revalidatePath('/admin/courses')
   revalidatePath('/courses')
@@ -129,7 +136,7 @@ export async function updateCourseAction(
 
   const supabase = await createClient()
   const { error } = await supabase.from('courses').update(parsed.data as never).eq('id', id)
-  if (error) return { success: false, error: error.message }
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Course could not be updated.') }
 
   revalidatePath('/admin/courses')
   revalidatePath('/courses')
@@ -140,7 +147,7 @@ export async function deleteCourseAction(id: string): Promise<void> {
   await requireAdmin()
   const supabase = await createClient()
   const { error } = await supabase.from('courses').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw toError(error, 'Course could not be deleted.')
 
   revalidatePath('/admin/courses')
 }

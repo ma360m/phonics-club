@@ -2,6 +2,7 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import {
   HeroSection,
   TrustBadges,
+  ReadingSuccessVideo,
   Testimonials,
   StatsSection,
   Newsletter,
@@ -14,10 +15,10 @@ import { BlogPreviewGrid } from '@/components/sections/blog-preview-grid'
 import { JsonLd } from '@/components/seo/json-ld'
 import { organizationJsonLd } from '@/utils/seo'
 import { getProducts, getCourses, getBlogPosts } from '@/lib/data/queries'
-import { getTestimonials, getSocialReels, getVortexLearning, getSchoolLogos, getHeroVideo } from '@/lib/site-content'
+import { getTestimonials, getSocialReels, getVortexLearning, getSchoolLogos, getWebsiteVideos } from '@/lib/site-content'
 
 export default async function HomePage() {
-  const [products, courses, posts, testimonials, reels, vortex, schoolLogos, heroVideo] = await Promise.all([
+  const [products, courses, posts, testimonials, reels, vortex, schoolLogos, websiteVideos] = await Promise.all([
     getProducts({ featured: true, limit: 3 }),
     getCourses({ featured: true, limit: 3 }),
     getBlogPosts({ limit: 3 }),
@@ -25,7 +26,7 @@ export default async function HomePage() {
     getSocialReels(),
     getVortexLearning(),
     getSchoolLogos(),
-    getHeroVideo(),
+    getWebsiteVideos(),
   ])
 
   return (
@@ -33,8 +34,9 @@ export default async function HomePage() {
       <JsonLd data={organizationJsonLd()} />
       <AnnouncementBar />
       <Navbar />
-      <HeroSection videoUrl={heroVideo.videoUrl} demoButtonUrl={heroVideo.demoButtonUrl} />
+      <HeroSection videoUrl={websiteVideos.homeHeroVideoUrl} demoButtonUrl={websiteVideos.homeHeroDemoUrl} />
       <TrustBadges logos={schoolLogos} />
+      <ReadingSuccessVideo videoUrl={websiteVideos.readingSuccessVideoUrl} />
       <VortexLearningSection data={vortex} />
       <FeaturedProductsGrid products={products} />
       <FeaturedCoursesGrid courses={courses} />

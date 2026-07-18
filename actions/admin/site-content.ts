@@ -14,6 +14,7 @@ export async function saveSiteContentAction(key: string, content: unknown): Prom
 
   if (error) return { success: false, error: error.message }
   revalidatePath('/')
+  revalidatePath('/trainings')
   revalidatePath('/admin/content')
   revalidatePath('/about')
   revalidatePath('/research')
