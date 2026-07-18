@@ -32,8 +32,8 @@ const VIDEO_SLOTS: Array<{
   },
   {
     key: 'readingSuccessVideoUrl',
-    label: 'Reading Success Video',
-    hint: 'Video in the homepage Reading Success section. Clearing this hides that video section.',
+    label: 'Student Progress Tile Video',
+    hint: 'Video opened from the Student progress tile in the homepage community section. Clearing this leaves the tile as a normal icon card.',
     uploadFolder: 'reading-success',
   },
   {

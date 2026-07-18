@@ -2,7 +2,6 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import {
   HeroSection,
   TrustBadges,
-  ReadingSuccessVideo,
   Testimonials,
   StatsSection,
   Newsletter,
@@ -36,7 +35,6 @@ export default async function HomePage() {
       <Navbar />
       <HeroSection videoUrl={websiteVideos.homeHeroVideoUrl} demoButtonUrl={websiteVideos.homeHeroDemoUrl} />
       <TrustBadges logos={schoolLogos} />
-      <ReadingSuccessVideo videoUrl={websiteVideos.readingSuccessVideoUrl} />
       <VortexLearningSection data={vortex} />
       <FeaturedProductsGrid products={products} />
       <FeaturedCoursesGrid courses={courses} />
@@ -44,7 +42,7 @@ export default async function HomePage() {
       <StatsSection />
       <BlogPreviewGrid posts={posts} />
       <Newsletter />
-      <SocialProof reels={reels} />
+      <SocialProof reels={reels} studentSuccessVideoUrl={websiteVideos.readingSuccessVideoUrl} />
       <Footer />
     </main>
   )
