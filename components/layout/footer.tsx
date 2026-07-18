@@ -8,6 +8,7 @@ const footerLinks = {
   company: [
     { name: 'About Us', href: '/about' },
     { name: 'Certified Trainers', href: '/certified-trainers' },
+    { name: 'Research', href: '/research' },
     { name: 'Blog', href: '/blog' },
     { name: 'Newsletters', href: '/newsletters' },
     { name: 'Shop', href: '/shop' },
@@ -51,7 +52,7 @@ export function Footer() {
               <span className="font-bold text-xl">{APP_NAME}</span>
             </Link>
             <p className="text-white/70 mb-6 max-w-sm">
-              Premium phonics courses and educational products helping children master reading with confidence.
+              Phonics Club Pvt. Ltd., established in 2015, is an independent non-profit organization dedicated to promoting synthetic phonics through quality training, courses, and educational resources, helping children become confident readers in Pakistan and beyond.
             </p>
 
             <div className="space-y-3">

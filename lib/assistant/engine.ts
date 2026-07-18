@@ -14,48 +14,66 @@ export interface AssistantContext {
 const STARTER_SUGGESTIONS = [
   'Find a course',
   'Browse products',
-  'Training dates',
-  'Contact support',
-  'My enrolled courses',
+  'Vortex Learning',
   'Payment methods',
+  'Course refund policy',
+  'Contact support',
 ]
 
 export { STARTER_SUGGESTIONS }
 
+const CONTACT_REPLY = `For account-specific or complex questions, please contact Phonics Club:\n- ${COMPANY.email}\n- ${COMPANY.adminEmail}\n- ${COMPANY.phoneDisplay}\n- ${COMPANY.phoneAltDisplay}\n- /contact`
+
+function words(q: string) {
+  return q.toLowerCase().split(/\s+/).filter(Boolean)
+}
+
+function includesAny(q: string, terms: string[]) {
+  return terms.some((term) => q.includes(term))
+}
+
 function matchCourses(courses: Course[], q: string): Course[] {
-  const terms = q.toLowerCase().split(/\s+/).filter(Boolean)
+  const terms = words(q)
   return courses.filter((c) => {
-    const hay = `${c.title} ${c.description} ${c.category} ${c.instructor} ${c.level}`.toLowerCase()
-    return terms.some((t) => hay.includes(t))
+    const hay = `${c.title} ${c.description} ${c.category} ${c.instructor} ${c.level} ${c.duration}`.toLowerCase()
+    return terms.some((term) => hay.includes(term))
   })
 }
 
 function matchProducts(products: Product[], q: string): Product[] {
-  const terms = q.toLowerCase().split(/\s+/).filter(Boolean)
+  const terms = words(q)
   return products.filter((p) => {
     const cat = PRODUCT_CATEGORY_LABELS[p.category] ?? p.category
     const hay = `${p.name} ${p.description} ${cat} ${p.isbn ?? ''}`.toLowerCase()
-    return terms.some((t) => hay.includes(t))
+    return terms.some((term) => hay.includes(term))
   })
 }
 
 function formatCourseList(courses: Course[]): string {
-  if (!courses.length) return 'No matching courses found. Visit /courses to browse all programs.'
+  if (!courses.length) return `No matching courses found. Browse all programs at /courses.\n\n${CONTACT_REPLY}`
   return courses
     .slice(0, 5)
     .map(
       (c) =>
-        `• **${c.title}** — ${c.price === 0 ? 'Free' : formatPrice(c.price)} | ${c.level} | ${c.duration ?? 'Self-paced'}\n  /courses/${c.slug}`
+        `- **${c.title}**: ${c.price === 0 ? 'Free' : formatPrice(c.price)} | ${c.level} | ${c.duration ?? 'Self-paced'}\n  /courses/${c.slug}`
     )
     .join('\n')
 }
 
 function formatProductList(products: Product[]): string {
-  if (!products.length) return 'No matching products. Visit /shop to browse our catalog.'
+  if (!products.length) return `No matching products found. Browse the catalog at /shop.\n\n${CONTACT_REPLY}`
   return products
     .slice(0, 5)
-    .map((p) => `• **${p.name}** — ${formatPrice(p.price)} | ${PRODUCT_CATEGORY_LABELS[p.category] ?? p.category}\n  /shop/${p.slug}`)
+    .map((p) => `- **${p.name}**: ${formatPrice(p.price)} | ${PRODUCT_CATEGORY_LABELS[p.category] ?? p.category}\n  /shop/${p.slug}`)
     .join('\n')
+}
+
+function coursePolicyReply() {
+  return `Classroom course cancellation policy:\n- Cancel 15 or more working days before the course start date: 30% admin fee applies, remaining eligible deposit may be refunded.\n- Cancellation less than 15 working days before the course start date: no refund.\n- If Phonics Club cancels a course because minimum delegates are not reached or a safe training environment is not possible, management may arrange an alternative date or offer a 70% refund.\n- Once login details, online access, course outlines, or live training access have been issued, refunds cannot be granted.\n- Postponement requests must be made at least 5 working days before the course starts.\n\nRefund requests: info@phonicsclub.com`
+}
+
+function paymentReply() {
+  return `Payment options:\n- Allied Bank: Phonics Club Consultancy, Account 0010033565850013, IBAN PK76ABPA0010033565850013\n- Standard Chartered: Fatima Tuz Zahra, Account 001917781701\n- JazzCash: Fatima Tuz Zahra, 03084432015\n- EasyPaisa: Fatima Tuz Zahra, 03084432015\n\nAfter payment, upload or share your receipt as requested. For confirmation, contact 03084432015 or ${COMPANY.email}.`
 }
 
 export function generateAssistantReply(input: string, ctx: AssistantContext): string {
@@ -63,123 +81,127 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
   const { courses, products, posts, enrolledCourseTitles, userName } = ctx
   const greeting = userName ? `Hi ${userName}! ` : ''
 
-  // Personalized enrolled courses
+  if (!q) return `Please type your question and I will help.\n\n${CONTACT_REPLY}`
+
+  if (includesAny(q, ['hello', 'hi', 'help', 'salam', 'assalam'])) {
+    return `${greeting}I am your PHONICS CLUB AI Assistant. I can guide you through courses, products, trainer profiles, payments, refunds, research projects, Vortex Learning, certificates, orders, and support.\n\nTry asking "Which course should I start with?", "Payment methods", "What is Vortex Learning?", or "Show pupil books".`
+  }
+
+  if (includesAny(q, ['vortex', 'vortex learning'])) {
+    return `Vortex Learning is a company focused on providing students with different courses and online classes all over the world.\n\nPhonics Club presents Vortex Learning as an online education partner for students and educators who want flexible access to learning support.\n\nExplore related programs at /courses or contact us for guidance.`
+  }
+
   if (
-    (q.includes('my course') || q.includes('enrolled') || q.includes('my progress')) &&
+    (includesAny(q, ['my course', 'enrolled', 'my progress']) || q === 'my enrolled courses') &&
     enrolledCourseTitles?.length
   ) {
-    return `${greeting}You are enrolled in:\n${enrolledCourseTitles.map((t) => `• ${t}`).join('\n')}\n\nContinue learning at /dashboard/my-courses`
+    return `${greeting}You are enrolled in:\n${enrolledCourseTitles.map((title) => `- ${title}`).join('\n')}\n\nContinue learning at /dashboard/my-courses`
   }
 
-  if (q.includes('my course') || q.includes('enrolled')) {
-    return `${greeting}You are not enrolled in any courses yet. Browse /courses and click Enroll to get started!`
+  if (includesAny(q, ['my course', 'enrolled', 'my progress'])) {
+    return `${greeting}I do not see enrolled courses for this session. Browse /courses and enroll, or sign in and check /dashboard/my-courses.\n\n${CONTACT_REPLY}`
   }
 
-  // Course discovery
+  if (includesAny(q, ['refund', 'cancel course', 'course cancel', 'postpone', 'postponement', 'cancellation'])) {
+    return coursePolicyReply()
+  }
+
+  if (includesAny(q, ['payment', 'jazzcash', 'easypaisa', 'bank', 'pay', 'iban', 'account number'])) {
+    return paymentReply()
+  }
+
   if (
-    q.includes('course') ||
-    q.includes('learn') ||
-    q.includes('training') ||
-    q.includes('phonics') ||
-    q.includes('preschool') ||
-    q.includes('jolly') ||
-    q.includes('enroll')
+    includesAny(q, [
+      'course',
+      'learn',
+      'training',
+      'phonics',
+      'preschool',
+      'jolly',
+      'enroll',
+      'teacher',
+      'online class',
+      'class',
+    ])
   ) {
-    const keywords = q.replace(/course|courses|learn|training|enroll|what|do|you|offer|show|me/g, '').trim()
+    const keywords = q.replace(/course|courses|learn|training|enroll|what|do|you|offer|show|me|class|classes/g, '').trim()
     const matched = keywords.length > 2 ? matchCourses(courses, keywords) : courses.slice(0, 5)
 
-    if (q.includes('price') || q.includes('cost') || q.includes('how much')) {
+    if (includesAny(q, ['price', 'cost', 'how much', 'fee'])) {
       const course = matchCourses(courses, q)[0] ?? courses[0]
       if (course) {
         const modules = course.curriculum?.length ?? 0
-        const lessons = course.curriculum?.reduce((n, m) => n + m.lessons.length, 0) ?? 0
-        return `${course.title} costs ${course.price === 0 ? 'FREE' : formatPrice(course.price)}.\n\nIncludes:\n• ${lessons} lessons across ${modules} modules\n• Instructor: ${course.instructor ?? 'Certified trainer'}\n• Duration: ${course.duration ?? 'Self-paced'}\n• Certificate on completion\n\nEnroll: /courses/${course.slug}`
+        const lessons = course.curriculum?.reduce((count, module) => count + module.lessons.length, 0) ?? 0
+        return `${course.title} costs ${course.price === 0 ? 'FREE' : formatPrice(course.price)}.\n\nIncludes:\n- ${lessons} lessons across ${modules} modules\n- Instructor: ${course.instructor ?? 'Certified trainer'}\n- Duration: ${course.duration ?? 'Self-paced'}\n- Certificate on completion\n\nEnroll: /courses/${course.slug}`
       }
     }
 
-    if (q.includes('recommend') || q.includes('beginner') || q.includes('best for')) {
+    if (includesAny(q, ['recommend', 'beginner', 'best for', 'start'])) {
       const beginner = courses.filter((c) => c.level === 'beginner' || c.price === 0)
-      return `${greeting}For beginners I recommend:\n\n${formatCourseList(beginner.length ? beginner : courses.slice(0, 3))}\n\nTell me your goal (teaching, parenting, preschool) for a tailored recommendation.`
+      return `${greeting}For beginners, I recommend starting with:\n\n${formatCourseList(beginner.length ? beginner : courses.slice(0, 3))}\n\nTell me whether you are a teacher, parent, school leader, or student for a more tailored recommendation.`
     }
 
-    return `${greeting}Here are our courses:\n\n${formatCourseList(matched)}\n\nAsk "How much is [course name]?" for pricing details.`
+    return `${greeting}Here are relevant courses:\n\n${formatCourseList(matched)}\n\nFor custom school training or course selection help, contact /contact.`
   }
 
-  // Products
   if (
-    q.includes('product') ||
-    q.includes('book') ||
-    q.includes('kit') ||
-    q.includes('shop') ||
-    q.includes('buy') ||
-    q.includes('price') ||
-    q.includes('isbn') ||
-    q.includes('reader') ||
-    q.includes('workbook') ||
-    q.includes('pupil')
+    includesAny(q, [
+      'product',
+      'book',
+      'kit',
+      'shop',
+      'buy',
+      'price',
+      'isbn',
+      'reader',
+      'workbook',
+      'pupil',
+      'grammar',
+      'resource',
+    ])
   ) {
-    const keywords = q.replace(/product|products|book|books|shop|buy|price|show/g, '').trim()
+    const keywords = q.replace(/product|products|book|books|shop|buy|price|show|resource|resources/g, '').trim()
     const matched = keywords.length > 2 ? matchProducts(products, keywords) : products.filter((p) => p.featured).slice(0, 5)
 
-    if (q.includes('beginner') || q.includes('start') || q.includes('recommend')) {
-      const kits = matchProducts(products, 'kit pupil workbook')
-      return `${greeting}For beginners starting Jolly Phonics:\n\n${formatProductList(kits.length ? kits : products.slice(0, 4))}\n\nAdd to cart at /shop or ask about bundle pricing on WhatsApp.`
+    if (includesAny(q, ['beginner', 'start', 'recommend'])) {
+      const kits = matchProducts(products, 'kit pupil workbook readers')
+      return `${greeting}For beginners starting Jolly Phonics, look at pupil books, workbooks, readers, and classroom kits:\n\n${formatProductList(kits.length ? kits : products.slice(0, 4))}\n\nFor bundle support, WhatsApp ${COMPANY.phoneDisplay}.`
     }
 
-    return `${greeting}Our products (PKR):\n\n${formatProductList(matched.length ? matched : products.slice(0, 5))}\n\nAll prices in PKR. Bulk orders: WhatsApp ${COMPANY.phoneDisplay}`
+    return `${greeting}Relevant products:\n\n${formatProductList(matched.length ? matched : products.slice(0, 5))}\n\nAll prices are in PKR. Bulk orders and school purchases can be discussed on WhatsApp ${COMPANY.phoneDisplay}.`
   }
 
-  // Blog
-  if (q.includes('blog') || q.includes('article') || q.includes('news') || q.includes('noc') || q.includes('pctb')) {
+  if (includesAny(q, ['order', 'cart', 'checkout', 'shipping', 'delivery'])) {
+    return `To purchase:\n1. Browse /shop or /courses\n2. Add items to cart\n3. Checkout at /checkout\n4. Upload receipt if paying by bank transfer\n\nShipping is added at checkout and may be adjusted by admin based on quantity, distance, and product weight. Order questions should go to ${COMPANY.email} with your invoice or order number.`
+  }
+
+  if (includesAny(q, ['certificate', 'certified trainer', 'trainer', 'instructor'])) {
+    return `Certificates are issued after completing eligible course requirements. View your learning dashboard at /dashboard/my-courses.\n\nCertified trainer profiles are available at /certified-trainers. For trainer-led school support, contact /contact.`
+  }
+
+  if (includesAny(q, ['research', 'pilot', 'study', 'project', 'aser', 'jolly learning'])) {
+    return `Phonics Club research and pilot work includes Synthetic Phonics implementation projects, estate school trials, literacy standards work, and ongoing 2025-2026 multi-city implementation in Lahore, Chitral, Gujranwala, Skardu, and Karachi.\n\nRead more at /research.`
+  }
+
+  if (includesAny(q, ['about', 'mission', 'vision', 'who are you', 'phonics club'])) {
+    return `Phonics Club Pvt. Ltd. is a registered organization dedicated to promoting Synthetic Phonics. Founded in 2015, it supports teachers, schools, parents, and learners through training, consultancy, curriculum development, literacy assessments, learning resources, and professional development.\n\nRead more at /about.`
+  }
+
+  if (includesAny(q, ['blog', 'article', 'news', 'noc', 'pctb'])) {
     const post = posts[0]
     if (post) {
-      return `Latest: **${post.title}**\n${post.excerpt}\n\nRead more: /blog/${post.slug}`
+      return `Latest article: **${post.title}**\n${post.excerpt ?? ''}\n\nRead more: /blog/${post.slug}`
     }
-    return 'Visit /blog for phonics tips, teaching guides, and news.'
+    return 'Visit /blog for phonics tips, teaching guides, NOC updates, PCTB information, and company news.'
   }
 
-  // Payment
-  if (q.includes('payment') || q.includes('jazzcash') || q.includes('easypaisa') || q.includes('bank') || q.includes('pay')) {
-    return `Payment methods:\n• Bank transfer\n• JazzCash\n• EasyPaisa\n• Card payment (at checkout)\n\nFor payment instructions, contact:\n📧 ${COMPANY.adminEmail}\n📱 ${COMPANY.phoneDisplay} or ${COMPANY.phoneAltDisplay}\n\nWhatsApp us for invoice details.`
+  if (includesAny(q, ['contact', 'email', 'phone', 'whatsapp', 'location', 'address', 'support'])) {
+    return CONTACT_REPLY
   }
 
-  // Cart / checkout
-  if (q.includes('cart') || q.includes('checkout') || q.includes('order')) {
-    return `To purchase:\n1. Browse /shop or /courses\n2. Add items to cart\n3. Checkout at /checkout\n\nApply coupon codes at checkout. Order status visible in /dashboard.`
+  if (includesAny(q, ['synthetic phonics', 'what is phonics', 'blending', 'segmenting', 'tricky words'])) {
+    return `Synthetic Phonics teaches children letter sounds first, then blending sounds to read words and segmenting sounds to spell. Jolly Phonics supports this through actions, stories, songs, readers, spelling, grammar, and structured classroom routines.\n\nFor full training, explore /courses or contact Phonics Club.`
   }
 
-  // Certificate
-  if (q.includes('certificate') || q.includes('certified')) {
-    return `Certificates are issued after completing a course (100% progress). View yours at /dashboard/my-courses.\n\nWe also have certified trainers: /certified-trainers`
-  }
-
-  // Contact
-  if (q.includes('contact') || q.includes('email') || q.includes('phone') || q.includes('whatsapp') || q.includes('location') || q.includes('address')) {
-    return `Contact Phonics Club:\n📧 ${COMPANY.adminEmail}\n📧 ${COMPANY.email}\n📱 ${COMPANY.phoneDisplay}\n📱 ${COMPANY.phoneAltDisplay}\n📍 ${COMPANY.address}\n\nWhatsApp: ${COMPANY.phoneDisplay}\n/contact for the full form.`
-  }
-
-  // Training calendar
-  if (q.includes('webinar') || q.includes('onsite') || q.includes('calendar') || q.includes('date')) {
-    return `2025 Training Calendar:\n• Jolly Phonics — Feb 15 & Aug 2 (onsite)\n• Jolly Grammar — Feb 22 & Aug 9 (onsite)\n• Online webinars — Mar 1 & Mar 8\n\nRegister at /trainings or email ${COMPANY.adminEmail}`
-  }
-
-  // Tutor mode
-  if (q.includes('explain') || q.includes('practice') || q.includes('test me') || q.includes('summarize') || q.includes('example')) {
-    return `AI Tutor Mode 🎓\n\nI can help explain phonics concepts! Try asking:\n• "Explain synthetic phonics"\n• "Give examples of blending"\n• "What are tricky words?"\n\nFor full lesson content, enroll in a course and use the learning player at /dashboard/my-courses.`
-  }
-
-  if (q.includes('synthetic phonics') || q.includes('what is phonics')) {
-    return `Synthetic Phonics teaches children letter sounds first, then blending to read words. The Jolly Phonics program uses actions, stories, and songs for each sound (s,a,t,i,p,n first).\n\nRecommended: Teaching of English through Jolly Phonics course at /courses/teaching-english-jolly-phonics`
-  }
-
-  if (q.includes('hello') || q.includes('hi') || q.includes('help')) {
-    return `${greeting}I'm your PHONICS CLUB AI Assistant — Course Advisor, Product Guide & Support Agent.\n\nI can help with:\n• Finding courses & products\n• Pricing & enrollment\n• Training dates\n• Payment methods\n• Your progress (when logged in)\n\nTry: "Find a course" or "Show pupil books"`
-  }
-
-  // Sales funnel
-  if (q.includes('looking for') || q.includes('corporate') || q.includes('kids')) {
-    return `What are you looking for?\n\n1️⃣ **Learn a skill** → /courses\n2️⃣ **Buy products** → /shop\n3️⃣ **Corporate training** → /trainings\n4️⃣ **Kids programs** → Preschool Professional course\n5️⃣ **Professional certification** → Jolly Phonics Intensive\n\nTell me more about your needs!`
-  }
-
-  return `${greeting}I can help you find courses, products, training dates, pricing, and support.\n\nTry:\n• "What courses do you offer?"\n• "Show pupil books"\n• "Training dates 2025"\n• "Payment methods"\n\nOr contact us: ${COMPANY.phoneDisplay}`
+  return `${greeting}I can help with courses, products, payments, refunds, orders, certificates, trainer profiles, research, Vortex Learning, and Phonics Club information.\n\nI do not want to guess on this question. ${CONTACT_REPLY}`
 }

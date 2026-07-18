@@ -13,6 +13,7 @@ interface ImageUploadProps {
   storage?: boolean
   /** Attach uploaded image to product by ISBN (Supabase Storage only) */
   isbn?: string
+  multiple?: boolean
 }
 
 export function ImageUpload({
@@ -20,43 +21,52 @@ export function ImageUpload({
   folder = 'phonics-club',
   storage = false,
   isbn,
+  multiple = false,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
 
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
     try {
-      if (storage) {
-        if (isbn) formData.append('isbn', isbn)
-        const res = await fetch('/api/admin/products/upload-image', { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Upload failed')
-        onUpload(data.url)
-        toast.success(isbn ? 'Image uploaded and attached to product' : 'Image uploaded to Supabase Storage')
-      } else {
-        formData.append('folder', folder)
-        const res = await fetch('/api/upload', { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Upload failed')
-        onUpload(data.url)
-        toast.success('Image uploaded')
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        if (storage) {
+          if (isbn) formData.append('isbn', isbn)
+          const res = await fetch('/api/admin/products/upload-image', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Upload failed')
+          onUpload(data.url)
+        } else {
+          formData.append('folder', folder)
+          const res = await fetch('/api/upload', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Upload failed')
+          onUpload(data.url)
+        }
       }
+      toast.success(
+        files.length > 1
+          ? `${files.length} images uploaded${isbn ? ' and attached to product' : ''}`
+          : isbn
+            ? 'Image uploaded and attached to product'
+            : 'Image uploaded'
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
+      e.target.value = ''
     }
   }
 
   return (
     <div className="flex items-center gap-2">
-      <Input type="file" accept="image/*" onChange={handleUpload} disabled={uploading} className="rounded-xl" />
+      <Input type="file" accept="image/*" multiple={multiple} onChange={handleUpload} disabled={uploading} className="rounded-xl" />
       <Button type="button" variant="outline" disabled={uploading} className="rounded-xl shrink-0" asChild>
         <label className="cursor-pointer">
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}

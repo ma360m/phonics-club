@@ -18,8 +18,8 @@ export function ProductImage({
 
   if (error || !src) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1D4ED8]/10 to-[#60A5FA]/20 text-4xl ${className}`}>
-        📚
+      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1D4ED8]/10 to-[#60A5FA]/20 text-sm font-semibold text-muted-foreground ${className}`}>
+        Image unavailable
       </div>
     )
   }
@@ -30,7 +30,7 @@ export function ProductImage({
       alt={alt}
       fill
       className={`object-contain ${className}`}
-      sizes="(max-width: 768px) 100vw, 33vw"
+      sizes="(max-width: 768px) 100vw, 50vw"
       loading={priority ? undefined : 'lazy'}
       priority={priority}
       onError={() => setError(true)}

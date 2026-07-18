@@ -84,7 +84,7 @@ export function ProductForm({ product }: { product?: Product }) {
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Image path or URL (comma-separated)</Label>
+        <Label>Image paths or URLs (comma-separated)</Label>
         <Input
           name="images"
           value={images}
@@ -95,9 +95,10 @@ export function ProductForm({ product }: { product?: Product }) {
         <ImageUpload
           storage
           isbn={getIsbn(product) || undefined}
+          multiple
           onUpload={(url) => setImages((prev) => (prev ? `${prev}, ${url}` : url))}
         />
-        <p className="text-xs text-muted-foreground">Local images: place file in public/images/ and use path above.</p>
+        <p className="text-xs text-muted-foreground">Upload one or more supporting pictures. Local images can also be placed in public/images/ and added as paths above.</p>
       </div>
       <div className="flex gap-6">
         <label className="flex items-center gap-2 text-sm">

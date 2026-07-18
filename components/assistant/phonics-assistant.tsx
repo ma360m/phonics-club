@@ -48,7 +48,7 @@ export function PhonicsAssistant() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      text: `Welcome to ${COMPANY.name}! I'm your AI Course & Product Advisor. Ask about courses, Jolly Phonics books, training, pricing, or enrollment.`,
+      text: `Welcome to ${COMPANY.name}! I'm your AI Course & Product Advisor. Ask about courses, Jolly Phonics books, training, Vortex Learning, payments, refunds, pricing, or enrollment.`,
     },
   ])
   const [input, setInput] = useState('')
@@ -113,7 +113,7 @@ export function PhonicsAssistant() {
                 </div>
                 <div>
                   <span className="font-semibold text-sm block">PHONICS CLUB AI</span>
-                  <span className="text-xs text-white/80">Course Advisor · Product Guide · Support</span>
+                  <span className="text-xs text-white/80">Course Advisor - Product Guide - Support</span>
                 </div>
               </div>
               <button onClick={() => setOpen(false)} aria-label="Close" className="hover:bg-white/10 rounded-lg p-1">

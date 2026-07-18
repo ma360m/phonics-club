@@ -81,14 +81,21 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
     }
   }
 
-  async function handleImageUpload(file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-    if (uploadIsbn) formData.append('isbn', uploadIsbn)
-    const res = await fetch('/api/admin/products/upload-image', { method: 'POST', body: formData })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Upload failed')
-    toast.success(uploadIsbn ? `Image attached to ISBN ${uploadIsbn}` : 'Image uploaded to Supabase Storage')
+  async function handleImageUpload(files: FileList | File[]) {
+    const fileItems = Array.from(files)
+    for (const file of fileItems) {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (uploadIsbn) formData.append('isbn', uploadIsbn)
+      const res = await fetch('/api/admin/products/upload-image', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+    }
+    toast.success(
+      uploadIsbn
+        ? `${fileItems.length} image${fileItems.length === 1 ? '' : 's'} attached to ISBN ${uploadIsbn}`
+        : `${fileItems.length} image${fileItems.length === 1 ? '' : 's'} uploaded to Supabase Storage`
+    )
     router.refresh()
   }
 
@@ -210,9 +217,11 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
               <Input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) handleImageUpload(f).catch((err) => toast.error(err.message))
+                  const files = e.target.files
+                  if (files?.length) handleImageUpload(files).catch((err) => toast.error(err.message))
+                  e.target.value = ''
                 }}
               />
             </div>
@@ -364,10 +373,11 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         ref={imageInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleImageUpload(f).catch((err) => toast.error(err.message))
+          const files = e.target.files
+          if (files?.length) handleImageUpload(files).catch((err) => toast.error(err.message))
           e.target.value = ''
         }}
       />

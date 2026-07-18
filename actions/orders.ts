@@ -47,20 +47,48 @@ async function validateCoupon(code: string, subtotal: number) {
     .eq('active', true)
     .single()
 
-  if (!coupon) return { discount: 0, error: 'Invalid coupon code' }
+  if (!coupon) return { discount: 0, discountPercent: 0, error: 'Invalid coupon code' }
 
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-    return { discount: 0, error: 'Coupon has expired' }
+    return { discount: 0, discountPercent: 0, error: 'Coupon has expired' }
   }
   if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
-    return { discount: 0, error: 'Coupon usage limit reached' }
+    return { discount: 0, discountPercent: 0, error: 'Coupon usage limit reached' }
   }
 
   let discount = 0
   if (coupon.discount_percent) discount = Math.round(subtotal * (coupon.discount_percent / 100))
   else if (coupon.discount_amount) discount = Number(coupon.discount_amount)
 
-  return { discount: Math.min(discount, subtotal), coupon }
+  const cappedDiscount = Math.min(discount, subtotal)
+  return {
+    discount: cappedDiscount,
+    discountPercent: subtotal > 0 ? (cappedDiscount / subtotal) * 100 : 0,
+    coupon,
+  }
+}
+
+function applyItemDiscounts(items: OrderItem[], discountAmount: number, discountPercent: number): OrderItem[] {
+  if (discountAmount <= 0) return items
+
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  if (subtotal <= 0) return items
+
+  let allocated = 0
+  return items.map((item, index) => {
+    const lineSubtotal = item.price * item.quantity
+    const lineDiscount =
+      index === items.length - 1
+        ? Math.max(0, discountAmount - allocated)
+        : Math.round(lineSubtotal * (discountAmount / subtotal))
+    allocated += lineDiscount
+
+    return {
+      ...item,
+      discount_amount: lineDiscount,
+      discount_percent: Number(discountPercent.toFixed(2)),
+    }
+  })
 }
 
 export async function placeOrderAction(
@@ -90,7 +118,7 @@ export async function placeOrderAction(
     return { success: false, error: parsed.error.errors[0]?.message ?? 'Invalid form data' }
   }
 
-  const items: OrderItem[] = cartItemsToOrderItems(resolvedCart)
+  let items: OrderItem[] = cartItemsToOrderItems(resolvedCart)
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const shippingFee = SHIPPING_FEE_PKR
@@ -101,6 +129,7 @@ export async function placeOrderAction(
     const couponResult = await validateCoupon(parsed.data.couponCode.trim(), subtotal)
     if (couponResult.error) return { success: false, error: couponResult.error }
     discountAmount = couponResult.discount
+    items = applyItemDiscounts(items, discountAmount, couponResult.discountPercent)
     couponCode = parsed.data.couponCode.trim().toUpperCase()
   }
 

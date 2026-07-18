@@ -6,8 +6,8 @@ export const COMPANY = {
   description:
     'Phonics Club Pvt Ltd is a registered organization dedicated to promoting the Synthetic Phonics teaching principles which empower children to apply taught knowledge and skills to their independent reading, writing and spellings. This is achievable only when a teacher has full confidence of knowledge. Phonics Club offers training, support and consultancy to ensure effective language instruction.',
   email: 'info@phonicsclub.com',
-  adminEmail: 'phonicscclub@gmail.com',
-  emails: ['info@phonicsclub.com', 'phonicscclub@gmail.com'],
+  adminEmail: 'phonicsclub@gmail.com',
+  emails: ['info@phonicsclub.com', 'phonicsclub@gmail.com'],
   phone: '03008079480',
   phoneAlt: '03022220448',
   phoneDisplay: '+92 300 8079480',
@@ -25,11 +25,12 @@ export const COMPANY = {
 } as const
 
 export const COMPANY_BANK_DETAILS = {
-  bankName: 'Meezan Bank',
-  accountTitle: 'Phonics Club Pvt Ltd',
-  accountNumber: '01234567890123',
-  iban: 'PK00MEZN0001234567890123',
-  instructions: 'Transfer the exact order total and upload your payment receipt. Orders process after admin confirms payment.',
+  bankName: 'Allied Bank',
+  accountTitle: 'Phonics Club Consultancy',
+  accountNumber: '0010033565850013',
+  iban: 'PK76ABPA0010033565850013',
+  instructions:
+    'Other payment options: Standard Chartered, title Fatima Tuz Zahra, account 001917781701. JazzCash and EasyPaisa: 03084432015, Fatima Tuz Zahra. Upload your payment receipt after transfer.',
 } as const
 
 export const TRAINING_CALENDAR_2025 = [

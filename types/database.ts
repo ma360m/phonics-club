@@ -214,6 +214,25 @@ export interface OrderItem {
   price: number
   quantity: number
   image?: string
+  discount_amount?: number
+  discount_percent?: number
+}
+
+export interface Trainer {
+  id: string
+  name: string
+  slug?: string | null
+  title: string | null
+  bio: string | null
+  image_url: string | null
+  achievements?: string[] | null
+  credentials?: string[] | null
+  specialties?: string[] | null
+  profile_details?: string | null
+  sort_order: number
+  published: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface CartItem {
@@ -899,6 +918,7 @@ export interface Database {
       offline_activity_entries: { Row: OfflineActivityEntry; Insert: Partial<OfflineActivityEntry>; Update: Partial<OfflineActivityEntry> }
       course_completion_status: { Row: CourseCompletionStatus; Insert: Partial<CourseCompletionStatus>; Update: Partial<CourseCompletionStatus> }
       newsletter_issues: { Row: NewsletterIssue; Insert: Partial<NewsletterIssue>; Update: Partial<NewsletterIssue> }
+      trainers: { Row: Trainer; Insert: Partial<Trainer>; Update: Partial<Trainer> }
     }
   }
 }
