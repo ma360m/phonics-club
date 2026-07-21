@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 
@@ -168,7 +169,7 @@ export async function buildInvoicePdf(
   const invoiceNo = order.invoice_number ?? order.id.slice(0, 8).toUpperCase()
   page.drawText(`Invoice #: ${invoiceNo}`, { x: margin, y, size: 10, font })
   y -= 14
-  page.drawText(`Status: ${order.status}`, { x: margin, y, size: 10, font })
+  page.drawText(`Status: ${getCustomerOrderStatusLabel(order.status, order.payment_method)}`, { x: margin, y, size: 10, font })
   y -= 14
   page.drawText(`Date: ${new Date(order.created_at).toLocaleDateString('en-PK')}`, { x: margin, y, size: 10, font })
   y -= 14

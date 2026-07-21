@@ -41,7 +41,7 @@ export function PaymentReceiptUploadForm({
       )}
       {state.success && (
         <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-          Receipt uploaded. Your order is now waiting for admin payment confirmation.
+          Receipt uploaded. Your order is now marked as payment submitted.
         </p>
       )}
 

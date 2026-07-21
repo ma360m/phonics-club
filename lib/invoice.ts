@@ -1,5 +1,6 @@
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 
@@ -88,7 +89,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     <div style="display:flex;justify-content:space-between;gap:32px;margin-bottom:24px">
       <div style="min-width:240px">
         <p style="margin:4px 0"><strong>Invoice #:</strong> ${escapeHtml(order.invoice_number ?? order.id.slice(0, 8).toUpperCase())}</p>
-        <p style="margin:4px 0"><strong>Status:</strong> ${escapeHtml(order.status)}</p>
+        <p style="margin:4px 0"><strong>Status:</strong> ${escapeHtml(getCustomerOrderStatusLabel(order.status, order.payment_method))}</p>
         <p style="margin:4px 0"><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-PK')}</p>
         <p style="margin:4px 0"><strong>Payment:</strong> ${shopPaymentLabel(order.payment_method)}</p>
       </div>

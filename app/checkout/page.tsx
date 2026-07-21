@@ -23,7 +23,7 @@ export default async function CheckoutPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <div className="max-w-lg mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <BackButton fallbackHref="/cart" />
         <h1 className="text-3xl font-bold mb-2">Checkout</h1>
         {!user && (
@@ -37,6 +37,7 @@ export default async function CheckoutPage() {
         )}
         <CheckoutForm
           subtotal={subtotal}
+          cartItems={cartItems}
           email={profile?.email}
           bankDetails={bankDetails}
           isGuest={!user}

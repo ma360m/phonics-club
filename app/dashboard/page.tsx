@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { BookOpen, ShoppingBag, Heart, GraduationCap, Shield, Award, Play, FileText, Download } from 'lucide-react'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
+import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
+import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { formatPrice, formatDate } from '@/utils/format'
 
 export default async function DashboardPage() {
@@ -15,11 +17,21 @@ export default async function DashboardPage() {
   const profile = await getProfile()
   const enrollments = await getUserEnrollments()
 
-  let orders: { id: string; total: number; status: string; created_at: string }[] = []
+  let orders: {
+    id: string
+    total: number
+    status: string
+    created_at: string
+    payment_method?: string | null
+    receipt_url?: string | null
+    shipping_address?: Record<string, string> | null
+    phone?: string | null
+    guest_email?: string | null
+  }[] = []
   const supabase = await createClient()
   const { data } = await supabase
     .from('orders')
-    .select('id, total, status, created_at')
+    .select('id, total, status, created_at, payment_method, receipt_url, shipping_address, phone, guest_email')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(5)
@@ -138,26 +150,29 @@ export default async function DashboardPage() {
             {orders.length === 0 ? (
               <p className="text-muted-foreground text-sm">No orders yet.</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {orders.map((o) => (
-                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
-                    <span className="text-muted-foreground">{formatDate(o.created_at)}</span>
-                    <span className="font-medium">{formatPrice(o.total)}</span>
-                    <Badge variant="outline">{o.status}</Badge>
-                    <div className="flex items-center gap-1">
-                      <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
-                        <Link href={`/api/orders/${o.id}/invoice`} target="_blank">
-                          <FileText className="mr-1 h-3.5 w-3.5" />
-                          Invoice
-                        </Link>
-                      </Button>
-                      <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
-                        <Link href={`/api/orders/${o.id}/invoice?format=pdf`} target="_blank">
-                          <Download className="mr-1 h-3.5 w-3.5" />
-                          PDF
-                        </Link>
-                      </Button>
+                  <li key={o.id} className="space-y-4 rounded-lg border p-4 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-muted-foreground">{formatDate(o.created_at)}</span>
+                      <span className="font-medium">{formatPrice(o.total)}</span>
+                      <Badge variant="outline">{getCustomerOrderStatusLabel(o.status, o.payment_method)}</Badge>
+                      <div className="flex items-center gap-1">
+                        <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
+                          <Link href={`/api/orders/${o.id}/invoice`} target="_blank">
+                            <FileText className="mr-1 h-3.5 w-3.5" />
+                            Invoice
+                          </Link>
+                        </Button>
+                        <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
+                          <Link href={`/api/orders/${o.id}/invoice?format=pdf`} target="_blank">
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                            PDF
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
+                    <CustomerOrderControls order={o} />
                   </li>
                 ))}
               </ul>

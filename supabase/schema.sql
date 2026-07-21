@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Custom types
 CREATE TYPE user_role AS ENUM ('user', 'admin');
-CREATE TYPE order_status AS ENUM ('pending', 'processing', 'shipped', 'delivered', 'cancelled');
+CREATE TYPE order_status AS ENUM ('pending', 'awaiting_payment', 'payment_submitted', 'payment_review', 'payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled');
 
 -- Profiles (extends auth.users)
 CREATE TABLE IF NOT EXISTS profiles (

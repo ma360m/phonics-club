@@ -3,7 +3,20 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, Download } from 'lucide-react'
 import { ClearGuestCartOnSuccess } from '@/components/checkout/clear-guest-cart-on-success'
-import { PaymentReceiptUploadForm } from '@/components/checkout/payment-receipt-upload-form'
+import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getSession } from '@/lib/auth'
+
+interface AuthorizedOrder {
+  id: string
+  status: string
+  created_at: string
+  payment_method?: string | null
+  receipt_url?: string | null
+  shipping_address?: Record<string, string> | null
+  phone?: string | null
+  guest_email?: string | null
+}
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -12,6 +25,31 @@ export default async function CheckoutSuccessPage({
 }) {
   const { order, token } = await searchParams
   const tokenQuery = token ? `&token=${token}` : ''
+  let authorizedOrder: AuthorizedOrder | null = null
+
+  if (order) {
+    const serviceSupabase = await createServiceClient()
+    const { data } = await serviceSupabase
+      .from('orders')
+      .select('id, user_id, access_token, status, created_at, payment_method, receipt_url, shipping_address, phone, guest_email')
+      .eq('id', order)
+      .single()
+    const user = await getSession()
+    const tokenMatches = token && data?.access_token && token === data.access_token
+    const userOwnsOrder = user?.id && data?.user_id === user.id
+    if (data && (tokenMatches || userOwnsOrder)) {
+      authorizedOrder = {
+        id: data.id,
+        status: data.status,
+        created_at: data.created_at,
+        payment_method: data.payment_method,
+        receipt_url: data.receipt_url,
+        shipping_address: data.shipping_address as Record<string, string> | null,
+        phone: data.phone,
+        guest_email: data.guest_email,
+      }
+    }
+  }
 
   return (
     <main>
@@ -53,7 +91,11 @@ export default async function CheckoutSuccessPage({
             <Link href="/shop">Continue Shopping</Link>
           </Button>
         </div>
-        {order && <PaymentReceiptUploadForm orderId={order} token={token} />}
+        {authorizedOrder && (
+          <div className="mt-10 text-left">
+            <CustomerOrderControls order={authorizedOrder} token={token} />
+          </div>
+        )}
       </div>
       <Footer />
     </main>

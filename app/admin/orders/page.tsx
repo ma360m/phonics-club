@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { shopPaymentLabel } from '@/lib/payment-methods'
+import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 
 export default async function AdminOrdersPage() {
   const orders = await getAllOrders()
@@ -22,7 +23,7 @@ export default async function AdminOrdersPage() {
         {orders.map((order) => {
           const items = order.items as { name: string; quantity: number; price: number }[]
           const addr = order.shipping_address as Record<string, string> | null
-          const needsPaymentReview = order.status === 'payment_review' || order.status === 'awaiting_payment'
+          const needsPaymentReview = ['awaiting_payment', 'payment_submitted', 'payment_review'].includes(order.status)
 
           return (
             <div key={order.id} id={`order-${order.id}`} className="scroll-mt-24 bg-card rounded-2xl border p-6">
@@ -48,7 +49,7 @@ export default async function AdminOrdersPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>
-                  <Badge className="mt-1">{order.status}</Badge>
+                  <Badge className="mt-1">{getCustomerOrderStatusLabel(order.status, order.payment_method)}</Badge>
                   <p className="text-xs text-muted-foreground mt-1">{shopPaymentLabel(order.payment_method)}</p>
                 </div>
               </div>
@@ -78,14 +79,16 @@ export default async function AdminOrdersPage() {
                   <form action={confirmPaymentFormAction}>
                     <input type="hidden" name="orderId" value={order.id} />
                     <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
-                      Confirm Payment & Process
+                      Mark Payment Confirmed
                     </Button>
                   </form>
                 )}
                 <form action={updateOrderStatusFormAction} className="flex gap-2 items-center">
                   <input type="hidden" name="orderId" value={order.id} />
                   <select name="status" defaultValue={order.status} className="rounded-xl border px-3 py-1.5 text-sm">
-                    {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                    {ORDER_STATUSES.map((s) => (
+                      <option key={s} value={s}>{getCustomerOrderStatusLabel(s, order.payment_method)}</option>
+                    ))}
                   </select>
                   <Button type="submit" size="sm" variant="outline" className="rounded-xl">Update</Button>
                 </form>

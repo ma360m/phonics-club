@@ -7,7 +7,8 @@ import { z } from 'zod'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession, requireAdmin } from '@/lib/auth'
 import { checkoutSchema, normalizePhone } from '@/lib/validations/checkout'
-import { SHIPPING_FEE_PKR } from '@/lib/commerce'
+import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
+import { canCustomerEditOrder } from '@/lib/order-status'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { buildInvoiceHtml } from '@/lib/invoice'
 import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
@@ -20,6 +21,8 @@ import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
 import type { ActionResult, OrderItem } from '@/types'
 
+const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
+
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
   token: z.string().optional(),
@@ -27,6 +30,48 @@ const orderReceiptSchema = z.object({
     errorMap: () => ({ message: 'Choose Bank Transfer, JazzCash, or EasyPaisa before uploading the receipt.' }),
   }),
 })
+
+const customerOrderEditSchema = checkoutSchema
+  .pick({
+    fullName: true,
+    email: true,
+    phone: true,
+    address: true,
+    city: true,
+    zip: true,
+    country: true,
+    paymentMethod: true,
+  })
+  .extend({
+    orderId: z.string().uuid('Order link is invalid.'),
+    token: z.string().optional(),
+  })
+
+async function getAuthorizedCustomerOrder(orderId: string, token?: string) {
+  const serviceSupabase = await createServiceClient()
+  const { data: order, error } = await serviceSupabase
+    .from('orders')
+    .select('id, user_id, access_token, status, created_at, receipt_url')
+    .eq('id', orderId)
+    .single()
+
+  if (error || !order) {
+    return { error: friendlyErrorMessage(error ?? 'Order not found', 'Order could not be found.') }
+  }
+
+  const user = await getSession()
+  const tokenMatches = token && order.access_token && token === order.access_token
+  const userOwnsOrder = user?.id && order.user_id === user.id
+
+  if (!tokenMatches && !userOwnsOrder) {
+    return {
+      error:
+        'This order is not authorized. Use the original order link or sign in with the account that placed the order.',
+    }
+  }
+
+  return { order, serviceSupabase }
+}
 
 async function applyStockChangesForOrder(orderId: string, items: OrderItem[]): Promise<LowStockEmailAlert[]> {
   try {
@@ -150,7 +195,7 @@ export async function placeOrderAction(
   const total = subtotal + shippingFee - discountAmount
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
-  const status = receiptRequired ? 'awaiting_payment' : 'pending'
+  const receiptTiming = String(formData.get('receiptTiming') ?? 'later') === 'now' ? 'now' : 'later'
 
   const accessToken = user ? null : generateOrderAccessToken()
   const invoiceNumber = await getNextInvoiceNumber()
@@ -158,7 +203,7 @@ export async function placeOrderAction(
 
   let receiptUrl: string | null = null
   const receiptFile = formData.get('receipt') as File | null
-  if (receiptRequired && (!receiptFile || receiptFile.size <= 0)) {
+  if (receiptRequired && receiptTiming === 'now' && (!receiptFile || receiptFile.size <= 0)) {
     return {
       success: false,
       error: 'Please upload a JPG, PNG, or PDF payment receipt for bank transfer, JazzCash, or EasyPaisa orders.',
@@ -171,6 +216,7 @@ export async function placeOrderAction(
       return { success: false, error: friendlyErrorMessage(err, 'Receipt upload failed.') }
     }
   }
+  const status = receiptRequired ? (receiptUrl ? 'payment_submitted' : 'awaiting_payment') : 'pending'
 
   const shippingAddress = {
     fullName: parsed.data.fullName,
@@ -186,7 +232,7 @@ export async function placeOrderAction(
     user_id: user?.id ?? null,
     guest_email: user ? null : parsed.data.email,
     access_token: accessToken,
-    status: receiptUrl && receiptRequired ? 'payment_review' : status,
+    status,
     total,
     subtotal,
     shipping_fee: shippingFee,
@@ -288,7 +334,7 @@ export async function submitOrderReceiptAction(
     const serviceSupabase = await createServiceClient()
     const { data: order, error: fetchError } = await serviceSupabase
       .from('orders')
-      .select('id, user_id, access_token')
+      .select('id, user_id, access_token, status')
       .eq('id', parsed.data.orderId)
       .single()
 
@@ -304,6 +350,9 @@ export async function submitOrderReceiptAction(
         error: 'Receipt upload is not authorized for this order. Use the original order success link or sign in with the account that placed the order.',
       }
     }
+    if (lockedCustomerStatuses.has(order.status)) {
+      return { success: false, error: 'This order can no longer accept a payment receipt.' }
+    }
 
     const receiptUrl = await uploadOrderReceipt(receiptFile, order.user_id ?? `guest-${order.id}`)
     const { error: updateError } = await serviceSupabase
@@ -311,7 +360,7 @@ export async function submitOrderReceiptAction(
       .update({
         receipt_url: receiptUrl,
         payment_method: paymentMethod,
-        status: 'payment_review',
+        status: 'payment_submitted',
       } as never)
       .eq('id', order.id)
 
@@ -320,10 +369,126 @@ export async function submitOrderReceiptAction(
     }
 
     revalidatePath('/checkout/success')
+    revalidatePath('/dashboard')
     revalidatePath('/admin/orders')
     return { success: true }
   } catch (err) {
     return { success: false, error: friendlyErrorMessage(err, 'Receipt upload failed.') }
+  }
+}
+
+export async function updateCustomerOrderDetailsAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const parsed = customerOrderEditSchema.safeParse({
+    orderId: formData.get('orderId'),
+    token: formData.get('token') || undefined,
+    fullName: formData.get('fullName'),
+    email: formData.get('email'),
+    phone: formData.get('phone'),
+    address: formData.get('address'),
+    city: formData.get('city'),
+    zip: formData.get('zip') || '',
+    country: formData.get('country') || 'Pakistan',
+    paymentMethod: formData.get('paymentMethod'),
+  })
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: friendlyErrorMessage(parsed.error.errors[0]?.message, 'Order details are incomplete.'),
+    }
+  }
+
+  try {
+    const result = await getAuthorizedCustomerOrder(parsed.data.orderId, parsed.data.token)
+    if (result.error || !result.order || !result.serviceSupabase) {
+      return { success: false, error: result.error ?? 'Order could not be found.' }
+    }
+    if (!canCustomerEditOrder(result.order.status, result.order.created_at)) {
+      return { success: false, error: 'Orders can only be edited within 5 minutes of placement.' }
+    }
+
+    const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
+    const receiptFile = formData.get('receipt') as File | null
+    let receiptUrl = result.order.receipt_url as string | null
+    if (shopPaymentNeedsReceipt(paymentMethod) && receiptFile && receiptFile.size > 0) {
+      receiptUrl = await uploadOrderReceipt(receiptFile, result.order.user_id ?? `guest-${result.order.id}`)
+    }
+
+    const shippingAddress = {
+      fullName: parsed.data.fullName,
+      email: parsed.data.email,
+      phone: normalizePhone(parsed.data.phone),
+      address: parsed.data.address,
+      city: parsed.data.city,
+      zip: parsed.data.zip ?? '',
+      country: parsed.data.country,
+    }
+    const status = shopPaymentNeedsReceipt(paymentMethod)
+      ? receiptUrl
+        ? 'payment_submitted'
+        : 'awaiting_payment'
+      : 'pending'
+    const updatePayload: Record<string, unknown> = {
+      payment_method: paymentMethod,
+      phone: shippingAddress.phone,
+      receipt_url: receiptUrl,
+      shipping_address: shippingAddress,
+      status,
+    }
+    if (!result.order.user_id) updatePayload.guest_email = parsed.data.email
+
+    const { error } = await result.serviceSupabase
+      .from('orders')
+      .update(updatePayload as never)
+      .eq('id', result.order.id)
+
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be updated.') }
+
+    revalidatePath('/checkout/success')
+    revalidatePath('/dashboard')
+    revalidatePath('/admin/orders')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Order could not be updated.') }
+  }
+}
+
+export async function cancelCustomerOrderAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const orderId = String(formData.get('orderId') ?? '')
+  const token = String(formData.get('token') ?? '') || undefined
+
+  if (!z.string().uuid().safeParse(orderId).success) {
+    return { success: false, error: 'Order link is invalid.' }
+  }
+
+  try {
+    const result = await getAuthorizedCustomerOrder(orderId, token)
+    if (result.error || !result.order || !result.serviceSupabase) {
+      return { success: false, error: result.error ?? 'Order could not be found.' }
+    }
+    if (!canCustomerEditOrder(result.order.status, result.order.created_at)) {
+      return { success: false, error: 'Orders can only be cancelled within 5 minutes of placement.' }
+    }
+
+    const { error } = await result.serviceSupabase
+      .from('orders')
+      .update({ status: 'cancelled' } as never)
+      .eq('id', result.order.id)
+
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be cancelled.') }
+
+    revalidatePath('/checkout/success')
+    revalidatePath('/dashboard')
+    revalidatePath('/admin/orders')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Order could not be cancelled.') }
   }
 }
 
@@ -333,7 +498,7 @@ export async function confirmOrderPaymentAction(orderId: string): Promise<Action
   const { error } = await supabase
     .from('orders')
     .update({
-      status: 'processing',
+      status: 'payment_confirmed',
       payment_confirmed_at: new Date().toISOString(),
       payment_confirmed_by: admin.id,
     } as never)
@@ -346,6 +511,9 @@ export async function confirmOrderPaymentAction(orderId: string): Promise<Action
 
 export async function updateOrderStatusAction(orderId: string, status: string): Promise<ActionResult> {
   await requireAdmin()
+  if (!(ORDER_STATUSES as readonly string[]).includes(status)) {
+    return { success: false, error: 'Choose a valid order status.' }
+  }
   const supabase = await createClient()
   const { error } = await supabase.from('orders').update({ status } as never).eq('id', orderId)
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Order status could not be updated.') }
