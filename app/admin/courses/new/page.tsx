@@ -1,9 +1,14 @@
 import { CourseForm } from '@/components/admin/course-form'
+import { LmsPageHeader } from '@/components/lms/lms-primitives'
 
 export default function NewCoursePage() {
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-8">New Course</h1>
+    <div className="mx-auto max-w-7xl">
+      <LmsPageHeader
+        eyebrow="Course Management"
+        title="New Course"
+        description="Create the public course record first, then add detailed modules and lessons in the builder."
+      />
       <CourseForm />
     </div>
   )

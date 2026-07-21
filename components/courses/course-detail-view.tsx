@@ -1,12 +1,24 @@
 import Link from 'next/link'
-import { Award, BarChart3, BookOpen, CheckCircle2, Clock, FileText, HelpCircle, Home, Layers3, Star, Users } from 'lucide-react'
+import {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  FileText,
+  HelpCircle,
+  Home,
+  Layers3,
+  Star,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
+import { saveCourseReviewAction } from '@/actions/lms'
 import { EnrollButton } from '@/components/courses/enroll-button'
-import { CourseCard } from '@/components/courses/course-card'
 import { CourseImage } from '@/components/courses/course-image'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { saveCourseReviewAction } from '@/actions/lms'
 import {
   formatCourseCategory,
   getCourseDisplayMeta,
@@ -14,7 +26,6 @@ import {
   youtubeEmbedUrl,
   type CourseModuleWithLessons,
 } from '@/lib/lms'
-import { getCoursePathwayLabel } from '@/lib/lms-hierarchy'
 import { formatPrice } from '@/utils/format'
 import type { Course, CourseQuiz, CourseResource, CourseReview } from '@/types/database'
 
@@ -28,31 +39,103 @@ interface Props {
   enrolled?: boolean
 }
 
-function listOrFallback(items: string[], fallback: string[]) {
-  return items.length ? items : fallback
+function listOrFallback(items: string[] | undefined, fallback: string[]) {
+  return items?.length ? items : fallback
 }
 
-function EnrolmentCard({ course, enrolled }: { course: Course; enrolled: boolean }) {
+function shortText(value: string | null | undefined, maxLength = 190) {
+  if (!value) return ''
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (compact.length <= maxLength) return compact
+  return `${compact.slice(0, maxLength).replace(/\s+\S*$/, '')}...`
+}
+
+function plural(value: number, singular: string, pluralLabel = `${singular}s`) {
+  return `${value} ${value === 1 ? singular : pluralLabel}`
+}
+
+function CourseFact({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+}) {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-xl">
-      <div className="relative aspect-video">
-        <CourseImage src={course.image_url} alt={course.title} priority />
-      </div>
-      <div className="space-y-4 p-6">
-        <p className="text-3xl font-bold text-[#1D4ED8]">
-          {Number(course.price) === 0 ? 'Free' : formatPrice(course.price)}
+    <li className="flex items-center gap-3 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2.5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#1D4ED8]">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-medium text-slate-500">{label}</span>
+        <span className="block truncate text-sm font-semibold text-[#0F172A]">{value}</span>
+      </span>
+    </li>
+  )
+}
+
+function EnrollmentCard({
+  course,
+  enrolled,
+  moduleCount,
+  lessonCount,
+  quizCount,
+  certificateEnabled,
+}: {
+  course: Course
+  enrolled: boolean
+  moduleCount: number
+  lessonCount: number
+  quizCount: number
+  certificateEnabled: boolean
+}) {
+  const isFree = Number(course.price) === 0
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="border-b border-slate-200 pb-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Course access</p>
+        <p className="mt-2 text-3xl font-bold tracking-normal text-[#1D4ED8]">
+          {isFree ? 'Free' : formatPrice(course.price)}
         </p>
+        <div className="mt-4">
+          {enrolled ? (
+            <Button asChild className="h-11 w-full rounded-xl bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90">
+              <Link href={`/course/${course.id}/learn`}>Continue Learning</Link>
+            </Button>
+          ) : (
+            <EnrollButton
+              courseId={course.id}
+              courseSlug={course.slug}
+              className="h-11 w-full rounded-xl bg-[#8B1E2D] text-white hover:bg-[#8B1E2D]/90"
+            />
+          )}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          Enrollment and payment checks use the existing Phonics Club course flow.
+        </p>
+      </div>
+
+      <ul className="mt-5 space-y-2.5" aria-label="Course details">
+        <CourseFact icon={Clock} label="Duration" value={course.duration ?? 'Self-paced'} />
+        <CourseFact icon={Layers3} label="Modules" value={plural(moduleCount, 'module')} />
         {enrolled ? (
-          <Button asChild className="w-full rounded-xl bg-[#1D4ED8]">
-            <Link href={`/course/${course.id}/learn`}>Continue Learning</Link>
-          </Button>
+          <>
+            <CourseFact icon={BookOpen} label="Lessons" value={plural(lessonCount, 'lesson')} />
+            <CourseFact icon={HelpCircle} label="Quizzes" value={plural(quizCount, 'quiz', 'quizzes')} />
+          </>
         ) : (
-          <EnrollButton courseId={course.id} courseSlug={course.slug} className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90" />
+          <CourseFact icon={BookOpen} label="Lessons" value="Unlock after enrollment" />
         )}
-        <p className="text-center text-xs text-muted-foreground">
-          Secure account enrolment. Free courses never trust client-side pricing.
-        </p>
-      </div>
+        <CourseFact icon={Award} label="Level" value={formatCourseCategory(course.level)} />
+        <CourseFact
+          icon={FileText}
+          label="Certificate"
+          value={certificateEnabled ? 'Available' : 'Not included'}
+        />
+      </ul>
     </div>
   )
 }
@@ -60,330 +143,359 @@ function EnrolmentCard({ course, enrolled }: { course: Course; enrolled: boolean
 export function CourseDetailView({
   course,
   modules,
-  relatedCourses = [],
   reviews = [],
-  resources = [],
   quizzes = [],
   enrolled = false,
 }: Props) {
   const meta = getCourseDisplayMeta(course, modules)
-  const embedUrl = youtubeEmbedUrl(meta.previewVideoUrl)
-  const objectives = listOrFallback(course.objectives ?? [], [
-    'Build confidence with synthetic phonics teaching routines',
-    'Plan structured reading and writing lessons',
-    'Use assessment to support learners at the right time',
+  const previewUrl = meta.previewVideoUrl ?? course.hero_video_url ?? null
+  const embedUrl = youtubeEmbedUrl(previewUrl)
+  const description = course.rich_description ?? course.description ?? course.excerpt ?? ''
+  const summary = course.subtitle ?? course.excerpt ?? shortText(description)
+  const thumbnail = course.thumbnail_url ?? course.image_url
+  const bannerImage = course.banner_url ?? thumbnail
+  const titleDescription = description || summary
+  const objectives = listOrFallback(course.objectives, [
+    'Build confidence with structured phonics routines.',
+    'Plan clear lessons for reading, writing and sound recognition.',
+    'Use practice and assessment to support learners at the right time.',
   ])
-  const requirements = listOrFallback(course.requirements ?? [], [
-    'A stable internet connection',
-    'Notebook for activities and reflections',
-    'Interest in structured phonics instruction',
+  const requirements = listOrFallback(course.requirements, [
+    'A stable internet connection.',
+    'Notebook or printed materials for practice tasks.',
+    'Interest in structured phonics instruction.',
   ])
-  const highlights = listOrFallback(meta.highlights, objectives)
-  const coreMaterials = listOrFallback(
-    meta.coreMaterials,
-    resources.map((resource) => resource.title),
-  )
-  const audience = listOrFallback(meta.intendedAudience, [
-    'Teachers',
-    'School leaders',
-    'Parents supporting early reading',
-  ])
-  const pathwayLabel = getCoursePathwayLabel(course)
+  const quizCount = quizzes.length || meta.quizCount
+  const instructorName = course.instructor ?? 'Phonics Club'
+  const instructorImage = course.instructor_image_url ?? course.instructor_avatar
+  const showReviews = enrolled || reviews.length > 0
 
   return (
-    <div className="pb-24 lg:pb-0">
-      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/" className="inline-flex items-center gap-1 hover:text-[#1D4ED8]">
-          <Home className="h-4 w-4" />
+    <div className="pb-8">
+      <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <Link href="/" className="inline-flex items-center gap-1 transition-colors hover:text-[#1D4ED8]">
+          <Home className="h-4 w-4" aria-hidden="true" />
           Home
         </Link>
-        <span>/</span>
-        <Link href="/courses" className="hover:text-[#1D4ED8]">Courses</Link>
-        <span>/</span>
-        <span className="font-medium text-foreground">{course.title}</span>
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        <Link href="/courses" className="transition-colors hover:text-[#1D4ED8]">
+          Courses
+        </Link>
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        <Link
+          href={`/courses?category=${encodeURIComponent(course.category)}`}
+          className="font-medium text-[#1D4ED8] transition-colors hover:text-[#8B1E2D]"
+        >
+          {formatCourseCategory(course.category)}
+        </Link>
       </nav>
 
-      <section className="grid gap-8 rounded-3xl border bg-white p-6 shadow-sm lg:grid-cols-[1fr_380px] lg:p-8">
-        <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3">
-          <div className="mb-4 flex flex-wrap gap-2">
-            <Badge className="rounded-full bg-[#D30000] text-white">{formatCourseCategory(course.category)}</Badge>
-            <Badge variant="outline" className="rounded-full bg-white">{pathwayLabel}</Badge>
-            <Badge variant="outline" className="rounded-full">{formatCourseCategory(course.level)}</Badge>
-            {Number(course.price) === 0 && <Badge className="rounded-full bg-emerald-600">Free</Badge>}
-            {meta.certificateEnabled && <Badge className="rounded-full bg-[#FBBF24] text-[#111827]">Certificate</Badge>}
-          </div>
-          <h1 className="max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl">{course.title}</h1>
-          <p className="mt-4 max-w-3xl text-lg text-muted-foreground">
-            {course.excerpt ?? course.description}
-          </p>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { label: 'Instructor', value: course.instructor ?? 'Phonics Club', icon: Award },
-              { label: 'Duration', value: course.duration ?? 'Self-paced', icon: Clock },
-              { label: 'Modules', value: String(meta.moduleCount), icon: Layers3 },
-              { label: 'Lessons', value: String(meta.lessonCount), icon: BookOpen },
-              { label: 'Quizzes', value: String(quizzes.length || meta.quizCount), icon: HelpCircle },
-              { label: 'Rating', value: meta.rating.toFixed(1), icon: Star },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-2xl border bg-[#F8FAFC] p-4">
-                <Icon className="mb-2 h-5 w-5 text-[#1D4ED8]" />
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="font-semibold">{value}</p>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
+        <main className="min-w-0 space-y-8">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            {bannerImage && (
+              <div className="relative -mx-6 -mt-6 mb-6 aspect-[5/2] overflow-hidden rounded-t-2xl bg-[#EFF6FF] sm:-mx-8 sm:-mt-8">
+                <CourseImage src={bannerImage} alt={`${course.title} banner`} priority />
               </div>
-            ))}
-          </div>
-        </div>
+            )}
 
-        <aside className="hidden lg:block lg:sticky lg:top-24 lg:h-fit">
-          <EnrolmentCard course={course} enrolled={enrolled} />
-        </aside>
-      </section>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="rounded-full bg-[#EFF6FF] px-3 py-1 text-[#1D4ED8] hover:bg-[#EFF6FF]">
+                {formatCourseCategory(course.category)}
+              </Badge>
+              <Badge variant="outline" className="rounded-full border-slate-200 px-3 py-1 text-slate-600">
+                {formatCourseCategory(course.level)}
+              </Badge>
+              {meta.certificateEnabled && (
+                <Badge className="rounded-full bg-[#FBBF24]/20 px-3 py-1 text-[#7A1D1D] hover:bg-[#FBBF24]/20">
+                  Certificate
+                </Badge>
+              )}
+            </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-10">
-          {embedUrl && (
-            <section className="rounded-3xl border bg-card p-5 shadow-sm">
-              <h2 className="mb-4 text-2xl font-bold">Preview Video</h2>
-              <div className="aspect-video overflow-hidden rounded-2xl border bg-black">
+            <h1 className="mt-5 max-w-4xl text-3xl font-bold tracking-normal text-[#0F172A] sm:text-4xl lg:text-5xl">
+              {course.title}
+            </h1>
+            {titleDescription && (
+              <p className="mt-4 max-w-4xl whitespace-pre-line text-base leading-8 text-slate-600 sm:text-lg">
+                {titleDescription}
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 sm:flex-row sm:items-center">
+              {instructorImage ? (
+                <img
+                  src={instructorImage}
+                  alt={instructorName}
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white text-[#1D4ED8]">
+                  <UserRound className="h-7 w-7" aria-hidden="true" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Instructor</p>
+                <h2 className="text-base font-semibold text-[#0F172A]">{instructorName}</h2>
+                {course.instructor_bio && (
+                  <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{course.instructor_bio}</p>
+                )}
+              </div>
+              {course.instructor && (
+                <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+                  <Link href={`/instructors/${slugifyInstructor(course.instructor)}`}>View Profile</Link>
+                </Button>
+              )}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="relative aspect-video bg-[#EFF6FF]">
+              {embedUrl ? (
                 <iframe
                   className="h-full w-full"
                   src={embedUrl}
-                  title={`${course.title} preview video`}
+                  title={`${course.title} preview`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
-              </div>
-            </section>
-          )}
-
-          <section>
-            <h2 className="mb-4 text-2xl font-bold">Course Highlights</h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {highlights.map((item) => (
-                <li key={item} className="flex gap-2 rounded-2xl border bg-card p-4 text-sm shadow-sm">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="rounded-3xl border bg-card p-6 shadow-sm">
-            <h2 className="mb-3 text-2xl font-bold">Overview</h2>
-            <p className="leading-7 text-muted-foreground">{course.description}</p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[
-                { label: 'Reading', value: 'Article, PDF, flipbook, slides' },
-                { label: 'Practice', value: 'Activities and reflection tasks' },
-                { label: 'Progress', value: 'Lessons, quiz and certificate' },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl bg-[#F8FAFC] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#D30000]">{item.label}</p>
-                  <p className="mt-1 text-sm font-medium">{item.value}</p>
-                </div>
-              ))}
+              ) : (
+                <CourseImage src={thumbnail} alt={course.title} priority />
+              )}
             </div>
           </section>
 
-          <section>
-            <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-              <BarChart3 className="h-6 w-6 text-[#1D4ED8]" />
-              Curriculum
-            </h2>
-            <Accordion type="single" collapsible className="space-y-3">
-              {modules.map((module, moduleIndex) => (
-                <AccordionItem key={module.id} value={module.id} className="rounded-2xl border bg-card px-4 shadow-sm">
-                  <AccordionTrigger className="hover:no-underline">
-                    <span className="text-left font-semibold">
-                      Module {moduleIndex + 1}: {module.title}
-                      <span className="ml-2 text-sm font-normal text-muted-foreground">
-                        ({module.lessons.length} lessons)
-                      </span>
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <ul className="space-y-2 pb-2">
-                      {module.lessons.map((lesson) => (
-                        <li key={lesson.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                          <span className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-[#1D4ED8]" />
-                            {lesson.title}
-                          </span>
-                          <span className="flex flex-wrap gap-2">
-                            {lesson.reading_type && <Badge variant="outline">{lesson.reading_type.replace(/_/g, ' ')}</Badge>}
-                            {lesson.is_preview && <Badge variant="outline">Preview</Badge>}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+          <div className="lg:hidden">
+            <EnrollmentCard
+              course={course}
+              enrolled={enrolled}
+              moduleCount={meta.moduleCount}
+              lessonCount={meta.lessonCount}
+              quizCount={quizCount}
+              certificateEnabled={meta.certificateEnabled}
+            />
+          </div>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="learn" className="border-0">
+                <AccordionTrigger className="py-0 text-left hover:no-underline">
+                  <span className="text-2xl font-bold tracking-normal text-[#0F172A]">What You Will Learn</span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {objectives.map((item) => (
+                      <li key={item} className="flex gap-3 rounded-xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-700">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#1D4ED8]" aria-hidden="true" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
           </section>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <section className="rounded-3xl border bg-card p-6 shadow-sm">
-              <h2 className="mb-4 text-2xl font-bold">Learning Outcomes</h2>
-              <ul className="space-y-3">
-                {objectives.map((item) => (
-                  <li key={item} className="flex gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="rounded-3xl border bg-card p-6 shadow-sm">
-              <h2 className="mb-4 text-2xl font-bold">Requirements</h2>
-              <ul className="space-y-3">
-                {requirements.map((item) => (
-                  <li key={item} className="flex gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1D4ED8]" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="curriculum" className="border-0">
+                <AccordionTrigger className="py-0 text-left hover:no-underline">
+                  <span>
+                    <span className="block text-2xl font-bold tracking-normal text-[#0F172A]">Course Curriculum</span>
+                    <span className="mt-1 block text-sm font-normal text-slate-500">
+                      {enrolled
+                        ? `${plural(meta.moduleCount, 'module')} and ${plural(meta.lessonCount, 'lesson')}`
+                        : `${plural(meta.moduleCount, 'module')} visible. Lesson details unlock after enrollment.`}
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
 
-          <section className="rounded-3xl border bg-card p-6 shadow-sm">
-            <h2 className="mb-4 text-2xl font-bold">Core Materials</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {coreMaterials.map((item) => (
-                <div key={item} className="flex items-center gap-3 rounded-2xl bg-[#F8FAFC] p-4 text-sm font-medium">
-                  <FileText className="h-5 w-5 text-[#D30000]" />
-                  {item}
-                </div>
-              ))}
-            </div>
+            {modules.length > 0 && !enrolled ? (
+              <div className="mt-5 space-y-3">
+                {modules.map((module, moduleIndex) => (
+                  <article key={module.id} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-[#0F172A]">Module {moduleIndex + 1}</h3>
+                      <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-slate-600">
+                        Details locked
+                      </Badge>
+                    </div>
+                    {module.description && (
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{module.description}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : modules.length > 0 ? (
+              <Accordion type="single" collapsible className="mt-5 space-y-3">
+                {modules.map((module, moduleIndex) => (
+                  <AccordionItem
+                    key={module.id}
+                    value={module.id}
+                    className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-4"
+                  >
+                    <AccordionTrigger className="gap-4 text-left hover:no-underline">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[#0F172A]">
+                          Module {moduleIndex + 1}: {module.title}
+                        </span>
+                        <span className="mt-1 block text-xs font-normal text-slate-500">
+                          {plural(module.lessons.length, 'lesson')}
+                        </span>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {module.description && (
+                        <p className="mb-3 rounded-lg bg-white p-3 text-sm leading-6 text-slate-600">
+                          {module.description}
+                        </p>
+                      )}
+                      <ul className="space-y-2 pb-2">
+                        {module.lessons.map((lesson, lessonIndex) => (
+                          <li
+                            key={lesson.id}
+                            className="flex flex-col gap-2 rounded-lg bg-white px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <span className="flex min-w-0 items-center gap-2 font-medium text-[#0F172A]">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#EFF6FF] text-xs font-semibold text-[#1D4ED8]">
+                                {lessonIndex + 1}
+                              </span>
+                              <span className="min-w-0">{lesson.title}</span>
+                            </span>
+                            <span className="flex flex-wrap gap-2 pl-9 sm:pl-0">
+                              {lesson.duration_minutes ? (
+                                <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-slate-600">
+                                  {lesson.duration_minutes} min
+                                </Badge>
+                              ) : null}
+                              {lesson.lesson_type && (
+                                <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-slate-600">
+                                  {formatCourseCategory(lesson.lesson_type)}
+                                </Badge>
+                              )}
+                              {lesson.is_preview && (
+                                <Badge className="rounded-full bg-[#FBBF24]/20 text-[#7A1D1D] hover:bg-[#FBBF24]/20">
+                                  Preview
+                                </Badge>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-[#F8FAFC] p-6 text-sm text-slate-600">
+                Curriculum details will appear here when lessons are published.
+              </div>
+            )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </section>
 
-          <section className="rounded-3xl border bg-card p-6 shadow-sm">
-            <h2 className="mb-4 text-2xl font-bold">Intended Audience</h2>
-            <div className="flex flex-wrap gap-2">
-              {audience.map((item) => (
-                <Badge key={item} variant="outline" className="rounded-full px-3 py-1">
-                  <Users className="mr-1 h-3 w-3" />
-                  {item}
-                </Badge>
-              ))}
-            </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="requirements" className="border-0">
+                <AccordionTrigger className="py-0 text-left hover:no-underline">
+                  <span className="text-2xl font-bold tracking-normal text-[#0F172A]">Course Requirements</span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ul className="mt-5 space-y-3">
+                    {requirements.map((item) => (
+                      <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#1D4ED8]" aria-hidden="true" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </section>
 
-          {course.instructor && (
-            <section className="rounded-3xl border bg-card p-6 shadow-sm">
-              <h2 className="mb-4 text-2xl font-bold">Instructor Profile</h2>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                {course.instructor_image_url || course.instructor_avatar ? (
-                  <img
-                    src={course.instructor_image_url ?? course.instructor_avatar ?? ''}
-                    alt={course.instructor}
-                    className="h-16 w-16 shrink-0 rounded-2xl object-cover"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#1D4ED8]/10">
-                    <Award className="h-8 w-8 text-[#1D4ED8]" />
-                  </div>
-                )}
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold">{course.instructor}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{course.instructor_bio}</p>
+          {meta.certificateEnabled && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FBBF24]/20 text-[#7A1D1D]">
+                  <Award className="h-6 w-6" aria-hidden="true" />
                 </div>
-                <Button asChild variant="outline" className="rounded-xl">
-                  <Link href={`/instructors/${slugifyInstructor(course.instructor)}`}>View Profile</Link>
-                </Button>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-normal text-[#0F172A]">Certificate Information</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">
+                    A Phonics Club certificate is available after the course completion requirements are met.
+                    {course.passing_quiz_percentage
+                      ? ` The quiz passing requirement is ${course.passing_quiz_percentage}%.`
+                      : ''}
+                  </p>
+                </div>
               </div>
             </section>
           )}
 
-          <section>
-            <h2 className="mb-4 text-2xl font-bold">Reviews</h2>
-            <div className="space-y-3">
-              {reviews.length ? reviews.map((review) => (
-                <article key={review.id} className="rounded-2xl border bg-card p-5 shadow-sm">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Star className="h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" />
-                    <span className="font-semibold">{review.rating}/5</span>
-                    <span className="text-sm text-muted-foreground">
-                      {review.profiles?.full_name ?? 'Student'}
-                    </span>
-                  </div>
-                  {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
-                </article>
-              )) : (
-                <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-                  Reviews will appear after enrolled students submit feedback.
+          {showReviews && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <h2 className="text-2xl font-bold tracking-normal text-[#0F172A]">Student Feedback</h2>
+              {reviews.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  {reviews.map((review) => (
+                    <article key={review.id} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" aria-hidden="true" />
+                        <span className="font-semibold text-[#0F172A]">{review.rating}/5</span>
+                        <span className="text-sm text-slate-500">{review.profiles?.full_name ?? 'Student'}</span>
+                      </div>
+                      {review.comment && <p className="mt-2 text-sm leading-6 text-slate-600">{review.comment}</p>}
+                    </article>
+                  ))}
                 </div>
               )}
-            </div>
-            {enrolled && (
-              <form action={saveCourseReviewAction.bind(null, course.id)} className="mt-4 rounded-2xl border bg-card p-5 shadow-sm">
-                <h3 className="font-semibold">Leave a review</h3>
-                <div className="mt-3 grid gap-3 sm:grid-cols-[140px_1fr_auto]">
-                  <select name="rating" defaultValue="5" className="rounded-xl border bg-background px-3 py-2 text-sm">
-                    {[5, 4, 3, 2, 1].map((rating) => (
-                      <option key={rating} value={rating}>{rating} stars</option>
-                    ))}
-                  </select>
-                  <input name="comment" placeholder="Share your experience" className="rounded-xl border bg-background px-3 py-2 text-sm" />
-                  <Button type="submit" className="rounded-xl bg-[#1D4ED8]">Submit</Button>
-                </div>
-              </form>
-            )}
-          </section>
 
-          {meta.faq.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-2xl font-bold">FAQ</h2>
-              <Accordion type="single" collapsible className="space-y-3">
-                {meta.faq.map((item) => (
-                  <AccordionItem key={item.question} value={item.question} className="rounded-2xl border bg-card px-4 shadow-sm">
-                    <AccordionTrigger className="text-left font-semibold hover:no-underline">{item.question}</AccordionTrigger>
-                    <AccordionContent className="text-sm text-muted-foreground">{item.answer}</AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              {enrolled && (
+                <form action={saveCourseReviewAction.bind(null, course.id)} className="mt-5 rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
+                  <h3 className="font-semibold text-[#0F172A]">Leave a review</h3>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[140px_1fr_auto]">
+                    <label className="sr-only" htmlFor="course-rating">Rating</label>
+                    <select
+                      id="course-rating"
+                      name="rating"
+                      defaultValue="5"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                    >
+                      {[5, 4, 3, 2, 1].map((rating) => (
+                        <option key={rating} value={rating}>{rating} stars</option>
+                      ))}
+                    </select>
+                    <label className="sr-only" htmlFor="course-review">Review</label>
+                    <input
+                      id="course-review"
+                      name="comment"
+                      placeholder="Share your experience"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                    />
+                    <Button type="submit" className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+                      Submit
+                    </Button>
+                  </div>
+                </form>
+              )}
             </section>
           )}
-        </div>
+        </main>
 
-        <aside className="space-y-6">
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <h2 className="font-bold">This course includes</h2>
-            <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-2"><BookOpen className="h-4 w-4 text-[#1D4ED8]" /> {meta.lessonCount} lessons</li>
-              <li className="flex gap-2"><Layers3 className="h-4 w-4 text-[#1D4ED8]" /> {meta.moduleCount} modules</li>
-              <li className="flex gap-2"><HelpCircle className="h-4 w-4 text-[#1D4ED8]" /> {quizzes.length || meta.quizCount} quizzes</li>
-              <li className="flex gap-2"><Award className="h-4 w-4 text-[#1D4ED8]" /> Certificate status tracking</li>
-            </ul>
-          </div>
+        <aside className="hidden lg:sticky lg:top-24 lg:block">
+          <EnrollmentCard
+            course={course}
+            enrolled={enrolled}
+            moduleCount={meta.moduleCount}
+            lessonCount={meta.lessonCount}
+            quizCount={quizCount}
+            certificateEnabled={meta.certificateEnabled}
+          />
         </aside>
-      </div>
-
-      {relatedCourses.length > 0 && (
-        <section className="mt-12">
-          <h2 className="mb-5 text-2xl font-bold">Related Courses</h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {relatedCourses.map((related) => (
-              <CourseCard key={related.id} course={related} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-white p-3 shadow-2xl lg:hidden">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <p className="font-bold text-[#1D4ED8]">{Number(course.price) === 0 ? 'Free' : formatPrice(course.price)}</p>
-          {enrolled ? (
-            <Button asChild className="rounded-xl bg-[#1D4ED8]">
-              <Link href={`/course/${course.id}/learn`}>Continue</Link>
-            </Button>
-          ) : (
-            <EnrollButton courseId={course.id} courseSlug={course.slug} className="rounded-xl bg-[#D30000] hover:bg-[#D30000]/90" />
-          )}
-        </div>
       </div>
     </div>
   )

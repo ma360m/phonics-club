@@ -27,7 +27,7 @@ export function PaymentReceiptUploadForm({
   const [paymentMethod, setPaymentMethod] = useState<Exclude<ShopPaymentMethod, 'cod'>>('bank_transfer')
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="mt-8 rounded-2xl border bg-card p-5 text-left shadow-sm">
+    <form action={formAction} className="mt-8 rounded-2xl border bg-card p-5 text-left shadow-sm">
       <input type="hidden" name="orderId" value={orderId} />
       {token && <input type="hidden" name="token" value={token} />}
 

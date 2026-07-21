@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireAdmin, requireAdminOrInstructor } from '@/lib/auth'
 import { LMS_ALLOWED_MIME_TYPES, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { approveCoursePaymentAction, rejectCoursePaymentAction } from '@/actions/lms'
 import { toError } from '@/lib/friendly-error'
@@ -16,8 +16,55 @@ function num(formData: FormData, key: string, fallback = 0) {
   return Number.isFinite(value) ? value : fallback
 }
 
+function lines(formData: FormData, key: string): string[] {
+  return text(formData, key).split('\n').map((item) => item.trim()).filter(Boolean)
+}
+
+function csvNumbers(formData: FormData, key: string): number[] {
+  return text(formData, key)
+    .split(/[,\n]/)
+    .map((item) => Number(item.trim()) - 1)
+    .filter((item) => Number.isInteger(item) && item >= 0)
+}
+
+function normalizeQuestionType(value: string) {
+  const allowed = new Set([
+    'mcq',
+    'multiple_select',
+    'true_false',
+    'fill_blank',
+    'short_answer',
+    'long_answer',
+  ])
+  return allowed.has(value) ? value : 'mcq'
+}
+
+function parseQuizQuestionForm(formData: FormData) {
+  const questionType = normalizeQuestionType(text(formData, 'question_type') || 'mcq')
+  const options = questionType === 'true_false' ? ['True', 'False'] : lines(formData, 'options')
+  const correctOption = Math.max(0, num(formData, 'correct_option', 1) - 1)
+  const correctOptions = csvNumbers(formData, 'correct_options')
+  return {
+    question: text(formData, 'question'),
+    question_type: questionType,
+    options,
+    correct_option: correctOption,
+    correct_options: questionType === 'multiple_select' ? correctOptions : [],
+    acceptable_answers: ['fill_blank', 'short_answer', 'long_answer'].includes(questionType)
+      ? lines(formData, 'acceptable_answers')
+      : [],
+    explanation: text(formData, 'explanation') || null,
+    media_url: text(formData, 'media_url') || null,
+    image_url: text(formData, 'image_url') || null,
+    audio_url: text(formData, 'audio_url') || null,
+    points: Math.max(1, num(formData, 'points', 1)),
+    difficulty: text(formData, 'difficulty') || 'standard',
+    sort_order: num(formData, 'sort_order', 0),
+  }
+}
+
 export async function getAdminCourseLms(courseId: string) {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const [course, modules, resources, quizzes, assignments] = await Promise.all([
     supabase.from('courses').select('*').eq('id', courseId).maybeSingle(),
@@ -30,18 +77,24 @@ export async function getAdminCourseLms(courseId: string) {
   if (course.error) throw toError(course.error, 'Course builder could not load this course.')
   const lmsError = modules.error ?? resources.error ?? quizzes.error ?? assignments.error
   if (lmsError) throw toError(lmsError, 'Course builder could not load LMS content.')
+  const quizIds = (quizzes.data ?? []).map((quiz: any) => quiz.id).filter(Boolean)
+  const questions = quizIds.length
+    ? await supabase.from('quiz_questions').select('*').in('quiz_id', quizIds).order('sort_order', { ascending: true })
+    : { data: [], error: null }
+  if (questions.error) throw toError(questions.error, 'Quiz questions could not load.')
 
   return {
     course: course.data,
     modules: modules.data ?? [],
     resources: resources.data ?? [],
     quizzes: quizzes.data ?? [],
+    questions: questions.data ?? [],
     assignments: assignments.data ?? [],
   }
 }
 
 export async function createCourseModuleFormAction(courseId: string, formData: FormData): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase.from('course_modules').insert({
     course_id: courseId,
@@ -57,7 +110,7 @@ export async function createCourseModuleFormAction(courseId: string, formData: F
 }
 
 export async function updateCourseModuleFormAction(moduleId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase
     .from('course_modules')
@@ -75,7 +128,7 @@ export async function updateCourseModuleFormAction(moduleId: string, courseId: s
 }
 
 export async function deleteCourseModuleAction(moduleId: string, courseId: string): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase.from('course_modules').delete().eq('id', moduleId)
   if (error) throw toError(error, 'Module could not be deleted.')
@@ -83,7 +136,7 @@ export async function deleteCourseModuleAction(moduleId: string, courseId: strin
 }
 
 export async function createCourseLessonFormAction(courseId: string, moduleId: string, formData: FormData): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase.from('course_lessons').insert({
     course_id: courseId,
@@ -127,7 +180,7 @@ export async function createCourseLessonFormAction(courseId: string, moduleId: s
 }
 
 export async function updateCourseLessonFormAction(lessonId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase
     .from('course_lessons')
@@ -172,7 +225,7 @@ export async function updateCourseLessonFormAction(lessonId: string, courseId: s
 }
 
 export async function deleteCourseLessonAction(lessonId: string, courseId: string): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { error } = await supabase.from('course_lessons').delete().eq('id', lessonId)
   if (error) throw toError(error, 'Lesson could not be deleted.')
@@ -180,7 +233,7 @@ export async function deleteCourseLessonAction(lessonId: string, courseId: strin
 }
 
 export async function uploadCourseResourceFormAction(courseId: string, formData: FormData): Promise<void> {
-  const admin = await requireAdmin()
+  const actor = await requireAdminOrInstructor()
   const file = formData.get('file') as File | null
   const externalUrl = text(formData, 'external_url')
   const supabase = await createServiceClient()
@@ -213,14 +266,14 @@ export async function uploadCourseResourceFormAction(courseId: string, formData:
     is_view_only: formData.get('is_view_only') === 'on',
     is_compulsory: formData.get('is_compulsory') === 'on',
     sort_order: num(formData, 'sort_order', 0),
-    uploaded_by: admin.id,
+    uploaded_by: actor.id,
   } as never)
   if (error) throw toError(error, 'Course resource could not be saved.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function deleteCourseResourceAction(resourceId: string, courseId: string): Promise<void> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createServiceClient()
   const { data: resource } = await supabase.from('course_resources').select('*').eq('id', resourceId).maybeSingle()
   if (resource?.storage_bucket && resource?.storage_path) {
@@ -228,6 +281,67 @@ export async function deleteCourseResourceAction(resourceId: string, courseId: s
   }
   const { error } = await supabase.from('course_resources').delete().eq('id', resourceId)
   if (error) throw toError(error, 'Course resource could not be deleted.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function createCourseQuizFormAction(courseId: string, formData: FormData): Promise<void> {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const { error } = await supabase.from('course_quizzes').insert({
+    course_id: courseId,
+    lesson_id: text(formData, 'lesson_id') || null,
+    title: text(formData, 'title'),
+    description: text(formData, 'description') || null,
+    passing_score: num(formData, 'passing_score', 70),
+    max_attempts: num(formData, 'max_attempts', 3),
+    timer_minutes: text(formData, 'timer_minutes') ? num(formData, 'timer_minutes', 0) : null,
+    randomize_questions: formData.get('randomize_questions') === 'on',
+    randomize_options: formData.get('randomize_options') === 'on',
+    show_explanations: formData.get('show_explanations') === 'on',
+    allow_review: formData.get('allow_review') === 'on',
+    published: formData.get('published') === 'on',
+    sort_order: num(formData, 'sort_order', 0),
+  } as never)
+  if (error) throw toError(error, 'Quiz could not be added.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function deleteCourseQuizAction(quizId: string, courseId: string): Promise<void> {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const { error } = await supabase.from('course_quizzes').delete().eq('id', quizId)
+  if (error) throw toError(error, 'Quiz could not be deleted.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function createQuizQuestionFormAction(quizId: string, courseId: string, formData: FormData): Promise<void> {
+  await requireAdminOrInstructor()
+  const values = parseQuizQuestionForm(formData)
+  if (!values.question) throw toError('Question text is required', 'Question could not be added.')
+  const supabase = await createClient()
+  const { error } = await supabase.from('quiz_questions').insert({
+    quiz_id: quizId,
+    ...values,
+  } as never)
+  if (error) throw toError(error, 'Question could not be added.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function updateQuizQuestionFormAction(questionId: string, courseId: string, formData: FormData): Promise<void> {
+  await requireAdminOrInstructor()
+  const values = parseQuizQuestionForm(formData)
+  if (!values.question) throw toError('Question text is required', 'Question could not be updated.')
+  const supabase = await createClient()
+  const { error } = await supabase.from('quiz_questions').update(values as never).eq('id', questionId)
+  if (error) throw toError(error, 'Question could not be updated.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function deleteQuizQuestionAction(questionId: string, courseId: string): Promise<void> {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const { error } = await supabase.from('quiz_questions').delete().eq('id', questionId)
+  if (error) throw toError(error, 'Question could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
@@ -241,10 +355,23 @@ export async function getAdminCoursePayments(status?: string) {
   if (status && status !== 'all') query = query.eq('status', status)
   const { data } = await query
   const rows = data ?? []
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return rows
+  const enrollmentIds = rows.map((row: any) => row.enrollment_id).filter(Boolean)
+  const { data: enrollments } = enrollmentIds.length
+    ? await supabase
+        .from('enrollments')
+        .select('id, status, progress, expires_at, access_extended_until')
+        .in('id', enrollmentIds)
+    : { data: [] }
+  const enrollmentsById = new Map((enrollments ?? []).map((enrollment: any) => [enrollment.id, enrollment]))
+  const rowsWithEnrollments = rows.map((row: any) => ({
+    ...row,
+    enrollment: row.enrollment_id ? enrollmentsById.get(row.enrollment_id) ?? null : null,
+  }))
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return rowsWithEnrollments
   const service = await createServiceClient()
   return Promise.all(
-    rows.map(async (row: any) => {
+    rowsWithEnrollments.map(async (row: any) => {
       if (!row.receipt_bucket || !row.receipt_path) return row
       const { data: signed } = await service.storage.from(row.receipt_bucket).createSignedUrl(row.receipt_path, 60 * 5)
       return { ...row, signed_receipt_url: signed?.signedUrl ?? null }
@@ -260,6 +387,45 @@ export async function approveCoursePaymentFormAction(formData: FormData): Promis
 export async function rejectCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await rejectCoursePaymentAction(String(formData.get('payment_id')), text(formData, 'reason'))
   if (!result.success) throw toError(result.error, 'Course payment could not be rejected.')
+}
+
+export async function extendEnrollmentAccessFormAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin()
+  const enrollmentId = text(formData, 'enrollment_id')
+  const days = num(formData, 'days', 0)
+  if (!enrollmentId) throw toError('Enrollment is missing', 'Course access could not be extended.')
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    throw toError('Extension days must be between 1 and 365', 'Course access could not be extended.')
+  }
+
+  const supabase = await createServiceClient()
+  const { data: enrollment, error: loadError } = await supabase
+    .from('enrollments')
+    .select('*')
+    .eq('id', enrollmentId)
+    .maybeSingle()
+  if (loadError) throw toError(loadError, 'Course access could not be extended.')
+  if (!enrollment) throw toError('Enrollment not found', 'Course access could not be extended.')
+
+  const now = new Date()
+  const currentExpiry = enrollment.expires_at ? new Date(enrollment.expires_at) : now
+  const base = currentExpiry.getTime() > now.getTime() ? currentExpiry : now
+  base.setDate(base.getDate() + days)
+  const note = `Access extended ${days} day(s) by ${admin.email} on ${now.toISOString()}.`
+  const { error } = await supabase
+    .from('enrollments')
+    .update({
+      status: 'active',
+      expires_at: base.toISOString(),
+      access_extended_until: base.toISOString(),
+      admin_notes: enrollment.admin_notes ? `${enrollment.admin_notes}\n${note}` : note,
+    } as never)
+    .eq('id', enrollmentId)
+
+  if (error) throw toError(error, 'Course access could not be extended.')
+  revalidatePath('/admin/course-payments')
+  revalidatePath('/dashboard/my-courses')
+  revalidatePath(`/course/${enrollment.course_id}/learn`)
 }
 
 export async function getAdminLmsReport() {

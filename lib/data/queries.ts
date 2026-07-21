@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
+import { mergeMissingChildrenPhonicsCourses } from './children-phonics-courses'
 import { filterProductsByCollection } from '@/lib/product-collections'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
@@ -117,12 +118,16 @@ export async function getCourses(options?: {
     if (options?.limit) items = items.slice(0, options.limit)
     return items
   }
-  return ((data as Course[]) ?? []).map(normalizeCourse)
+  let items = mergeMissingChildrenPhonicsCourses(((data as Course[]) ?? []).map(normalizeCourse))
+  if (options?.category) items = items.filter((c) => c.category === options.category)
+  if (options?.featured) items = items.filter((c) => c.featured)
+  if (options?.limit) items = items.slice(0, options.limit)
+  return items
 }
 
 export async function getCourseBySlug(slug: string): Promise<Course | null> {
   if (!isSupabaseConfigured()) {
-    const course = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    const course = SEED_COURSES.find((c) => c.slug === slug) ?? null
     return course ? normalizeCourse(course) : null
   }
 
@@ -135,11 +140,11 @@ export async function getCourseBySlug(slug: string): Promise<Course | null> {
     .maybeSingle()
 
   if (error) {
-    const course = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+    const course = SEED_COURSES.find((c) => c.slug === slug) ?? null
     return course ? normalizeCourse(course) : null
   }
 
-  const fallback = SEED_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES[0] ?? null
+  const fallback = SEED_COURSES.find((c) => c.slug === slug) ?? null
   return data ? normalizeCourse(data as Course) : (fallback ? normalizeCourse(fallback) : null)
 }
 

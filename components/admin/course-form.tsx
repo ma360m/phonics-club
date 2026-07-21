@@ -123,7 +123,7 @@ export function CourseForm({ course }: { course?: Course }) {
         </div>
       </div>
 
-      <section className="rounded-2xl border bg-muted/20 p-4">
+      <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
         <h2 className="mb-4 text-lg font-semibold">Course Media</h2>
         <div className="grid gap-4 lg:grid-cols-2">
           <CourseMediaUpload
@@ -242,7 +242,7 @@ export function CourseForm({ course }: { course?: Course }) {
       <input type="hidden" name="curriculum" value={JSON.stringify(curriculum)} />
       <CurriculumBuilder value={curriculum} onChange={setCurriculum} />
 
-      <div className="rounded-2xl border bg-muted/20 p-4">
+      <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
         <h2 className="mb-4 text-lg font-semibold">Access, Time and Completion Rules</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -319,7 +319,7 @@ export function CourseForm({ course }: { course?: Course }) {
         </label>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border bg-card p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
         {[
           ['completion_requires_lessons', 'Require compulsory lessons', course?.completion_requires_lessons ?? true],
           ['completion_requires_online_minutes', 'Require online minutes', course?.completion_requires_online_minutes ?? false],

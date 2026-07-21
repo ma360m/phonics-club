@@ -16,7 +16,7 @@ export function CertificateForm() {
   const [templateUrl, setTemplateUrl] = useState('')
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4 bg-card rounded-2xl border p-6">
+    <form action={formAction} className="max-w-lg space-y-4">
       {state.success && <p className="text-emerald-600 text-sm">Template saved!</p>}
       <div className="space-y-2">
         <Label>Template Name</Label>

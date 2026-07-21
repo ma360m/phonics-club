@@ -20,6 +20,11 @@ export function EnrollButton({
 
   function handleEnroll() {
     startTransition(async () => {
+      if (courseSlug) {
+        router.push(`/courses/${courseSlug}/enroll`)
+        return
+      }
+
       const result = await enrollInCourseAction(courseId)
       if (result.success) {
         toast.success(result.data?.redirectTo?.includes('payments') ? 'Payment request created.' : 'Enrolled successfully!')

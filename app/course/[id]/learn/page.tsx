@@ -1,10 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
-import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { requireAuth } from '@/lib/auth'
+import { getProfile, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { CourseLearnPlayer } from '@/components/courses/course-learn-player'
-import { Button } from '@/components/ui/button'
-import { ChevronLeft } from 'lucide-react'
+import { LmsShell } from '@/components/lms/lms-shell'
 import {
   getCourseById,
   getCourseModules,
@@ -21,32 +18,34 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default async function CourseLearnPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CourseLearnPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ preview?: string }>
+}) {
   const user = await requireAuth()
+  const profile = await getProfile()
   const { id } = await params
-  const course = await getCourseById(id)
+  const previewRequested = (await searchParams)?.preview === 'admin'
+  const managerPreview = previewRequested && isLmsManagerRole(profile?.role)
+  const course = await getCourseById(id, { includeUnpublished: managerPreview })
   if (!course) notFound()
 
-  const enrollment = await getUserEnrollment(user.id, id)
-  if (!enrollment) redirect(`/courses/${course.slug}`)
-  if (!isEnrollmentActive(enrollment)) redirect('/dashboard/my-courses')
+  const enrollment = managerPreview ? null : await getUserEnrollment(user.id, id)
+  if (!managerPreview && !enrollment) redirect(`/courses/${course.slug}`)
+  if (!managerPreview && !isEnrollmentActive(enrollment)) redirect('/dashboard/my-courses')
   const [modules, progressItems, resources, quizzes] = await Promise.all([
     getCourseModules(course),
-    getLessonProgress(user.id, id),
+    managerPreview ? Promise.resolve([]) : getLessonProgress(user.id, id),
     getCourseResources(id),
-    getCourseQuizzes(id),
+    getCourseQuizzes(id, { includeUnpublished: managerPreview }),
   ])
 
   return (
-    <main>
-      <AnnouncementBar />
-      <Navbar />
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <Button asChild variant="ghost" className="mb-4 rounded-xl">
-          <Link href="/dashboard/my-courses">
-            <ChevronLeft className="w-4 h-4 mr-1" /> My Courses
-          </Link>
-        </Button>
+    <main className="min-h-screen bg-[#F4F8FF]">
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
         <CourseLearnPlayer
           course={course}
           modules={modules}
@@ -54,9 +53,9 @@ export default async function CourseLearnPage({ params }: { params: Promise<{ id
           resources={resources}
           quizzes={quizzes}
           initialProgress={enrollment?.progress ?? 0}
+          previewMode={managerPreview}
         />
-      </div>
-      <Footer />
+      </LmsShell>
     </main>
   )
 }

@@ -16,7 +16,7 @@ export default function CoursesError({
     <main className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
       <AlertTriangle className="mb-4 h-12 w-12 text-[#D30000]" />
       <h1 className="text-2xl font-bold">Courses could not load</h1>
-      <p className="mt-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+      <p className="mt-2 rounded-xl border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-500">
         {friendlyErrorMessage(error, 'The course catalog could not load.')}
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">

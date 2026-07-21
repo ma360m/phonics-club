@@ -35,6 +35,20 @@ export async function requireAdmin() {
   return profile
 }
 
+export function isLmsManagerRole(role: UserRole | null | undefined) {
+  return role === 'admin' || role === 'instructor'
+}
+
+export async function requireLmsManager() {
+  const profile = await getProfile()
+  if (!profile || !isLmsManagerRole(profile.role)) {
+    redirect('/dashboard')
+  }
+  return profile
+}
+
+export const requireAdminOrInstructor = requireLmsManager
+
 export async function requireRole(role: UserRole) {
   const profile = await getProfile()
   if (!profile || profile.role !== role) {

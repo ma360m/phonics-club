@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '@/lib/auth'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import { SEED_COURSES } from '@/lib/data/seed'
 import { getCourses, getCourseBySlug } from '@/lib/data/queries'
+import { formatCourseCategory } from '@/lib/course-format'
 import type {
   Certificate,
   CourseAssignment,
@@ -140,9 +141,7 @@ export function slugifyInstructor(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-export function formatCourseCategory(category: string): string {
-  return category.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
+export { formatCourseCategory }
 
 export function getCourseDisplayMeta(
   course: Course,
@@ -161,7 +160,7 @@ export function getCourseDisplayMeta(
     moduleCount,
     lessonCount,
     quizCount: Number(meta.quizzes ?? 0),
-    certificateEnabled: course.certificate_enabled ?? meta.certificateEnabled !== false,
+    certificateEnabled: isCourseCertificateEnabled(course),
     previewVideoUrl: typeof meta.previewVideoUrl === 'string' ? meta.previewVideoUrl : null,
     highlights: asStringArray(meta.highlights),
     coreMaterials: asStringArray(meta.coreMaterials),
@@ -238,18 +237,20 @@ function normalizeModules(rows: CourseModuleRow[], course: Course): CourseModule
   return modules.length ? modules : modulesFromCurriculum(course)
 }
 
-export async function getCourseById(courseId: string): Promise<Course | null> {
+export async function getCourseById(
+  courseId: string,
+  options?: { includeUnpublished?: boolean },
+): Promise<Course | null> {
   if (!isSupabaseConfigured()) {
     return SEED_COURSES.find((course) => course.id === courseId) ?? null
   }
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('courses')
-    .select('*')
-    .eq('id', courseId)
-    .eq('published', true)
-    .maybeSingle()
+  const supabase = options?.includeUnpublished && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? await createServiceClient()
+    : await createClient()
+  let query = supabase.from('courses').select('*').eq('id', courseId)
+  if (!options?.includeUnpublished) query = query.eq('published', true)
+  const { data } = await query.maybeSingle()
 
   return (data as Course | null) ?? null
 }
@@ -303,16 +304,18 @@ export async function getCourseResources(courseId: string): Promise<CourseResour
   }
 }
 
-export async function getCourseQuizzes(courseId: string): Promise<CourseQuiz[]> {
+export async function getCourseQuizzes(
+  courseId: string,
+  options?: { includeUnpublished?: boolean },
+): Promise<CourseQuiz[]> {
   if (!isSupabaseConfigured()) return []
   try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('course_quizzes')
-      .select('*')
-      .eq('course_id', courseId)
-      .eq('published', true)
-      .order('sort_order', { ascending: true })
+    const supabase = options?.includeUnpublished && process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? await createServiceClient()
+      : await createClient()
+    let query = supabase.from('course_quizzes').select('*').eq('course_id', courseId)
+    if (!options?.includeUnpublished) query = query.eq('published', true)
+    const { data } = await query.order('sort_order', { ascending: true })
     return (data as CourseQuiz[]) ?? []
   } catch {
     return []
@@ -332,6 +335,7 @@ export async function getCourseCatalog(filters: CourseCatalogFilters): Promise<C
   }
 
   const search = normalizedFilters.q.toLowerCase().trim()
+  const childrenCourseCategories = new Set(['children-courses', 'childrens-courses', 'children', 'phonics', 'reading', 'preschool'])
   let courses = allCourses.filter((course) => {
     const matchesSearch =
       !search ||
@@ -339,7 +343,10 @@ export async function getCourseCatalog(filters: CourseCatalogFilters): Promise<C
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(search))
     const matchesCategory =
-      normalizedFilters.category === 'all' || course.category === normalizedFilters.category
+      normalizedFilters.category === 'all' ||
+      (normalizedFilters.category === 'children-courses'
+        ? childrenCourseCategories.has(course.category)
+        : course.category === normalizedFilters.category)
     const matchesLevel =
       normalizedFilters.level === 'all' || course.level === normalizedFilters.level
     const matchesDuration =
@@ -394,7 +401,27 @@ export async function getUserEnrollment(userId: string, courseId: string): Promi
   return (data as Enrollment | null) ?? null
 }
 
+export function isJollyPhonicsFreeVersion(course: Pick<Course, 'slug' | 'title'>): boolean {
+  const slug = course.slug?.toLowerCase() ?? ''
+  const title = course.title?.toLowerCase() ?? ''
+  return slug === 'teaching-english-through-jolly-phonics-free-version' || title.includes('free version')
+}
+
+export function isCourseFree(course: Pick<Course, 'price' | 'discounted_price' | 'is_free' | 'slug' | 'title'>): boolean {
+  if (isJollyPhonicsFreeVersion(course)) return true
+  if (course.is_free) return true
+  const discounted = course.discounted_price
+  if (discounted !== null && discounted !== undefined) return Number(discounted) <= 0
+  return Number(course.price ?? 0) <= 0
+}
+
+export function isCourseCertificateEnabled(course: Course): boolean {
+  if (isJollyPhonicsFreeVersion(course)) return false
+  return (course.certificate_enabled ?? metadata(course).certificateEnabled) !== false
+}
+
 export function getCoursePrice(course: Course): number {
+  if (isCourseFree(course)) return 0
   const discounted = course.discounted_price
   if (discounted !== null && discounted !== undefined && Number(discounted) >= 0) return Number(discounted)
   return Number(course.price ?? 0)
@@ -545,7 +572,11 @@ export async function getCourseWishlist(userId: string): Promise<CourseWishlistI
   }
 }
 
-export async function getQuizForCourse(courseId: string, userId: string): Promise<QuizForCourse | null> {
+export async function getQuizForCourse(
+  courseId: string,
+  userId: string,
+  options?: { includeUnpublished?: boolean; includeAttempts?: boolean },
+): Promise<QuizForCourse | null> {
   if (!isSupabaseConfigured()) return null
 
   try {
@@ -553,30 +584,28 @@ export async function getQuizForCourse(courseId: string, userId: string): Promis
       ? await createServiceClient()
       : await createClient()
 
-    const { data: quiz } = await supabase
-      .from('course_quizzes')
-      .select('*')
-      .eq('course_id', courseId)
-      .eq('published', true)
-      .order('sort_order', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+    let quizQuery = supabase.from('course_quizzes').select('*').eq('course_id', courseId)
+    if (!options?.includeUnpublished) quizQuery = quizQuery.eq('published', true)
+    const { data: quiz } = await quizQuery.order('sort_order', { ascending: true }).limit(1).maybeSingle()
 
     if (!quiz) return null
 
-    const [{ data: questions }, { data: attempts }] = await Promise.all([
-      supabase
-        .from('quiz_questions')
-        .select('id, quiz_id, bank_id, question, question_type, options, explanation, media_url, image_url, audio_url, points, difficulty, sort_order, created_at')
-        .eq('quiz_id', quiz.id)
-        .order('sort_order', { ascending: true }),
-      supabase
+    const { data: questions } = await supabase
+      .from('quiz_questions')
+      .select('id, quiz_id, bank_id, question, question_type, options, explanation, media_url, image_url, audio_url, points, difficulty, sort_order, created_at')
+      .eq('quiz_id', quiz.id)
+      .order('sort_order', { ascending: true })
+
+    let attempts: QuizAttempt[] = []
+    if (options?.includeAttempts !== false) {
+      const { data } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quiz.id)
         .eq('user_id', userId)
-        .order('created_at', { ascending: false }),
-    ])
+        .order('created_at', { ascending: false })
+      attempts = (data as QuizAttempt[]) ?? []
+    }
 
     const safeQuestions = ((questions ?? []) as QuizQuestion[]).map((question) => ({
       ...question,
@@ -586,7 +615,7 @@ export async function getQuizForCourse(courseId: string, userId: string): Promis
     return {
       quiz: quiz as CourseQuiz,
       questions: safeQuestions,
-      attempts: (attempts as QuizAttempt[]) ?? [],
+      attempts,
     }
   } catch {
     return null
@@ -695,7 +724,7 @@ export async function evaluateCourseCompletion(course: Course, userId: string): 
 
   const checklist: CompletionChecklist = {
     ...checks,
-    eligible: completed && (course.certificate_enabled ?? metadata(course).certificateEnabled !== false),
+    eligible: completed && isCourseCertificateEnabled(course),
     completed,
     progress: Math.round((satisfiedCount / totalChecks) * 100),
   }

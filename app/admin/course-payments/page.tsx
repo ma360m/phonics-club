@@ -1,8 +1,21 @@
 import Link from 'next/link'
-import { approveCoursePaymentFormAction, getAdminCoursePayments, rejectCoursePaymentFormAction } from '@/actions/admin/lms'
-import { Badge } from '@/components/ui/badge'
+import {
+  approveCoursePaymentFormAction,
+  extendEnrollmentAccessFormAction,
+  getAdminCoursePayments,
+  rejectCoursePaymentFormAction,
+} from '@/actions/admin/lms'
 import { Button } from '@/components/ui/button'
+import { LmsEmptyState, LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
 import { formatPrice } from '@/utils/format'
+import { ExternalLink, FileSearch, ShieldCheck, XCircle } from 'lucide-react'
+
+function paymentTone(status: string): 'blue' | 'red' | 'gold' | 'green' {
+  if (status === 'paid') return 'green'
+  if (status === 'rejected' || status === 'refunded') return 'red'
+  if (status === 'submitted' || status === 'processing') return 'blue'
+  return 'gold'
+}
 
 export default async function AdminCoursePaymentsPage({
   searchParams,
@@ -14,17 +27,22 @@ export default async function AdminCoursePaymentsPage({
   const statuses = ['all', 'pending', 'processing', 'submitted', 'paid', 'rejected', 'refunded']
 
   return (
-    <div>
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Course Payments</h1>
-          <p className="text-sm text-muted-foreground">Approve manual transfers only after verifying the receipt and transaction reference.</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl">
+      <LmsPageHeader
+        eyebrow="Course Payments"
+        title="Payment review"
+        description="Verify manual transfers, preview uploaded receipts and activate course access after confirmation."
+      />
 
       <div className="mb-6 flex flex-wrap gap-2">
         {statuses.map((item) => (
-          <Button key={item} asChild size="sm" variant={item === status ? 'default' : 'outline'} className="rounded-xl">
+          <Button
+            key={item}
+            asChild
+            size="sm"
+            variant={item === status ? 'default' : 'outline'}
+            className={`rounded-xl ${item === status ? 'bg-[#1D4ED8]' : 'border-slate-200 bg-white'}`}
+          >
             <Link href={item === 'all' ? '/admin/course-payments' : `/admin/course-payments?status=${item}`}>
               {item.replace(/_/g, ' ')}
             </Link>
@@ -34,52 +52,103 @@ export default async function AdminCoursePaymentsPage({
 
       <div className="space-y-4">
         {payments.map((payment: any) => (
-          <article key={payment.id} className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="flex flex-wrap justify-between gap-4">
+          <article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
               <div>
-                <p className="font-semibold">{payment.courses?.title ?? 'Course'}</p>
-                <p className="text-sm text-muted-foreground">{payment.profiles?.full_name ?? payment.profiles?.email}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Reference: {payment.transaction_reference ?? 'Not submitted'}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(Number(payment.amount ?? 0))}</p>
-                <Badge>{payment.status}</Badge>
-              </div>
-            </div>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <LmsStatusBadge tone={paymentTone(payment.status)}>{payment.status}</LmsStatusBadge>
+                  <span className="text-xs text-slate-500">Reference: {payment.transaction_reference ?? 'Not submitted'}</span>
+                </div>
+                <h2 className="text-lg font-bold text-[#0F172A]">{payment.courses?.title ?? 'Course payment'}</h2>
+                <p className="mt-1 text-sm text-slate-500">{payment.profiles?.full_name ?? payment.profiles?.email ?? 'Student record'}</p>
 
-            {payment.receipt_path && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Receipt uploaded: <span className="font-mono">{payment.receipt_filename ?? payment.receipt_path}</span>
-                {payment.signed_receipt_url && (
-                  <>
-                    {' '}
-                    <a href={payment.signed_receipt_url} target="_blank" rel="noreferrer" className="text-[#1D4ED8] hover:underline">
-                      Preview
-                    </a>
-                  </>
+                {payment.receipt_path ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm text-slate-600">
+                    <p className="font-medium text-[#0F172A]">Receipt uploaded</p>
+                    <p className="mt-1 break-all font-mono text-xs">{payment.receipt_filename ?? payment.receipt_path}</p>
+                    {payment.signed_receipt_url && (
+                      <a
+                        href={payment.signed_receipt_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#1D4ED8] hover:underline"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Preview receipt
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-[#F8FAFC] p-4 text-sm text-slate-500">
+                    No receipt has been uploaded yet.
+                  </div>
                 )}
-              </p>
-            )}
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {['submitted', 'processing', 'pending'].includes(payment.status) && (
-                <form action={approveCoursePaymentFormAction}>
-                  <input type="hidden" name="payment_id" value={payment.id} />
-                  <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">Approve & Activate</Button>
-                </form>
-              )}
-              {!['paid', 'refunded', 'rejected'].includes(payment.status) && (
-                <form action={rejectCoursePaymentFormAction} className="flex flex-wrap gap-2">
-                  <input type="hidden" name="payment_id" value={payment.id} />
-                  <input name="reason" placeholder="Reason" className="rounded-xl border px-3 py-1.5 text-sm" />
-                  <Button type="submit" size="sm" variant="destructive" className="rounded-xl">Reject</Button>
-                </form>
-              )}
+              <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Amount</p>
+                <p className="mt-2 text-2xl font-bold text-[#1D4ED8]">{formatPrice(Number(payment.amount ?? 0))}</p>
+                <div className="mt-4 space-y-2">
+                  {['submitted', 'processing', 'pending'].includes(payment.status) && (
+                    <form action={approveCoursePaymentFormAction}>
+                      <input type="hidden" name="payment_id" value={payment.id} />
+                      <Button type="submit" size="sm" className="w-full rounded-xl bg-emerald-600">
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        Approve
+                      </Button>
+                    </form>
+                  )}
+                  {!['paid', 'refunded', 'rejected'].includes(payment.status) && (
+                    <form action={rejectCoursePaymentFormAction} className="space-y-2">
+                      <input type="hidden" name="payment_id" value={payment.id} />
+                      <input
+                        name="reason"
+                        placeholder="Reason"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                      />
+                      <Button type="submit" size="sm" variant="destructive" className="w-full rounded-xl">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Reject
+                      </Button>
+                    </form>
+                  )}
+                </div>
+                {payment.enrollment && (
+                  <form action={extendEnrollmentAccessFormAction} className="mt-4 space-y-2 border-t border-slate-200 pt-4">
+                    <input type="hidden" name="enrollment_id" value={payment.enrollment.id} />
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Access</p>
+                    <p className="text-xs leading-5 text-slate-600">
+                      {payment.enrollment.expires_at
+                        ? `Expires ${new Date(payment.enrollment.expires_at).toLocaleDateString('en-PK')}`
+                        : 'No expiry set'}
+                    </p>
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <input
+                        name="days"
+                        type="number"
+                        min="1"
+                        max="365"
+                        placeholder="Days"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                      />
+                      <Button type="submit" size="sm" variant="outline" className="rounded-xl border-slate-200 bg-white">
+                        Extend
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           </article>
         ))}
+
         {payments.length === 0 && (
-          <div className="rounded-2xl border bg-card p-8 text-center text-muted-foreground">No course payments found.</div>
+          <LmsEmptyState
+            icon={FileSearch}
+            title="No course payments found"
+            description="Adjust the status filter or wait for students to submit course payment receipts."
+            action={<Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white"><Link href="/admin/course-payments">Clear Filter</Link></Button>}
+          />
         )}
       </div>
     </div>

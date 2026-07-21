@@ -196,7 +196,7 @@ export async function createCourseCheckoutAction(
       if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
       revalidatePath('/dashboard/my-courses')
       revalidatePath(`/courses/${currentCourse.slug}`)
-      return { success: true, data: { enrollmentId: enrollment.id, redirectTo: '/dashboard/my-courses' } }
+      return { success: true, data: { enrollmentId: enrollment.id, redirectTo: `/course/${courseId}/learn` } }
     }
 
     const idempotencyKey = `course:${courseId}:user:${user.id}:manual`
@@ -457,7 +457,7 @@ function quizAnswerIsCorrect(question: QuizQuestion, answer: QuizAnswer | undefi
     return expected.length > 0 && expected.length === submitted.length && expected.every((item, index) => item === submitted[index])
   }
 
-  if (questionType === 'fill_blank') {
+  if (questionType === 'fill_blank' || questionType === 'short_answer' || questionType === 'long_answer') {
     if (typeof answer !== 'string') return false
     const submitted = answer.trim().toLowerCase()
     const acceptable = Array.isArray(question.acceptable_answers) ? question.acceptable_answers : []

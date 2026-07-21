@@ -21,7 +21,7 @@ export function OrderStatusTimeline({
   )
 
   return (
-    <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ol className="space-y-2">
       {steps.map((step, index) => (
         <StatusStep
           key={step.status}
@@ -57,7 +57,8 @@ function StatusStep({
         cancelled && 'border-destructive/30 bg-destructive/5'
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="grid gap-2 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-start">
+        <div className="flex min-w-0 items-start gap-2">
         <Icon
           className={cn(
             'mt-0.5 h-4 w-4 shrink-0',
@@ -67,10 +68,9 @@ function StatusStep({
             !active && !complete && !cancelled && 'text-muted-foreground'
           )}
         />
-        <div>
-          <p className="font-semibold">{step.label}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{step.description}</p>
+          <p className="min-w-0 font-semibold leading-5">{step.label}</p>
         </div>
+        <p className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm">{step.description}</p>
       </div>
     </li>
   )

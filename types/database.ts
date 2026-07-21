@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin'
+export type UserRole = 'user' | 'admin' | 'instructor'
 export type CoursePaymentStatus =
   | 'pending'
   | 'processing'
@@ -175,6 +175,7 @@ export interface CurriculumLesson {
 export interface CurriculumModule {
   title: string
   duration?: string
+  description?: string
   thumbnail_url?: string
   lessons: CurriculumLesson[]
 }
@@ -368,6 +369,85 @@ export interface CourseLesson {
   updated_at: string
 }
 
+export type PhonicsActivityType =
+  | 'sound_introduction'
+  | 'pronunciation_video'
+  | 'poem_or_song'
+  | 'story'
+  | 'action'
+  | 'flashcard'
+  | 'formation_demo'
+  | 'trace_and_write'
+  | 'listen_and_choose'
+  | 'picture_match'
+  | 'blending'
+  | 'segmenting'
+  | 'quick_review'
+
+export interface PhonicsSoundProfile {
+  id: string
+  lesson_id: string
+  sound_key: string
+  display_text: string
+  sound_group: number
+  course_part: number
+  sequence_order: number
+  sound_variant: string | null
+  pronunciation_audio_url: string | null
+  pronunciation_video_url: string | null
+  poem_video_url: string | null
+  song_video_url: string | null
+  story_media_url: string | null
+  action_media_url: string | null
+  formation_video_url: string | null
+  flashcard_image_url: string | null
+  example_image_url: string | null
+  formation_data: Record<string, unknown>
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface PhonicsActivity {
+  id: string
+  sound_profile_id: string
+  activity_type: PhonicsActivityType | string
+  title: string
+  instructions: string | null
+  content: Record<string, unknown>
+  media_url: string | null
+  sequence_order: number
+  is_required: boolean
+  is_published: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PhonicsWordExample {
+  id: string
+  sound_profile_id: string
+  example_type: 'blending' | 'segmenting' | 'picture_match' | 'initial_sound' | 'final_sound'
+  word: string
+  sound_units: unknown[]
+  image_url: string | null
+  audio_url: string | null
+  is_approved: boolean
+  sequence_order: number
+  created_at: string
+}
+
+export interface PhonicsActivityProgress {
+  id: string
+  user_id: string
+  activity_id: string
+  completed: boolean
+  attempts: number
+  score: number | null
+  last_state: Record<string, unknown>
+  completed_at: string | null
+  updated_at: string
+}
+
 export interface LessonProgress {
   id: string
   user_id: string
@@ -439,6 +519,19 @@ export interface CourseReview {
   comment: string | null
   created_at: string
   profiles?: Pick<Profile, 'full_name' | 'avatar_url'> | null
+}
+
+export interface CourseInstructor {
+  id: string
+  course_id: string
+  profile_id: string
+  role: 'owner' | 'instructor' | 'assistant'
+  can_manage_content: boolean
+  can_grade: boolean
+  can_view_reports: boolean
+  created_at: string
+  profiles?: Pick<Profile, 'full_name' | 'email' | 'avatar_url'> | null
+  courses?: Pick<Course, 'id' | 'title' | 'slug'> | null
 }
 
 export interface Certificate {
@@ -521,6 +614,8 @@ export type QuizQuestionType =
   | 'mcq'
   | 'multiple_select'
   | 'true_false'
+  | 'short_answer'
+  | 'long_answer'
   | 'matching'
   | 'drag_drop'
   | 'ordering'
@@ -900,12 +995,17 @@ export interface Database {
       course_categories: { Row: CourseCategory; Insert: Partial<CourseCategory>; Update: Partial<CourseCategory> }
       course_modules: { Row: CourseModuleRow; Insert: Partial<CourseModuleRow>; Update: Partial<CourseModuleRow> }
       course_lessons: { Row: CourseLesson; Insert: Partial<CourseLesson>; Update: Partial<CourseLesson> }
+      phonics_sound_profiles: { Row: PhonicsSoundProfile; Insert: Partial<PhonicsSoundProfile>; Update: Partial<PhonicsSoundProfile> }
+      phonics_activities: { Row: PhonicsActivity; Insert: Partial<PhonicsActivity>; Update: Partial<PhonicsActivity> }
+      phonics_word_examples: { Row: PhonicsWordExample; Insert: Partial<PhonicsWordExample>; Update: Partial<PhonicsWordExample> }
+      phonics_activity_progress: { Row: PhonicsActivityProgress; Insert: Partial<PhonicsActivityProgress>; Update: Partial<PhonicsActivityProgress> }
       lesson_progress: { Row: LessonProgress; Insert: Partial<LessonProgress>; Update: Partial<LessonProgress> }
       lesson_notes: { Row: LessonNote; Insert: Partial<LessonNote>; Update: Partial<LessonNote> }
       lesson_bookmarks: { Row: LessonBookmark; Insert: Partial<LessonBookmark>; Update: Partial<LessonBookmark> }
       lesson_highlights: { Row: LessonHighlight; Insert: Partial<LessonHighlight>; Update: Partial<LessonHighlight> }
       lesson_discussions: { Row: LessonDiscussion; Insert: Partial<LessonDiscussion>; Update: Partial<LessonDiscussion> }
       course_reviews: { Row: CourseReview; Insert: Partial<CourseReview>; Update: Partial<CourseReview> }
+      course_instructors: { Row: CourseInstructor; Insert: Partial<CourseInstructor>; Update: Partial<CourseInstructor> }
       certificates: { Row: Certificate; Insert: Partial<Certificate>; Update: Partial<Certificate> }
       course_resources: { Row: CourseResource; Insert: Partial<CourseResource>; Update: Partial<CourseResource> }
       course_quizzes: { Row: CourseQuiz; Insert: Partial<CourseQuiz>; Update: Partial<CourseQuiz> }

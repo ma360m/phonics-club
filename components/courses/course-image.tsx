@@ -21,8 +21,8 @@ export function CourseImage({
 
   if (!safeSrc || failed) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#D30000]/10 via-white to-[#60A5FA]/20 ${className}`}>
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
+      <div className={`absolute inset-0 flex items-center justify-center bg-[#EFF6FF] ${className}`}>
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#BFDBFE] bg-white shadow-sm">
           <BookOpen className="h-8 w-8 text-[#1D4ED8]" />
         </div>
       </div>

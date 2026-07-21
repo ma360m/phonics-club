@@ -73,7 +73,7 @@ export function CurriculumBuilder({ value, onChange }: Props) {
         </Button>
       </div>
       {modules.map((mod, mi) => (
-        <div key={mi} className="border rounded-2xl p-4 bg-muted/30 space-y-3">
+        <div key={mi} className="space-y-3 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
           <div className="flex gap-2 items-center">
             <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
             <Input
@@ -88,7 +88,7 @@ export function CurriculumBuilder({ value, onChange }: Props) {
           </div>
           <div className="pl-6 space-y-2">
             {mod.lessons.map((lesson, li) => (
-              <div key={li} className="rounded-xl border bg-background p-3">
+              <div key={li} className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex gap-2">
                   <Input
                     value={lesson.title}

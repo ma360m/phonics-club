@@ -1,10 +1,12 @@
 'use client'
 
-import { SlidersHorizontal, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useRef } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { formatCourseCategory } from '@/lib/course-format'
+import { cn } from '@/lib/utils'
 
 interface Props {
   filters: {
@@ -15,113 +17,126 @@ interface Props {
     price: string
     sort: string
   }
-  categories: string[]
   levels: string[]
 }
 
-function formatCourseCategory(category: string): string {
-  return category.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+const filterTabs = [
+  { label: 'All Courses', patch: { category: 'all', price: 'all' } },
+  { label: 'Teacher Courses', patch: { category: 'teacher-courses', price: 'all' } },
+  { label: "Children's Courses", patch: { category: 'children-courses', price: 'all' } },
+  { label: 'Free Courses', patch: { category: 'all', price: 'free' } },
+  { label: 'Paid Courses', patch: { category: 'all', price: 'paid' } },
+]
+
+function coursesHref(filters: Props['filters'], patch: Partial<Props['filters']>) {
+  const next = { ...filters, ...patch }
+  const params = new URLSearchParams()
+  Object.entries(next).forEach(([key, value]) => {
+    if (key === 'duration') return
+    if (!value || value === 'all') return
+    params.set(key, value)
+  })
+  const query = params.toString()
+  return query ? `/courses?${query}` : '/courses'
 }
 
-function FilterFields({ filters, categories, levels }: Props) {
+function isTabActive(filters: Props['filters'], patch: Partial<Props['filters']>) {
+  return Object.entries(patch).every(([key, value]) => filters[key as keyof Props['filters']] === value)
+}
+
+function SelectControls({ filters, levels, compact = false }: Props & { compact?: boolean }) {
+  const formRef = useRef<HTMLFormElement>(null)
+
   return (
-    <>
-      <div className="space-y-2">
-        <Label htmlFor="course-search">Search</Label>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input id="course-search" name="q" defaultValue={filters.q} placeholder="Search courses" className="rounded-xl pl-9" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="course-category">Category</Label>
-        <select id="course-category" name="category" defaultValue={filters.category} className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
-          <option value="all">All categories</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {formatCourseCategory(category)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="course-level">Level</Label>
-        <select id="course-level" name="level" defaultValue={filters.level} className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
+    <form ref={formRef} action="/courses" className={cn('flex flex-wrap items-center gap-2', compact && 'flex-col items-stretch')}>
+      {filters.q && <input type="hidden" name="q" value={filters.q} />}
+      {filters.category !== 'all' && <input type="hidden" name="category" value={filters.category} />}
+      {filters.price !== 'all' && <input type="hidden" name="price" value={filters.price} />}
+      {levels.length > 0 && (
+        <label className="sr-only" htmlFor={compact ? 'mobile-course-level' : 'course-level'}>Course level</label>
+      )}
+      {levels.length > 0 && (
+        <select
+          id={compact ? 'mobile-course-level' : 'course-level'}
+          name="level"
+          defaultValue={filters.level}
+          onChange={() => formRef.current?.requestSubmit()}
+          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-[#0F172A] outline-none focus:ring-2 focus:ring-[#60A5FA]/40"
+        >
           <option value="all">All levels</option>
           {levels.map((level) => (
-            <option key={level} value={level}>
-              {formatCourseCategory(level)}
-            </option>
+            <option key={level} value={level}>{formatCourseCategory(level)}</option>
           ))}
         </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="course-duration">Duration</Label>
-        <select id="course-duration" name="duration" defaultValue={filters.duration} className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
-          <option value="all">Any duration</option>
-          <option value="short">Up to 4 weeks</option>
-          <option value="medium">5 to 8 weeks</option>
-          <option value="long">9+ weeks</option>
-          <option value="self-paced">Self-paced</option>
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="course-price">Price</Label>
-        <select id="course-price" name="price" defaultValue={filters.price} className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
-          <option value="all">Free and paid</option>
-          <option value="free">Free</option>
-          <option value="paid">Paid</option>
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="course-sort">Sort</Label>
-        <select id="course-sort" name="sort" defaultValue={filters.sort} className="w-full rounded-xl border bg-background px-3 py-2 text-sm">
-          <option value="newest">Newest</option>
-          <option value="popularity">Popularity</option>
-          <option value="rating">Rating</option>
-          <option value="title">Title</option>
-        </select>
-      </div>
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" className="flex-1 rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
-          Apply
-        </Button>
-        <Button asChild variant="outline" className="rounded-xl">
-          <a href="/courses">Reset</a>
-        </Button>
-      </div>
-    </>
+      )}
+      <label className="sr-only" htmlFor={compact ? 'mobile-course-sort' : 'course-sort'}>Sort courses</label>
+      <select
+        id={compact ? 'mobile-course-sort' : 'course-sort'}
+        name="sort"
+        defaultValue={filters.sort}
+        onChange={() => formRef.current?.requestSubmit()}
+        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-[#0F172A] outline-none focus:ring-2 focus:ring-[#60A5FA]/40"
+      >
+        <option value="newest">Newest</option>
+        <option value="popularity">Most popular</option>
+        <option value="rating">Highest rated</option>
+        <option value="title">A to Z</option>
+      </select>
+      <noscript>
+        <Button type="submit" size="sm" className="rounded-xl bg-[#1D4ED8]">Apply</Button>
+      </noscript>
+    </form>
   )
 }
 
-export function CourseFilters(props: Props) {
+export function CourseFilters({ filters, levels }: Props) {
   return (
-    <>
-      <aside className="hidden rounded-2xl border bg-card p-5 shadow-sm lg:block">
-        <form action="/courses" className="space-y-4">
-          <FilterFields {...props} />
-        </form>
-      </aside>
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {filterTabs.map((tab) => {
+            const active = isTabActive(filters, tab.patch)
+            return (
+              <Link
+                key={tab.label}
+                href={coursesHref(filters, tab.patch)}
+                className={cn(
+                  'whitespace-nowrap rounded-xl border px-4 py-2 text-sm font-semibold transition-colors',
+                  active
+                    ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-[#BFDBFE] hover:bg-[#EFF6FF] hover:text-[#1D4ED8]',
+                )}
+              >
+                {tab.label}
+              </Link>
+            )
+          })}
+        </div>
 
-      <div className="lg:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="rounded-xl">
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Filters
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
-            <SheetHeader>
-              <SheetTitle>Filter courses</SheetTitle>
-              <SheetDescription>Refine courses by topic, level, duration and price.</SheetDescription>
-            </SheetHeader>
-            <form action="/courses" className="mt-4 space-y-4">
-              <FilterFields {...props} />
-            </form>
-          </SheetContent>
-        </Sheet>
+        <div className="hidden shrink-0 lg:block">
+          <SelectControls filters={filters} levels={levels} />
+        </div>
+
+        <div className="lg:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="w-full rounded-xl border-slate-200 bg-white">
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                Sort & level
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-2xl bg-white">
+              <SheetHeader className="text-left">
+                <SheetTitle>Sort and level</SheetTitle>
+                <SheetDescription>Keep the catalogue focused with a compact sort and level filter.</SheetDescription>
+              </SheetHeader>
+              <div className="mt-4">
+                <SelectControls filters={filters} levels={levels} compact />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
-    </>
+    </div>
   )
 }

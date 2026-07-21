@@ -64,7 +64,14 @@ export function CustomerOrderControls({
             </p>
           )}
         </div>
-        <OrderStatusTimeline status={order.status} paymentMethod={order.payment_method} />
+        <details className="rounded-lg border bg-background/70 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-[#1D4ED8]">
+            View order status steps
+          </summary>
+          <div className="mt-3">
+            <OrderStatusTimeline status={order.status} paymentMethod={order.payment_method} />
+          </div>
+        </details>
       </div>
 
       {canUploadReceipt && (
@@ -104,7 +111,7 @@ export function CustomerOrderControls({
           </div>
 
           {editOpen && (
-            <form action={updateAction} encType="multipart/form-data" className="mt-5 space-y-4 border-t pt-5">
+            <form action={updateAction} className="mt-5 space-y-4 border-t pt-5">
               <input type="hidden" name="orderId" value={order.id} />
               {token && <input type="hidden" name="token" value={token} />}
               <input type="hidden" name="country" value={address.country ?? 'Pakistan'} />

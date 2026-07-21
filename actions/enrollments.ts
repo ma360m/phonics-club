@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
 import { createCourseCheckoutAction } from '@/actions/lms'
+import { getCoursePrice, isCourseFree } from '@/lib/lms'
 import type { ActionResult } from '@/types'
 
 export async function enrollInCourseAction(courseId: string): Promise<ActionResult<{ redirectTo?: string }>> {
@@ -13,7 +14,7 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
   const supabase = await createClient()
   const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select('id, slug, price, is_free, published, access_duration_days')
+    .select('id, slug, title, price, discounted_price, is_free, published, access_duration_days')
     .eq('id', courseId)
     .eq('published', true)
     .maybeSingle()
@@ -21,26 +22,30 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
   if (courseError) return { success: false, error: courseError.message }
   if (!course) return { success: false, error: 'Course not found' }
 
-  const price = Number(course.price ?? 0)
-  if (price > 0 && !course.is_free) {
+  const price = getCoursePrice(course as never)
+  if (price > 0 && !isCourseFree(course as never)) {
     const checkout = await createCourseCheckoutAction(courseId)
     if (!checkout.success) return { success: false, error: checkout.error }
     return { success: true, data: { redirectTo: checkout.data?.redirectTo ?? '/dashboard/my-courses?tab=payments' } }
   }
 
-  const { error } = await supabase.from('enrollments').insert({
-    user_id: user.id,
-    course_id: courseId,
-    progress: 0,
-    status: 'active',
-    payment_status: 'free',
-    purchase_date: new Date().toISOString(),
-    activated_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + Number(course.access_duration_days ?? 90) * 86_400_000).toISOString(),
-  } as never)
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('enrollments').upsert(
+    {
+      user_id: user.id,
+      course_id: courseId,
+      progress: 0,
+      status: 'active',
+      payment_status: 'free',
+      purchase_date: now,
+      activated_at: now,
+      last_accessed_at: now,
+      expires_at: new Date(Date.now() + Number(course.access_duration_days ?? 90) * 86_400_000).toISOString(),
+    } as never,
+    { onConflict: 'user_id,course_id' },
+  )
 
   if (error) {
-    if (error.code === '23505') return { success: false, error: 'Already enrolled' }
     return { success: false, error: error.message }
   }
 
@@ -48,7 +53,7 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
   revalidatePath('/dashboard/my-courses')
   revalidatePath('/courses')
   revalidatePath(`/courses/${course.slug}`)
-  return { success: true, data: { redirectTo: '/dashboard/my-courses' } }
+  return { success: true, data: { redirectTo: `/course/${courseId}/learn` } }
 }
 
 export async function getUserEnrollments() {

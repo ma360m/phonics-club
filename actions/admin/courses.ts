@@ -2,11 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireAdmin, requireAdminOrInstructor } from '@/lib/auth'
 import { courseSchema } from '@/lib/validations/course'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { normalizeMediaUrl } from '@/lib/media-url'
+import { CHILDREN_PHONICS_COURSES } from '@/lib/data/children-phonics-courses'
+import { ensureChildrenPhonicsCoursesInstalled } from '@/lib/data/children-phonics-install'
 import type { ActionResult, CurriculumModule } from '@/types'
+import type { Course } from '@/types/database'
 
 function parseLines(formData: FormData, key: string): string[] {
   const raw = formData.get(key)
@@ -112,7 +115,7 @@ export async function createCourseAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const parsed = parseCourseForm(formData)
   if (!parsed.ok) return { success: false, error: parsed.error }
 
@@ -130,7 +133,7 @@ export async function updateCourseAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const parsed = parseCourseForm(formData)
   if (!parsed.ok) return { success: false, error: parsed.error }
 
@@ -152,16 +155,154 @@ export async function deleteCourseAction(id: string): Promise<void> {
   revalidatePath('/admin/courses')
 }
 
-export async function getAdminCourses() {
+export async function updateCoursePublishStatusAction(id: string, published: boolean): Promise<void> {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const { error } = await supabase.from('courses').update({ published } as never).eq('id', id)
+  if (error) throw toError(error, published ? 'Course could not be published.' : 'Course could not be saved as draft.')
+
+  revalidatePath('/admin/courses')
+  revalidatePath(`/admin/courses/${id}/builder`)
+  revalidatePath('/courses')
+}
+
+export async function updateCourseMediaAction(id: string, formData: FormData): Promise<void> {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const imageUrl = normalizeMediaUrl(String(formData.get('image_url') ?? ''))
+  const { error } = await supabase
+    .from('courses')
+    .update({
+      image_url: imageUrl || null,
+      thumbnail_url: normalizeMediaUrl(String(formData.get('thumbnail_url') || imageUrl || '')) || null,
+      banner_url: normalizeMediaUrl(String(formData.get('banner_url') ?? '')) || null,
+      hero_video_url: normalizeMediaUrl(String(formData.get('hero_video_url') ?? '')) || null,
+    } as never)
+    .eq('id', id)
+  if (error) throw toError(error, 'Course media could not be saved.')
+
+  revalidatePath(`/admin/courses/${id}/builder`)
+  revalidatePath(`/courses`)
+}
+
+export async function installChildrenPhonicsCoursesAction(): Promise<void> {
   await requireAdmin()
+  await ensureChildrenPhonicsCoursesInstalled()
+  revalidatePath('/admin/courses')
+  revalidatePath('/courses')
+}
+
+export async function getAdminCourses() {
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { data } = await supabase.from('courses').select('*').order('created_at', { ascending: false })
   return data ?? []
 }
 
 export async function getAdminCourse(id: string) {
-  await requireAdmin()
+  await requireAdminOrInstructor()
   const supabase = await createClient()
   const { data } = await supabase.from('courses').select('*').eq('id', id).single()
   return data
+}
+
+export async function getInstructorDashboardData() {
+  await requireAdminOrInstructor()
+  const supabase = await createClient()
+  const [
+    coursesResult,
+    enrollmentsResult,
+    modulesResult,
+    lessonsResult,
+    quizzesResult,
+    questionsResult,
+    progressResult,
+  ] = await Promise.all([
+    supabase.from('courses').select('*').order('updated_at', { ascending: false }),
+    supabase.from('enrollments').select('id, user_id, course_id, progress, status, last_accessed_at, enrolled_at'),
+    supabase.from('course_modules').select('id, course_id, title, sort_order'),
+    supabase.from('course_lessons').select('id, course_id, module_id, title, lesson_type, thumbnail_url, video_url, material_url, article_content, rich_content, sort_order, published'),
+    supabase.from('course_quizzes').select('id, course_id, lesson_id, title, published'),
+    supabase.from('quiz_questions').select('id, quiz_id'),
+    supabase.from('lesson_progress').select('id, user_id, course_id, lesson_id, completed, updated_at, last_accessed_at').order('updated_at', { ascending: false }).limit(8),
+  ])
+
+  const courses = (coursesResult.data ?? []) as Course[]
+  const enrollments = enrollmentsResult.data ?? []
+  const modules = modulesResult.data ?? []
+  const lessons = lessonsResult.data ?? []
+  const quizzes = quizzesResult.data ?? []
+  const questions = questionsResult.data ?? []
+  const progress = progressResult.data ?? []
+
+  const questionsByQuiz = new Map<string, number>()
+  questions.forEach((question: any) => {
+    questionsByQuiz.set(question.quiz_id, (questionsByQuiz.get(question.quiz_id) ?? 0) + 1)
+  })
+
+  const courseRows = courses.map((course) => {
+    const courseEnrollments = enrollments.filter((enrollment: any) => enrollment.course_id === course.id)
+    const progressValues = courseEnrollments.map((enrollment: any) => Number(enrollment.progress ?? 0))
+    const averageCompletion = progressValues.length
+      ? Math.round(progressValues.reduce((sum: number, value: number) => sum + value, 0) / progressValues.length)
+      : 0
+    const courseModules = modules.filter((module: any) => module.course_id === course.id)
+    const courseLessons = lessons.filter((lesson: any) => lesson.course_id === course.id)
+    const courseQuizzes = quizzes.filter((quiz: any) => quiz.course_id === course.id)
+    const issues: string[] = []
+
+    if (!course.published) issues.push('Unpublished course')
+    if (!course.image_url && !course.thumbnail_url) issues.push('Course without thumbnail')
+    if (courseModules.length === 0 || courseLessons.length === 0) issues.push('Draft course missing content')
+    courseQuizzes.forEach((quiz: any) => {
+      if ((questionsByQuiz.get(quiz.id) ?? 0) === 0) issues.push(`Quiz without questions: ${quiz.title}`)
+    })
+
+    return {
+      course,
+      studentCount: courseEnrollments.length,
+      averageCompletion,
+      moduleCount: courseModules.length,
+      lessonCount: courseLessons.length,
+      quizCount: courseQuizzes.length,
+      issues,
+    }
+  })
+
+  const totalStudents = new Set(enrollments.map((enrollment: any) => enrollment.user_id).filter(Boolean)).size
+  const averageCompletion = enrollments.length
+    ? Math.round(enrollments.reduce((sum: number, enrollment: any) => sum + Number(enrollment.progress ?? 0), 0) / enrollments.length)
+    : 0
+
+  return {
+    summary: {
+      publishedCourses: courses.filter((course) => course.published).length,
+      draftCourses: courses.filter((course) => !course.published).length,
+      totalStudents,
+      averageCompletion,
+    },
+    courses: courseRows,
+    missingChildrenCourses: CHILDREN_PHONICS_COURSES.filter(
+      (course) => !courses.some((existing) => existing.slug === course.slug),
+    ),
+    recentActivity: progress.map((item: any) => {
+      const course = courses.find((row) => row.id === item.course_id)
+      const lesson = lessons.find((row: any) => row.id === item.lesson_id)
+      return {
+        id: item.id,
+        courseTitle: course?.title ?? 'Course',
+        lessonTitle: lesson?.title ?? 'Lesson',
+        completed: Boolean(item.completed),
+        updatedAt: item.last_accessed_at ?? item.updated_at,
+      }
+    }),
+    attentionItems: courseRows.flatMap((row) =>
+      row.issues.map((issue) => ({
+        id: `${row.course.id}-${issue}`,
+        courseId: row.course.id,
+        courseTitle: row.course.title,
+        issue,
+      })),
+    ),
+  }
 }

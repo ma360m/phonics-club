@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { CourseDetailView } from '@/components/courses/course-detail-view'
 import { getCourseBySlug } from '@/lib/data/queries'
-import { getCourseDetailBundle, getUserEnrollment } from '@/lib/lms'
+import { getCourseAccessState, getCourseDetailBundle, getUserEnrollment } from '@/lib/lms'
 import { getSession } from '@/lib/auth'
 import { buildMetadata, courseJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
@@ -25,6 +25,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
   if (!bundle) notFound()
   const user = await getSession()
   const enrollment = user ? await getUserEnrollment(user.id, bundle.course.id) : null
+  const enrolled = getCourseAccessState(enrollment as never).active
 
   return (
     <main>
@@ -32,7 +33,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
       <AnnouncementBar />
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <CourseDetailView {...bundle} enrolled={Boolean(enrollment)} />
+        <CourseDetailView {...bundle} enrolled={enrolled} />
       </div>
       <Footer />
     </main>

@@ -1,6 +1,6 @@
 import { getAdminLmsReport } from '@/actions/admin/lms'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, AlertTriangle, Award, BookOpenCheck, Clock, CreditCard, TrendingUp, Users } from 'lucide-react'
+import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatCard } from '@/components/lms/lms-primitives'
+import { Activity, AlertTriangle, Award, BarChart3, BookOpenCheck, Clock, CreditCard, TrendingUp, Users } from 'lucide-react'
 
 type ReportRow = Record<string, unknown>
 
@@ -33,93 +33,29 @@ function statusRows(rows: ReportRow[], key: string) {
     .map(([label, value]) => ({ label, value, percentage: percent(value, total) }))
 }
 
-function KpiCard({
-  title,
-  value,
-  detail,
-  icon: Icon,
-  tone = 'blue',
-}: {
-  title: string
-  value: string | number
-  detail: string
-  icon: typeof Users
-  tone?: 'blue' | 'red' | 'gold' | 'green'
-}) {
-  const tones = {
-    blue: 'bg-[#1D4ED8]/10 text-[#1D4ED8]',
-    red: 'bg-[#D30000]/10 text-[#D30000]',
-    gold: 'bg-[#FBBF24]/20 text-[#92400E]',
-    green: 'bg-emerald-100 text-emerald-700',
-  }
-
+function StatusBars({ title, rows }: { title: string; rows: Array<{ label: string; value: number; percentage: number }> }) {
   return (
-    <Card className="rounded-2xl">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <span className={`rounded-xl p-2 ${tones[tone]}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function AnalyticsBars({ title, rows }: { title: string; rows: Array<{ label: string; value: number; percentage: number }> }) {
-  return (
-    <section className="rounded-2xl border bg-card p-5 shadow-sm">
-      <h2 className="mb-4 text-lg font-bold">{title}</h2>
+    <LmsSectionCard title={title} icon={BarChart3}>
       {rows.length === 0 ? (
-        <p className="rounded-xl bg-muted px-3 py-4 text-sm text-muted-foreground">No data yet.</p>
+        <LmsEmptyState icon={BarChart3} title="No data yet" description="This report will populate as learners use the LMS." />
       ) : (
         <div className="space-y-4">
           {rows.map((row) => (
             <div key={row.label}>
               <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium capitalize">{row.label}</span>
-                <span className="text-muted-foreground">
+                <span className="font-medium capitalize text-[#0F172A]">{row.label}</span>
+                <span className="text-slate-500">
                   {row.value} ({row.percentage}%)
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-muted">
+              <div className="h-2.5 overflow-hidden rounded-full bg-[#E2E8F0]">
                 <div className="h-full rounded-full bg-[#1D4ED8]" style={{ width: `${Math.max(row.percentage, 4)}%` }} />
               </div>
             </div>
           ))}
         </div>
       )}
-    </section>
-  )
-}
-
-function HealthPanel({
-  title,
-  percentage,
-  body,
-}: {
-  title: string
-  percentage: number
-  body: string
-}) {
-  return (
-    <section className="rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-        </div>
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-8 border-[#1D4ED8]/15 bg-white text-xl font-bold text-[#1D4ED8]">
-          {percentage}%
-        </div>
-      </div>
-      <div className="mt-4 h-3 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-[#D30000]" style={{ width: `${percentage}%` }} />
-      </div>
-    </section>
+    </LmsSectionCard>
   )
 }
 
@@ -144,44 +80,48 @@ export default async function AdminLmsReportsPage() {
   const quizPassRate = percent(passedQuizzes.length, quizAttempts.length)
 
   return (
-    <div>
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">LMS Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            A simplified analytics view for enrollments, payments, progress, learning time, and review queues.
-          </p>
-        </div>
-        <div className="rounded-2xl border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Total learning time: <span className="font-semibold text-foreground">{formatNumber(onlineMinutes + offlineApproved)} min</span>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl">
+      <LmsPageHeader
+        eyebrow="LMS Reports"
+        title="Learning overview"
+        description="A simple operational view of enrollments, payments, completion, study time and review queues."
+        meta={(
+          <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-600">
+            Total credited learning time: <span className="font-bold text-[#0F172A]">{formatNumber(onlineMinutes + offlineApproved)} min</span>
+          </div>
+        )}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard title="Active Enrollments" value={formatNumber(enrollments.length)} detail="All enrollment records" icon={Users} />
-        <KpiCard title="Payment Revenue" value={`PKR ${formatNumber(paymentTotal)}`} detail={`${pendingPayments.length} pending review`} icon={CreditCard} tone="green" />
-        <KpiCard title="Completion Rate" value={`${completionRate}%`} detail={`${completedCourses.length} completed course records`} icon={BookOpenCheck} tone="blue" />
-        <KpiCard title="Certificates" value={formatNumber(report.certificates.length)} detail="Issued certificate records" icon={Award} tone="gold" />
-        <KpiCard title="Online Minutes" value={formatNumber(onlineMinutes)} detail="Credited online activity" icon={Clock} />
-        <KpiCard title="Offline Minutes" value={formatNumber(offlineApproved)} detail="Approved offline work" icon={Activity} tone="green" />
-        <KpiCard title="Quiz Pass Rate" value={`${quizPassRate}%`} detail={`${quizAttempts.length} quiz attempts`} icon={TrendingUp} tone="gold" />
-        <KpiCard title="Flagged Sessions" value={formatNumber(flaggedSessions.length)} detail="Suspicious sessions needing review" icon={AlertTriangle} tone="red" />
+        <LmsStatCard title="Enrollments" value={formatNumber(enrollments.length)} detail="All enrollment records" icon={Users} />
+        <LmsStatCard title="Course Revenue" value={`PKR ${formatNumber(paymentTotal)}`} detail={`${pendingPayments.length} pending review`} icon={CreditCard} tone="green" />
+        <LmsStatCard title="Completion Rate" value={`${completionRate}%`} detail={`${completedCourses.length} completed records`} icon={BookOpenCheck} tone="blue" />
+        <LmsStatCard title="Certificates" value={formatNumber(report.certificates.length)} detail="Issued certificate records" icon={Award} tone="gold" />
+        <LmsStatCard title="Online Minutes" value={formatNumber(onlineMinutes)} detail="Credited online activity" icon={Clock} />
+        <LmsStatCard title="Offline Minutes" value={formatNumber(offlineApproved)} detail="Approved offline work" icon={Activity} tone="green" />
+        <LmsStatCard title="Quiz Pass Rate" value={`${quizPassRate}%`} detail={`${quizAttempts.length} quiz attempts`} icon={TrendingUp} tone="gold" />
+        <LmsStatCard title="Flagged Sessions" value={formatNumber(flaggedSessions.length)} detail="Sessions needing attention" icon={AlertTriangle} tone="red" />
       </div>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr_0.9fr]">
-        <AnalyticsBars title="Enrollment Status" rows={statusRows(enrollments, 'status')} />
-        <AnalyticsBars title="Payment Status" rows={statusRows(payments, 'status')} />
-        <HealthPanel
-          title="Course Completion Health"
-          percentage={completionRate}
-          body="Shows how many tracked completion records have reached the completed state."
-        />
+      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+        <StatusBars title="Enrollment Status" rows={statusRows(enrollments, 'status')} />
+        <StatusBars title="Payment Status" rows={statusRows(payments, 'status')} />
+        <LmsSectionCard title="Completion Health" icon={BookOpenCheck}>
+          <div className="flex items-center gap-5">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-[10px] border-[#DBEAFE] bg-white text-2xl font-bold text-[#1D4ED8]">
+              {completionRate}%
+            </div>
+            <p className="text-sm leading-6 text-slate-500">
+              Shows how many tracked completion records have reached the completed state.
+            </p>
+          </div>
+        </LmsSectionCard>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <AnalyticsBars title="Offline Activity Review" rows={statusRows(offline, 'status')} />
-        <AnalyticsBars title="Assignment Review" rows={statusRows(assignments, 'status')} />
-        <AnalyticsBars title="Session Quality" rows={statusRows(sessions, 'status')} />
+        <StatusBars title="Offline Activity Review" rows={statusRows(offline, 'status')} />
+        <StatusBars title="Assignment Review" rows={statusRows(assignments, 'status')} />
+        <StatusBars title="Session Quality" rows={statusRows(sessions, 'status')} />
       </div>
     </div>
   )

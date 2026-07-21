@@ -1,16 +1,19 @@
 import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { requireAuth, isSupabaseConfigured } from '@/lib/auth'
+import { getProfile, isSupabaseConfigured, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@/actions/lms'
 import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments } from '@/lib/lms'
 import { getCourses } from '@/lib/data/queries'
+import { COMPANY_BANK_DETAILS } from '@/lib/company'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { CourseCard } from '@/components/courses/course-card'
 import { CourseImage } from '@/components/courses/course-image'
-import { Award, BookOpen, CheckCircle2, Heart, Play, Sparkles } from 'lucide-react'
+import { LmsShell } from '@/components/lms/lms-shell'
+import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatCard, LmsStatusBadge } from '@/components/lms/lms-primitives'
+import { Activity, Award, BookOpen, CheckCircle2, Clock, CreditCard, Heart, Play, Sparkles, UploadCloud, type LucideIcon } from 'lucide-react'
 import type { Certificate, Course } from '@/types/database'
 
 async function getUserCertificates(userId: string): Promise<Certificate[]> {
@@ -26,6 +29,7 @@ async function getUserCertificates(userId: string): Promise<Certificate[]> {
 
 export default async function MyCoursesPage() {
   const user = await requireAuth()
+  const profile = await getProfile()
   const [enrollments, wishlist, certificates, allCourses, payments, offlineEntries] = await Promise.all([
     getUserEnrollments(),
     getCourseWishlist(user.id),
@@ -46,6 +50,7 @@ export default async function MyCoursesPage() {
   const offlinePending = offlineEntries
     .filter((entry) => entry.status === 'submitted' || entry.status === 'draft')
     .reduce((sum, entry) => sum + Number(entry.claimed_minutes ?? 0), 0)
+  const hasOpenPayments = payments.some((payment) => ['pending', 'processing', 'submitted', 'rejected'].includes(payment.status))
 
   async function submitOfflineActivityFormAction(formData: FormData) {
     'use server'
@@ -64,198 +69,239 @@ export default async function MyCoursesPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-[#1D4ED8]">Student Dashboard</p>
-            <h1 className="text-4xl font-bold">My Courses</h1>
-            <p className="mt-2 text-muted-foreground">
-              Continue lessons, track expiry, payment status, offline hours, certificates and saved courses.
-            </p>
-          </div>
-          <Button asChild className="rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
-            <Link href="/courses">Browse Courses</Link>
-          </Button>
-        </div>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
+        <LmsPageHeader
+          eyebrow="My Courses"
+          title="Your learning path"
+          description="Continue lessons, track access, upload course payment receipts, submit offline hours and open certificates from one calm workspace."
+          action={(
+            <Button asChild className="rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
+              <Link href="/courses">Browse Courses</Link>
+            </Button>
+          )}
+        />
 
         {enrollments.length === 0 ? (
-          <div className="rounded-3xl border bg-card p-12 text-center shadow-sm">
-            <BookOpen className="mx-auto mb-4 h-12 w-12 text-[#1D4ED8]" />
-            <h2 className="text-2xl font-bold">No enrolled courses yet</h2>
-            <p className="mt-2 text-muted-foreground">Choose a course to begin your Phonics Club learning path.</p>
-            <Button asChild className="mt-6 rounded-xl bg-[#1D4ED8]">
-              <Link href="/courses">Explore Courses</Link>
-            </Button>
-          </div>
+          <LmsEmptyState
+            icon={BookOpen}
+            title="No enrolled courses yet"
+            description="Choose a course to begin your Phonics Club learning path."
+            action={<Button asChild className="rounded-xl bg-[#1D4ED8]"><Link href="/courses">Explore Courses</Link></Button>}
+          />
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <LmsStatCard title="Active Courses" value={activeEnrollments.length} detail={`${pendingEnrollments.length} pending payment`} icon={BookOpen} />
+              <LmsStatCard title="Completed" value={completed.length} detail="Courses at 100% or marked complete" icon={CheckCircle2} tone="green" />
+              <LmsStatCard title="Offline Hours" value={`${Math.round(offlineApproved / 60)}h`} detail={`${offlinePending} claimed minutes pending review`} icon={Activity} tone="gold" />
+              <LmsStatCard title="Certificates" value={certificates.length} detail="Issued certificate records" icon={Award} tone="red" />
+            </div>
+
             {continueLearning && (
-              <section className="rounded-3xl border bg-white p-6 shadow-sm">
-                <div className="mb-4 flex items-center gap-2">
-                  <Play className="h-5 w-5 text-[#D30000]" />
-                  <h2 className="text-2xl font-bold">Continue Learning</h2>
-                </div>
+              <LmsSectionCard title="Continue Learning" icon={Play} description="Your next course is ready when you are.">
                 <EnrollmentRow enrollment={continueLearning} featured />
-              </section>
+              </LmsSectionCard>
             )}
 
-            <section>
-              <h2 className="mb-4 text-2xl font-bold">Enrolled Courses</h2>
+            <LmsSectionCard title="Enrolled Courses" icon={BookOpen}>
               <div className="space-y-4">
                 {activeEnrollments.map((enrollment) => (
                   <EnrollmentRow key={enrollment.id} enrollment={enrollment} />
                 ))}
                 {activeEnrollments.length === 0 && (
-                  <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
-                    No active courses. Completed courses are listed below.
-                  </div>
+                  <LmsEmptyState icon={Clock} title="No active courses" description="Completed, expired or pending courses are listed in the sections below." />
                 )}
               </div>
-            </section>
+            </LmsSectionCard>
 
-            <section className="grid gap-6 lg:grid-cols-3">
-              <StatusPanel title="Pending Payments" count={pendingEnrollments.length} body="Courses activate only after payment approval." />
-              <StatusPanel title="Expired Courses" count={expiredEnrollments.length} body="Progress is preserved. Contact admin to renew access." />
-              <StatusPanel title="Offline Hours" count={`${Math.round(offlineApproved / 60)}h`} body={`${offlinePending} claimed minutes pending review.`} />
-            </section>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <StatusPanel title="Pending Payments" count={pendingEnrollments.length} body="Courses activate after payment approval." icon={CreditCard} />
+              <StatusPanel title="Expired Courses" count={expiredEnrollments.length} body="Progress is preserved. Contact admin to renew access." icon={Clock} />
+              <StatusPanel title="Offline Review" count={`${offlinePending}m`} body={`${Math.round(offlineApproved / 60)} approved hour(s) recorded.`} icon={Activity} />
+            </div>
 
             {activeEnrollments.length > 0 && (
-              <section className="rounded-3xl border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 text-2xl font-bold">Submit Offline Activity</h2>
+              <LmsSectionCard
+                title="Submit Offline Activity"
+                description="Use this for approved classroom practice or learning tasks completed away from the online player."
+                icon={UploadCloud}
+              >
                 <form action={submitOfflineActivityFormAction} className="grid gap-3 lg:grid-cols-6">
-                  <select name="course_id" className="rounded-xl border px-3 py-2 text-sm lg:col-span-2">
-                    {activeEnrollments.map((enrollment) => {
-                      const course = enrollment.courses as Course | undefined
-                      return course ? <option key={enrollment.id} value={course.id}>{course.title}</option> : null
-                    })}
-                  </select>
-                  <input name="activity_date" type="date" required className="rounded-xl border px-3 py-2 text-sm" />
-                  <input name="start_time" type="time" required className="rounded-xl border px-3 py-2 text-sm" />
-                  <input name="end_time" type="time" required className="rounded-xl border px-3 py-2 text-sm" />
-                  <input name="activity_type" placeholder="Activity type" required className="rounded-xl border px-3 py-2 text-sm" />
-                  <textarea name="description" placeholder="Description and evidence notes" className="min-h-20 rounded-xl border px-3 py-2 text-sm lg:col-span-6" />
-                  <label className="flex items-center gap-2 text-sm lg:col-span-4">
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-2">
+                    Course
+                    <select name="course_id" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]">
+                      {activeEnrollments.map((enrollment) => {
+                        const course = enrollment.courses as Course | undefined
+                        return course ? <option key={enrollment.id} value={course.id}>{course.title}</option> : null
+                      })}
+                    </select>
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+                    Date
+                    <input name="activity_date" type="date" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+                    Start
+                    <input name="start_time" type="time" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+                    End
+                    <input name="end_time" type="time" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+                    Activity
+                    <input name="activity_type" placeholder="Activity type" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-6">
+                    Description
+                    <textarea name="description" placeholder="Description and evidence notes" className="min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm text-slate-600 lg:col-span-4">
                     <input type="checkbox" name="student_declaration" required />
                     I confirm this offline activity entry is accurate.
                   </label>
-                  <button type="submit" className="rounded-xl bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white lg:col-span-2">
+                  <Button type="submit" className="rounded-xl bg-[#1D4ED8] lg:col-span-2">
                     Submit for Review
-                  </button>
+                  </Button>
                 </form>
-              </section>
+              </LmsSectionCard>
             )}
 
-            <section>
-              <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-                Completed Courses
-              </h2>
+            <LmsSectionCard title="Completed Courses" icon={CheckCircle2}>
               <div className="space-y-4">
                 {completed.map((enrollment) => (
                   <EnrollmentRow key={enrollment.id} enrollment={enrollment} />
                 ))}
                 {completed.length === 0 && (
-                  <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
-                    Completed courses will appear here.
-                  </div>
+                  <LmsEmptyState icon={CheckCircle2} title="No completed courses yet" description="Completed courses will appear here once progress reaches 100%." />
                 )}
               </div>
-            </section>
+            </LmsSectionCard>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <section className="rounded-3xl border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-                  <Award className="h-6 w-6 text-[#FBBF24]" />
-                  Certificates
-                </h2>
+            <div className="grid gap-6 xl:grid-cols-2">
+              <LmsSectionCard id="certificates" title="Certificates" icon={Award}>
                 {certificates.length ? (
                   <ul className="space-y-3">
                     {certificates.map((certificate) => (
-                      <li key={certificate.id} className="rounded-2xl bg-muted/50 p-4">
-                        <p className="font-semibold">{certificate.course_title}</p>
-                        <p className="text-xs text-muted-foreground">{certificate.certificate_number}</p>
+                      <li key={certificate.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                        <p className="font-semibold text-[#0F172A]">{certificate.course_title}</p>
+                        <p className="mt-1 text-xs text-slate-500">{certificate.certificate_number}</p>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Certificates appear after eligible course completion.</p>
+                  <LmsEmptyState icon={Award} title="No certificates yet" description="Certificates appear after eligible course completion." />
                 )}
-              </section>
+              </LmsSectionCard>
 
-              <section className="rounded-3xl border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-                  <Heart className="h-6 w-6 text-[#D30000]" />
-                  Wishlist
-                </h2>
+              <LmsSectionCard title="Wishlist" icon={Heart}>
                 {wishlist.length ? (
                   <ul className="space-y-3">
                     {wishlist.map((item) => (
-                      <li key={item.id} className="rounded-2xl bg-muted/50 p-4">
-                        <Link href={`/courses/${item.courses?.slug}`} className="font-semibold hover:text-[#1D4ED8]">
+                      <li key={item.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                        <Link href={`/courses/${item.courses?.slug}`} className="font-semibold text-[#0F172A] hover:text-[#1D4ED8]">
                           {item.courses?.title}
                         </Link>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Save courses from the catalog to compare them later.</p>
+                  <LmsEmptyState icon={Heart} title="No saved courses" description="Save courses from the catalog to compare them later." />
                 )}
-              </section>
+              </LmsSectionCard>
 
-              <section className="rounded-3xl border bg-card p-6 shadow-sm">
-                <h2 className="mb-4 text-2xl font-bold">Payment History</h2>
+              <LmsSectionCard title="Payment History" icon={CreditCard}>
                 {payments.length ? (
+                  <div className="space-y-3">
+                    {hasOpenPayments && (
+                      <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm leading-6 text-slate-700">
+                        <p className="font-semibold text-[#0F172A]">Payment options</p>
+                        <p className="mt-1">
+                          {COMPANY_BANK_DETAILS.bankName}: {COMPANY_BANK_DETAILS.accountTitle}, Account {COMPANY_BANK_DETAILS.accountNumber}, IBAN {COMPANY_BANK_DETAILS.iban}
+                        </p>
+                        <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
+                        <p className="mt-2 font-medium text-[#1D4ED8]">
+                          You can pay now and upload the receipt later from this dashboard. Course access begins after admin approval.
+                        </p>
+                      </div>
+                    )}
                   <ul className="space-y-3">
                     {payments.slice(0, 5).map((payment) => (
-                      <li key={payment.id} className="rounded-2xl bg-muted/50 p-4">
-                        <p className="font-semibold">{payment.courses?.title ?? 'Course payment'}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {payment.status} · {payment.currency} {Number(payment.amount ?? 0).toLocaleString('en-PK')}
-                        </p>
+                      <li key={payment.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-[#0F172A]">{payment.courses?.title ?? 'Course payment'}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {payment.currency} {Number(payment.amount ?? 0).toLocaleString('en-PK')}
+                            </p>
+                          </div>
+                          <LmsStatusBadge tone={payment.status === 'paid' ? 'green' : payment.status === 'rejected' ? 'red' : 'gold'}>
+                            {payment.status}
+                          </LmsStatusBadge>
+                        </div>
                         {['pending', 'processing', 'rejected'].includes(payment.status) && (
-                          <form action={submitPaymentReceiptFormAction} encType="multipart/form-data" className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                          <form action={submitPaymentReceiptFormAction} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                             <input type="hidden" name="payment_id" value={payment.id} />
-                            <input name="transaction_reference" placeholder="Transaction reference" className="rounded-xl border px-3 py-2 text-xs" />
-                            <input name="receipt" type="file" accept="image/*,.pdf" required className="rounded-xl border px-3 py-2 text-xs" />
-                            <button type="submit" className="rounded-xl bg-[#1D4ED8] px-3 py-2 text-xs font-semibold text-white">Upload</button>
+                            <input name="transaction_reference" placeholder="Transaction reference" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                            <input name="receipt" type="file" accept="image/*,.pdf" required className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                            <Button type="submit" size="sm" className="rounded-xl bg-[#1D4ED8]">Upload</Button>
                           </form>
+                        )}
+                        {payment.status === 'submitted' && (
+                          <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+                            Receipt received. Admin review normally starts after the slip is visible and can take from 30 minutes up to 24 days depending on verification.
+                          </p>
                         )}
                       </li>
                     ))}
                   </ul>
+                  </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Course payment records will appear here.</p>
+                  <LmsEmptyState icon={CreditCard} title="No course payments" description="Course payment records will appear here after checkout." />
                 )}
-              </section>
+              </LmsSectionCard>
             </div>
 
             {recommended.length > 0 && (
-              <section>
-                <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-                  <Sparkles className="h-6 w-6 text-[#FBBF24]" />
-                  Recommended Courses
-                </h2>
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <LmsSectionCard title="Recommended Courses" icon={Sparkles}>
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                   {recommended.map((course) => (
                     <CourseCard key={course.id} course={course} />
                   ))}
                 </div>
-              </section>
+              </LmsSectionCard>
             )}
           </div>
         )}
-      </section>
+      </LmsShell>
       <Footer />
     </main>
   )
 }
 
-function StatusPanel({ title, count, body }: { title: string; count: number | string; body: string }) {
+function StatusPanel({
+  title,
+  count,
+  body,
+  icon: Icon,
+}: {
+  title: string
+  count: number | string
+  body: string
+  icon: LucideIcon
+}) {
   return (
-    <div className="rounded-3xl border bg-card p-6 shadow-sm">
-      <p className="text-sm font-semibold text-[#1D4ED8]">{title}</p>
-      <p className="mt-2 text-3xl font-bold">{count}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-[#1D4ED8]">{title}</p>
+          <p className="mt-2 text-3xl font-bold text-[#0F172A]">{count}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{body}</p>
+        </div>
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#1D4ED8]">
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
     </div>
   )
 }
@@ -273,26 +319,32 @@ function EnrollmentRow({
   const access = getCourseAccessState(enrollment as never)
 
   return (
-    <article className={`grid gap-4 rounded-2xl border bg-card p-4 shadow-sm sm:grid-cols-[180px_1fr_auto] ${featured ? 'border-[#1D4ED8]/30' : ''}`}>
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-muted sm:aspect-auto">
+    <article className={`grid gap-4 rounded-2xl border bg-white p-4 shadow-sm sm:grid-cols-[180px_1fr_auto] ${featured ? 'border-[#BFDBFE]' : 'border-slate-200'}`}>
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#EFF6FF] sm:aspect-auto">
         <CourseImage src={course.image_url} alt={course.title} />
       </div>
-      <div>
-        <h3 className="text-lg font-bold">{course.title}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{course.duration ?? 'Self-paced'}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Status: {access.status.replace(/_/g, ' ')}
-          {access.expiresAt ? ` · Expires ${new Date(access.expiresAt).toLocaleDateString('en-PK')}` : ''}
-          {access.daysRemaining !== null && access.active ? ` · ${access.daysRemaining} days left` : ''}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-[#0F172A]">{course.title}</h3>
+            <p className="mt-1 text-sm text-slate-500">{course.duration ?? 'Self-paced'}</p>
+          </div>
+          <LmsStatusBadge tone={access.active ? 'blue' : access.pendingPayment ? 'gold' : access.expired ? 'red' : 'navy'}>
+            {access.status.replace(/_/g, ' ')}
+          </LmsStatusBadge>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          {access.expiresAt ? `Expires ${new Date(access.expiresAt).toLocaleDateString('en-PK')}` : 'No expiry date set'}
+          {access.daysRemaining !== null && access.active ? ` - ${access.daysRemaining} days left` : ''}
         </p>
         <div className="mt-4 flex items-center gap-3">
           <Progress value={progress} className="h-2 flex-1" />
-          <span className="text-sm font-semibold">{progress}%</span>
+          <span className="text-sm font-semibold text-[#0F172A]">{progress}%</span>
         </div>
         {progress >= 100 && (
-          <p className="mt-2 flex items-center gap-1 text-sm text-emerald-600">
+          <p className="mt-2 flex items-center gap-1 text-sm text-emerald-700">
             <Award className="h-4 w-4" />
-            Certificate eligible
+            Lesson progress complete. Certificate checks all course requirements.
           </p>
         )}
       </div>
@@ -303,7 +355,7 @@ function EnrollmentRow({
             {access.active ? (progress > 0 ? 'Continue' : 'Start') : 'View Course'}
           </Link>
         </Button>
-        <Button asChild variant="outline" className="rounded-xl">
+        <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
           <Link href={`/course/${course.id}/certificate`}>Certificate</Link>
         </Button>
       </div>

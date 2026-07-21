@@ -3,12 +3,17 @@ import { getAdminCourses } from '@/actions/admin/courses'
 import { getAdminBlogPosts } from '@/actions/admin/blog'
 import { getAllProfiles, getAllOrders } from '@/lib/data/queries'
 import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Package, GraduationCap, FileText, Users, ShoppingBag, BookOpen, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/utils/format'
 
 export default async function AdminDashboardPage() {
+  const profile = await getProfile()
+  if (profile?.role === 'instructor') redirect('/admin/courses')
+
   const [products, courses, posts, users, orders] = await Promise.all([
     getAdminProducts().catch(() => []),
     getAdminCourses().catch(() => []),
