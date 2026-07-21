@@ -243,6 +243,14 @@ export async function placeOrderAction(
   await sendOrderConfirmationEmail(parsed.data.email, order.id, invoiceNumber, invoiceHtml, {
     accessToken: accessToken ?? undefined,
     pdfBase64,
+    customerName: parsed.data.fullName,
+    customerEmail: parsed.data.email,
+    customerPhone: shippingAddress.phone,
+    orderDate: order.created_at ?? new Date().toISOString(),
+    paymentStatus: order.status,
+    total: Number(order.total ?? total),
+    items,
+    shippingAddress,
   })
 
   await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)

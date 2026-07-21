@@ -25,7 +25,7 @@ export default async function AdminOrdersPage() {
           const needsPaymentReview = order.status === 'payment_review' || order.status === 'awaiting_payment'
 
           return (
-            <div key={order.id} className="bg-card rounded-2xl border p-6">
+            <div key={order.id} id={`order-${order.id}`} className="scroll-mt-24 bg-card rounded-2xl border p-6">
               <div className="flex flex-wrap justify-between gap-4 mb-4">
                 <div>
                   <p className="font-mono text-sm font-semibold">{order.invoice_number ?? `#${order.id.slice(0, 8)}`}</p>
