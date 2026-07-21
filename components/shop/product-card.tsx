@@ -15,7 +15,8 @@ export function ProductCard({ product }: { product: Product }) {
   const [isZoomOpen, setIsZoomOpen] = useState(false)
   const image = product.images[0]
   const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined)
-  const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
+  const compareAtPrice = Number(product.compare_at_price ?? 0)
+  const hasDiscount = compareAtPrice > Number(product.price)
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-xl">
@@ -61,7 +62,7 @@ export function ProductCard({ product }: { product: Product }) {
             <span className="text-lg font-bold text-[#1D4ED8]">{formatPrice(product.price)}</span>
             {hasDiscount && (
               <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(product.compare_at_price!)}
+                {formatPrice(compareAtPrice)}
               </span>
             )}
           </div>

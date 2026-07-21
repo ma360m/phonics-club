@@ -47,6 +47,15 @@ interface CheckoutDetails {
   zip: string
 }
 
+interface CouponPreview {
+  valid: boolean
+  code?: string
+  discount?: number
+  discountPercent?: number
+  subtotalAfterDiscount?: number
+  error?: string
+}
+
 export function CheckoutForm({
   subtotal,
   cartItems,
@@ -75,6 +84,9 @@ export function CheckoutForm({
     city: 'Lahore',
     zip: '',
   })
+  const [couponCode, setCouponCode] = useState('')
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
+  const [couponChecking, setCouponChecking] = useState(false)
 
   useEffect(() => {
     if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
@@ -84,8 +96,53 @@ export function CheckoutForm({
     if (paymentMethod === 'cod') setReceiptTiming('later')
   }, [paymentMethod])
 
+  useEffect(() => {
+    const code = couponCode.trim()
+    if (!code) {
+      setCouponPreview(null)
+      setCouponChecking(false)
+      return
+    }
+
+    if (code.length < 3) {
+      setCouponPreview({ valid: false, error: 'Enter at least 3 characters.' })
+      setCouponChecking(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setCouponPreview(null)
+    setCouponChecking(true)
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch('/api/coupons/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, subtotal }),
+          signal: controller.signal,
+        })
+        const result = (await response.json()) as CouponPreview
+        if (!controller.signal.aborted) setCouponPreview(result)
+      } catch {
+        if (!controller.signal.aborted) {
+          setCouponPreview({ valid: false, error: 'Coupon could not be checked right now.' })
+        }
+      } finally {
+        if (!controller.signal.aborted) setCouponChecking(false)
+      }
+    }, 350)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timeout)
+    }
+  }, [couponCode, subtotal])
+
   const shipping = SHIPPING_FEE_PKR
   const grandTotal = subtotal + shipping
+  const couponDiscount = couponPreview?.valid ? couponPreview.discount ?? 0 : 0
+  const payableTotal = Math.max(0, grandTotal - couponDiscount)
+  const previewCouponCode = couponPreview?.valid ? couponPreview.code ?? couponCode.trim().toUpperCase() : undefined
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
   const receiptDueNow = receiptRequired && receiptTiming === 'now'
 
@@ -195,7 +252,14 @@ export function CheckoutForm({
         <div className="border-t pt-5 space-y-3">
           <Label>Coupon / Member ID</Label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input name="couponCode" placeholder="Coupon code" className="rounded-lg" />
+            <Input
+              id="couponCode"
+              name="couponCode"
+              placeholder="Coupon code"
+              value={couponCode}
+              onChange={(event) => setCouponCode(event.target.value)}
+              className="rounded-lg"
+            />
             <div>
               <Input name="memberId" placeholder="Member ID (optional)" className="rounded-lg" />
               <button
@@ -207,6 +271,27 @@ export function CheckoutForm({
               </button>
             </div>
           </div>
+          {couponCode.trim() ? (
+            <p
+              className={`text-xs ${
+                couponChecking
+                  ? 'text-muted-foreground'
+                  : couponPreview?.valid
+                    ? 'text-emerald-600'
+                    : 'text-destructive'
+              }`}
+            >
+              {couponChecking
+                ? 'Checking coupon...'
+                : couponPreview?.valid
+                  ? couponDiscount > 0
+                    ? `Coupon ${previewCouponCode} applies ${formatPrice(couponDiscount)} discount. Estimated total: ${formatPrice(payableTotal)}.`
+                    : `Coupon ${previewCouponCode} is valid but does not reduce this order.`
+                  : couponPreview?.error ?? 'Coupon could not be checked.'}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Enter a coupon code to preview the discount before reviewing your invoice.</p>
+          )}
           {showMemberHelp && (
             <p className="rounded-lg bg-muted p-3 text-sm">
               Contact us to get your Member ID:{' '}
@@ -328,7 +413,9 @@ export function CheckoutForm({
             cartItems={cartItems}
             subtotal={subtotal}
             shipping={shipping}
-            grandTotal={grandTotal}
+            couponDiscount={couponDiscount}
+            couponCode={previewCouponCode}
+            payableTotal={payableTotal}
             paymentMethod={paymentMethod}
             receiptTiming={receiptTiming}
           />
@@ -376,7 +463,9 @@ function InvoicePreview({
   cartItems,
   subtotal,
   shipping,
-  grandTotal,
+  couponDiscount,
+  couponCode,
+  payableTotal,
   paymentMethod,
   receiptTiming,
 }: {
@@ -384,7 +473,9 @@ function InvoicePreview({
   cartItems: CheckoutItem[]
   subtotal: number
   shipping: number
-  grandTotal: number
+  couponDiscount: number
+  couponCode?: string
+  payableTotal: number
   paymentMethod: ShopPaymentMethod
   receiptTiming: 'now' | 'later'
 }) {
@@ -425,10 +516,16 @@ function InvoicePreview({
       <div className="space-y-2 border-t pt-4">
         <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div className="flex justify-between"><span>Shipping</span><span>{formatPrice(shipping)}</span></div>
+        {couponDiscount > 0 && (
+          <div className="flex justify-between text-[#D30000]">
+            <span>Coupon{couponCode ? ` (${couponCode})` : ''}</span>
+            <span>-{formatPrice(couponDiscount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-lg font-bold text-[#1D4ED8]">
-          <span>Total</span><span>{formatPrice(grandTotal)}</span>
+          <span>Total</span><span>{formatPrice(payableTotal)}</span>
         </div>
-        <p className="text-xs text-muted-foreground">Coupon discounts are verified when the order is placed.</p>
+        <p className="text-xs text-muted-foreground">Final coupon validation happens when the order is placed.</p>
       </div>
 
       <div className="rounded-lg border p-3">

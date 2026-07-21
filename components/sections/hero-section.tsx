@@ -43,15 +43,15 @@ export function HeroSection({
         <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#FBBF24]/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-        <div className={`grid gap-12 lg:gap-16 items-center ${hasVideo ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-24">
+        <div className={`grid gap-8 lg:gap-16 items-center ${hasVideo ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#1D4ED8]/10 rounded-full mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#1D4ED8]/10 rounded-full mb-4 sm:mb-6">
               <span className="w-2 h-2 bg-[#1D4ED8] rounded-full animate-pulse" />
               <span className="text-sm font-medium text-[#1D4ED8]">PHONICS CLUB — Learn to read with confidence</span>
             </div>
@@ -69,21 +69,21 @@ export function HeroSection({
               </span>
             </h1>
 
-            <p className="text-lg text-[#475569] mb-8 max-w-lg">
+            <p className="text-base sm:text-lg text-[#475569] mb-6 sm:mb-8 max-w-lg">
               Premium phonics courses, workbooks, and tools trusted by parents and educators. Start your child&apos;s reading journey today.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-10">
-              <Button asChild size="lg" className="bg-[#D30000] hover:bg-[#D30000]/90 text-white px-8 h-14 text-base">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8 sm:mb-10">
+              <Button asChild size="lg" className="bg-[#D30000] hover:bg-[#D30000]/90 text-white h-11 px-4 text-sm sm:h-14 sm:px-8 sm:text-base">
                 <Link href="/courses">
                   Explore Courses
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Link>
               </Button>
               {demoButtonUrl || videoUrl ? (
-                <Button asChild variant="outline" size="lg" className="h-14 text-base border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/5">
+                <Button asChild variant="outline" size="lg" className="h-11 px-4 text-sm sm:h-14 sm:text-base border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/5">
                   <a href={demoButtonUrl ?? videoUrl ?? '#'} target="_blank" rel="noreferrer">
-                    <Play className="mr-2 w-5 h-5" />
+                    <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     Watch Demo
                   </a>
                 </Button>
@@ -131,8 +131,8 @@ export function HeroSection({
           >
             <div className="relative">
               {/* Main Card */}
-              <div id="watch-demo" className="bg-white rounded-3xl shadow-2xl p-6 lg:p-8 scroll-mt-28">
-                <div className="aspect-video bg-black rounded-2xl mb-6 overflow-hidden">
+              <div id="watch-demo" className="bg-white rounded-xl shadow-xl p-3 sm:rounded-3xl sm:p-6 sm:shadow-2xl lg:p-8 scroll-mt-28">
+                <div className="aspect-video bg-black rounded-lg mb-3 overflow-hidden sm:rounded-2xl sm:mb-6">
                   {directVideo ? (
                     <video src={videoUrl ?? ''} controls playsInline className="h-full w-full object-contain" />
                   ) : (
@@ -145,8 +145,8 @@ export function HeroSection({
                     />
                   )}
                 </div>
-                <h3 className="font-bold text-lg text-[#111827] mb-2">Meet Phonics Club</h3>
-                <p className="text-[#475569] text-sm mb-4">An introduction to our phonics learning community and trusted educational resources.</p>
+                <h3 className="font-bold text-base sm:text-lg text-[#111827] mb-1 sm:mb-2">Meet Phonics Club</h3>
+                <p className="text-[#475569] text-xs sm:text-sm mb-1 sm:mb-4">An introduction to our phonics learning community and trusted educational resources.</p>
               </div>
 
               {/* Floating Card - Students */}
@@ -154,7 +154,7 @@ export function HeroSection({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="absolute -left-4 lg:-left-8 top-1/4 bg-white rounded-2xl shadow-xl p-4 border border-[#E2E8F0]"
+                className="absolute -left-4 lg:-left-8 top-1/4 hidden bg-white rounded-2xl shadow-xl p-4 border border-[#E2E8F0] sm:block"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
@@ -174,7 +174,7 @@ export function HeroSection({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.6 }}
-                className="absolute -right-4 lg:-right-8 bottom-1/4 bg-white rounded-2xl shadow-xl p-4 border border-[#E2E8F0]"
+                className="absolute -right-4 lg:-right-8 bottom-1/4 hidden bg-white rounded-2xl shadow-xl p-4 border border-[#E2E8F0] sm:block"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#FBBF24]/10 rounded-xl flex items-center justify-center">

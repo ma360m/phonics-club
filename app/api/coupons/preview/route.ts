@@ -1,0 +1,57 @@
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createClient } from '@/lib/supabase/server'
+
+const previewCouponSchema = z.object({
+  code: z.string().trim().min(3),
+  subtotal: z.coerce.number().min(0),
+})
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null)
+  const parsed = previewCouponSchema.safeParse(body)
+
+  if (!parsed.success) {
+    return NextResponse.json({ valid: false, error: 'Enter a valid coupon code.' }, { status: 400 })
+  }
+
+  const code = parsed.data.code.toUpperCase()
+  const subtotal = parsed.data.subtotal
+  const supabase = await createClient()
+  const { data: coupon, error } = await supabase
+    .from('coupons')
+    .select('code, discount_percent, discount_amount, expires_at, max_uses, used_count')
+    .eq('code', code)
+    .eq('active', true)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[Coupon preview] Failed to load coupon:', error.message)
+    return NextResponse.json({ valid: false, error: 'Coupon could not be checked right now.' }, { status: 500 })
+  }
+
+  if (!coupon) {
+    return NextResponse.json({ valid: false, error: 'Invalid coupon code.' })
+  }
+
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+    return NextResponse.json({ valid: false, error: 'Coupon has expired.' })
+  }
+
+  if (coupon.max_uses && (coupon.used_count ?? 0) >= coupon.max_uses) {
+    return NextResponse.json({ valid: false, error: 'Coupon usage limit reached.' })
+  }
+
+  const percentDiscount = Number(coupon.discount_percent ?? 0)
+  const fixedDiscount = Number(coupon.discount_amount ?? 0)
+  const rawDiscount = percentDiscount > 0 ? Math.round(subtotal * (percentDiscount / 100)) : fixedDiscount
+  const discount = Math.min(Math.max(0, rawDiscount), subtotal)
+
+  return NextResponse.json({
+    valid: true,
+    code,
+    discount,
+    discountPercent: subtotal > 0 ? Number(((discount / subtotal) * 100).toFixed(2)) : 0,
+    subtotalAfterDiscount: Math.max(0, subtotal - discount),
+  })
+}

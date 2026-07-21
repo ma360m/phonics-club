@@ -38,6 +38,20 @@ export async function createCouponAction(
   return { success: true }
 }
 
+export async function updateCouponUsageAction(id: string, formData: FormData): Promise<void> {
+  await requireAdmin()
+  const idParsed = z.string().uuid().safeParse(id)
+  const usedCountParsed = z.coerce.number().int().min(0).safeParse(formData.get('used_count'))
+  if (!idParsed.success || !usedCountParsed.success) return
+
+  const supabase = await createClient()
+  await supabase
+    .from('coupons')
+    .update({ used_count: usedCountParsed.data } as never)
+    .eq('id', idParsed.data)
+  revalidatePath('/admin/coupons')
+}
+
 export async function deleteCouponAction(id: string): Promise<void> {
   await requireAdmin()
   const supabase = await createClient()

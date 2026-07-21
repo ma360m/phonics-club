@@ -455,7 +455,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   hero: {
     title: 'Empowering Literacy Through Synthetic Phonics',
     subtitle:
-      'Since 2015, Phonics Club Pvt. Ltd. has been helping teachers, schools, and parents build confident readers and writers through internationally recognized Synthetic Phonics methodologies, professional training, curriculum development, and educational consultancy.',
+      'Phonics Club Pvt. Ltd. helps teachers, schools, and parents build confident readers and writers through internationally recognized Synthetic Phonics methodologies, professional training, curriculum development, and educational consultancy.',
     primaryCta: { label: 'Explore Courses', href: '/courses' },
     secondaryCta: { label: 'Meet Our Trainers', href: '/certified-trainers' },
   },
@@ -463,7 +463,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     title: 'About Phonics Club',
     paragraphs: [
       'Phonics Club Pvt. Ltd. is a registered organization dedicated to promoting the Synthetic Phonics approach to literacy education. The organization equips teachers with the knowledge, confidence, and practical skills required to help children become independent readers, writers, and spellers.',
-      'Established in 2015, Phonics Club is an independent organization working across Pakistan and internationally to improve English language education through evidence-based literacy practices.',
+      'Phonics Club is an independent organization working across Pakistan and internationally to improve English language education through evidence-based literacy practices.',
       'The organization provides professional teacher training, educational consultancy, curriculum development, school support, language assessments, and internationally aligned literacy programs.',
     ],
   },
@@ -503,8 +503,6 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
   ],
   whyChoose: [
-    'Established in 2015',
-    'Pioneer of Synthetic Phonics in Pakistan',
     'Internationally trained instructors',
     'Thousands of teachers trained',
     'Curriculum development expertise',
@@ -601,10 +599,9 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
   ],
   impact: [
-    { label: 'Founded', value: '2015' },
     { label: 'Years of Service', value: '10+' },
     { label: 'Teachers and Students Trained', value: '12,000+' },
-    { label: 'Schools Supported', value: 'Hundreds' },
+    { label: 'Schools Supported', value: '200+' },
     { label: 'Training Programs', value: 'National and International' },
     { label: 'Professional Support', value: 'Online and On-site' },
   ],

@@ -15,8 +15,29 @@ export const metadata = buildMetadata({
 
 const serviceIcons = [GraduationCap, School, BookOpen, LineChart, LibraryBig, Handshake, Award, CheckCircle2]
 
+function removeLegacyAboutCopy(text: string) {
+  return text
+    .replace(/^Since 2015,\s*/i, '')
+    .replace(/^Established in 2015,\s*/i, '')
+    .replace(/\bPioneer of Synthetic Phonics in Pakistan\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+function isLegacyAboutHighlight(text: string) {
+  return /^(Established in 2015|Pioneer of Synthetic Phonics in Pakistan)$/i.test(text.trim())
+}
+
 export default async function AboutPage() {
   const content = await getAboutPageContent()
+  const heroSubtitle = removeLegacyAboutCopy(content.hero.subtitle)
+  const overviewParagraphs = content.overview.paragraphs
+    .map(removeLegacyAboutCopy)
+    .filter(Boolean)
+  const whyChoose = content.whyChoose.filter((reason) => !isLegacyAboutHighlight(reason))
+  const impactStats = content.impact
+    .filter((stat) => !/founded/i.test(stat.label))
+    .map((stat) => (/schools/i.test(stat.label) ? { ...stat, value: '200+' } : stat))
 
   return (
     <main>
@@ -30,7 +51,7 @@ export default async function AboutPage() {
             <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-[#111827] sm:text-5xl lg:text-6xl">
               {content.hero.title}
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#475569]">{content.hero.subtitle}</p>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#475569]">{heroSubtitle}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild className="rounded-lg bg-[#1D4ED8]">
                 <Link href={content.hero.primaryCta.href}>{content.hero.primaryCta.label}</Link>
@@ -62,11 +83,11 @@ export default async function AboutPage() {
               <h2 className="mt-3 text-3xl font-bold">{content.overview.title}</h2>
             </div>
             <div className="space-y-5 text-base leading-8 text-muted-foreground">
-              {content.overview.paragraphs.map((paragraph) => (
+              {overviewParagraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
               <p>
-                <strong className="font-semibold text-foreground">Phonics Club Private Limited</strong> was founded in 2015 and is an independent non profit organization working to promote synthetic phonics approach in Pakistan and abroad.
+                <strong className="font-semibold text-foreground">Phonics Club Private Limited</strong> is an independent organization working to strengthen literacy education in Pakistan and abroad through teacher training, resources, consultancy, and classroom support.
               </p>
             </div>
           </div>
@@ -118,7 +139,7 @@ export default async function AboutPage() {
               <p className="mt-4 text-muted-foreground">A literacy partner for teachers, schools, parents, and children.</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {content.whyChoose.map((reason) => (
+              {whyChoose.map((reason) => (
                 <div key={reason} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 text-sm font-medium">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#1D4ED8]" />
                   {reason}
@@ -217,7 +238,7 @@ export default async function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold">Impact Numbers</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {content.impact.map((stat) => (
+            {impactStats.map((stat) => (
               <div key={stat.label} className="rounded-lg border border-white/10 bg-white/5 p-5">
                 <p className="text-3xl font-bold text-[#FBBF24]">{stat.value}</p>
                 <p className="mt-2 text-sm text-white/70">{stat.label}</p>
