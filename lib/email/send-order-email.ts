@@ -48,7 +48,7 @@ async function sendResendEmail(apiKey: string, from: string, payload: EmailPaylo
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `PHONICS CLUB <${from}>`,
+        from,
         ...payload,
       }),
     })
@@ -73,7 +73,8 @@ export async function sendOrderConfirmationEmail(
   options?: { accessToken?: string; pdfBase64?: string }
 ): Promise<{ sent: boolean }> {
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.ORDER_EMAIL_FROM ?? 'orders@phonicsclub.com'
+  const emailFrom =
+    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <onboarding@resend.dev>'
   const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
   const baseUrl = getBaseUrl()
   const tokenParam = options?.accessToken ? `&token=${options.accessToken}` : ''
@@ -119,8 +120,8 @@ export async function sendOrderConfirmationEmail(
   }
 
   const [customerSent, adminSent] = await Promise.all([
-    sendResendEmail(apiKey, from, customerEmail),
-    sendResendEmail(apiKey, from, adminEmailPayload),
+    sendResendEmail(apiKey, emailFrom, customerEmail),
+    sendResendEmail(apiKey, emailFrom, adminEmailPayload),
   ])
 
   return { sent: customerSent && adminSent }
@@ -134,7 +135,8 @@ export async function sendLowStockAlertEmail(
   if (!alerts.length) return { sent: false }
 
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.ORDER_EMAIL_FROM ?? 'orders@phonicsclub.com'
+  const emailFrom =
+    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <onboarding@resend.dev>'
   const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
 
   if (!apiKey) {
@@ -149,7 +151,7 @@ export async function sendLowStockAlertEmail(
     )
     .join('')
 
-  const sent = await sendResendEmail(apiKey, from, {
+  const sent = await sendResendEmail(apiKey, emailFrom, {
     to: [adminEmail],
     subject: `Low stock alert - Invoice ${invoiceNumber}`,
     html: `
