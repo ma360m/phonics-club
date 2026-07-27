@@ -62,37 +62,37 @@ UPDATE site_content
 SET content = jsonb_set(
   jsonb_set(
     jsonb_set(
-      jsonb_set(content, '{bankDetails,bankName}', '"Allied Bank"'::jsonb, true),
+      jsonb_set(content, '{bankDetails,bankName}', '"MEEZAN BANK"'::jsonb, true),
       '{bankDetails,accountTitle}',
-      '"Phonics Club Consultancy"'::jsonb,
+      '"Phonics Club PVT. LTD"'::jsonb,
       true
     ),
     '{bankDetails,accountNumber}',
-    '"0010033565850013"'::jsonb,
+    '"02590104584267"'::jsonb,
     true
   ),
   '{bankDetails,iban}',
-  '"PK76ABPA0010033565850013"'::jsonb,
+  '""'::jsonb,
   true
 )
 WHERE key = 'invoice_template'
-  AND COALESCE(content->'bankDetails'->>'bankName', '') IN ('Meezan Bank', '');
+  AND COALESCE(content->'bankDetails'->>'bankName', '') IN ('Meezan Bank', 'Allied Bank', '');
 
 INSERT INTO site_content (key, content)
 VALUES (
   'bank_details',
   '{
-    "bankName":"Allied Bank",
-    "accountTitle":"Phonics Club Consultancy",
-    "accountNumber":"0010033565850013",
-    "iban":"PK76ABPA0010033565850013",
-    "instructions":"Other payment options: Standard Chartered, title Fatima Tuz Zahra, account 001917781701. JazzCash and EasyPaisa: 03084432015, Fatima Tuz Zahra. Upload your payment receipt after transfer."
+    "bankName":"MEEZAN BANK",
+    "accountTitle":"Phonics Club PVT. LTD",
+    "accountNumber":"02590104584267",
+    "iban":"",
+    "instructions":"Having issue with payment? Contact us at 0308 4432015 or 0300 8079480."
   }'::jsonb
 )
 ON CONFLICT (key) DO UPDATE
 SET content = EXCLUDED.content,
     updated_at = NOW()
-WHERE COALESCE(site_content.content->>'bankName', '') IN ('Meezan Bank', '');
+WHERE COALESCE(site_content.content->>'bankName', '') IN ('Meezan Bank', 'Allied Bank', '');
 
 INSERT INTO chatbot_knowledge (category, question, answer, keywords)
 VALUES

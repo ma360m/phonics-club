@@ -25,12 +25,12 @@ export const COMPANY = {
 } as const
 
 export const COMPANY_BANK_DETAILS = {
-  bankName: 'Allied Bank',
-  accountTitle: 'Phonics Club Consultancy',
-  accountNumber: '0010033565850013',
-  iban: 'PK76ABPA0010033565850013',
+  bankName: 'MEEZAN BANK',
+  accountTitle: 'Phonics Club PVT. LTD',
+  accountNumber: '02590104584267',
+  iban: '',
   instructions:
-    'Other payment options: Standard Chartered, title Fatima Tuz Zahra, account 001917781701. JazzCash and EasyPaisa: 03084432015, Fatima Tuz Zahra. Upload your payment receipt after transfer.',
+    'Having issue with payment? Contact us at 0308 4432015 or 0300 8079480.',
 } as const
 
 export const TRAINING_MONTHS_2026 = [

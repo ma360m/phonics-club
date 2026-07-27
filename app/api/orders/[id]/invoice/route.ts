@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
-import { buildInvoiceHtml, invoiceFileBaseName } from '@/lib/invoice'
+import { buildInvoiceHtml, invoiceCustomerName, invoiceFileBaseName } from '@/lib/invoice'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
 
@@ -38,7 +38,7 @@ export async function GET(
 
   const template = await getInvoiceTemplate()
   const invoiceNo = order.invoice_number ?? id.slice(0, 8)
-  const invoiceFileName = invoiceFileBaseName(invoiceNo)
+  const invoiceFileName = invoiceFileBaseName(invoiceNo, invoiceCustomerName(order as never))
 
   if (format === 'pdf') {
     const pdfBytes = await buildInvoicePdf(order as never, template)

@@ -63,7 +63,7 @@ export default async function CheckoutSuccessPage({
           Thank you for your order. Your invoice is ready below, and a confirmation email will be sent to your inbox.
         </p>
         <p className="text-sm text-muted-foreground mb-8">
-          For bank transfer, JazzCash, and EasyPaisa orders, we will process your order after payment confirmation.
+          For bank transfer orders, we will process your order after payment confirmation.
         </p>
         <div className="flex flex-col gap-3">
           {order && (

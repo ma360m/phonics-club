@@ -361,7 +361,7 @@ export async function sendOrderConfirmationEmail(
   const invoiceHtmlUrl = `${baseUrl}/api/orders/${orderId}/invoice${options?.accessToken ? `?token=${options.accessToken}` : ''}`
   const adminOrderUrl = `${baseUrl}/admin/orders#order-${orderId}`
   const attachment = options?.pdfBase64
-    ? [{ filename: `${invoiceFileBaseName(invoiceNumber)}.pdf`, content: options.pdfBase64 }]
+    ? [{ filename: `${invoiceFileBaseName(invoiceNumber, options.customerName)}.pdf`, content: options.pdfBase64 }]
     : undefined
 
   if (!apiKey) {

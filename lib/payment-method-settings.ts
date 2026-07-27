@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
-import { normalizeShopPaymentMethod, type ShopPaymentMethod } from '@/lib/payment-methods'
+import { ACTIVE_SHOP_PAYMENT_METHODS, normalizeShopPaymentMethod, type ShopPaymentMethod } from '@/lib/payment-methods'
 
 export interface PaymentMethodSetting {
   method: ShopPaymentMethod
@@ -32,33 +32,9 @@ export const DEFAULT_PAYMENT_METHOD_SETTINGS: PaymentMethodSetting[] = [
     method: 'bank_transfer',
     enabled: true,
     displayName: 'Bank Transfer',
-    customerInstructions: 'Transfer to the Phonics Club bank account.',
+    customerInstructions: 'Transfer to the Phonics Club Meezan Bank account and upload your receipt.',
     adminInstructions: 'Verify uploaded payment receipts before processing the order.',
     sortOrder: 20,
-    minOrderAmount: null,
-    maxOrderAmount: null,
-    supportedCurrency: 'PKR',
-    proofUploadRequired: true,
-  },
-  {
-    method: 'jazzcash',
-    enabled: false,
-    displayName: 'JazzCash',
-    customerInstructions: 'Send payment to the listed JazzCash number.',
-    adminInstructions: 'Disabled by default. Enable only when JazzCash payments are active.',
-    sortOrder: 30,
-    minOrderAmount: null,
-    maxOrderAmount: null,
-    supportedCurrency: 'PKR',
-    proofUploadRequired: true,
-  },
-  {
-    method: 'easypaisa',
-    enabled: false,
-    displayName: 'EasyPaisa',
-    customerInstructions: 'Send payment to the listed EasyPaisa number.',
-    adminInstructions: 'Disabled by default. Enable only when EasyPaisa payments are active.',
-    sortOrder: 40,
     minOrderAmount: null,
     maxOrderAmount: null,
     supportedCurrency: 'PKR',
@@ -94,7 +70,11 @@ export async function getPaymentMethodSettings(): Promise<PaymentMethodSetting[]
       .order('sort_order', { ascending: true })
 
     if (!data?.length) return DEFAULT_PAYMENT_METHOD_SETTINGS
-    const byMethod = new Map(data.map((row) => [normalizeShopPaymentMethod(row.method), normalizePaymentSetting(row as Record<string, unknown>)]))
+    const byMethod = new Map(
+      data
+        .filter((row) => ACTIVE_SHOP_PAYMENT_METHODS.includes(normalizeShopPaymentMethod(row.method) as never))
+        .map((row) => [normalizeShopPaymentMethod(row.method), normalizePaymentSetting(row as Record<string, unknown>)])
+    )
     return DEFAULT_PAYMENT_METHOD_SETTINGS
       .map((fallback) => byMethod.get(fallback.method) ?? fallback)
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -106,6 +86,7 @@ export async function getPaymentMethodSettings(): Promise<PaymentMethodSetting[]
 export async function getEnabledPaymentMethodSettings(orderTotal = 0): Promise<PaymentMethodSetting[]> {
   const settings = await getPaymentMethodSettings()
   return settings.filter((method) => {
+    if (!ACTIVE_SHOP_PAYMENT_METHODS.includes(method.method as never)) return false
     if (!method.enabled) return false
     if (method.minOrderAmount !== null && orderTotal < method.minOrderAmount) return false
     if (method.maxOrderAmount !== null && orderTotal > method.maxOrderAmount) return false

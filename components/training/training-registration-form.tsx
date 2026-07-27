@@ -67,7 +67,7 @@ export function TrainingRegistrationForm({ trainingType, eventTitle, eventDate, 
         </div>
         <div className="space-y-2">
           <Label>Phone / WhatsApp</Label>
-          <Input name="phone" className="rounded-xl" placeholder="03084432015" />
+          <Input name="phone" className="rounded-xl" placeholder="0308 4432015" />
         </div>
         <div className="space-y-2">
           <Label>School / Organization</Label>

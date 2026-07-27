@@ -29,8 +29,8 @@ const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'read
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
   token: z.string().optional(),
-  paymentMethod: z.enum(['bank_transfer', 'jazzcash', 'easypaisa', 'credit'], {
-    errorMap: () => ({ message: 'Choose Bank Transfer, JazzCash, or EasyPaisa before uploading the receipt.' }),
+  paymentMethod: z.enum(['bank_transfer', 'credit'], {
+    errorMap: () => ({ message: 'Choose Bank Transfer before uploading the receipt.' }),
   }),
 })
 
@@ -216,7 +216,7 @@ export async function placeOrderAction(
   if (receiptRequired && receiptTiming === 'now' && (!receiptFile || receiptFile.size <= 0)) {
     return {
       success: false,
-      error: 'Please upload a JPG, PNG, or PDF payment receipt for bank transfer, JazzCash, or EasyPaisa orders.',
+      error: 'Please upload a JPG, PNG, or PDF payment receipt for bank transfer orders.',
     }
   }
   if (receiptRequired && receiptFile && receiptFile.size > 0) {

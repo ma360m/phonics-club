@@ -1,5 +1,7 @@
 export type CurrencyCode = 'PKR' | 'USD'
 
+export const CURRENCY_PREFERENCE_KEY = 'phonics-club-currency'
+
 export interface CurrencySettings {
   defaultCurrency: CurrencyCode
   usdEnabled: boolean

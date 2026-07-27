@@ -26,7 +26,7 @@ interface BankDetails {
   bankName: string
   accountTitle: string
   accountNumber: string
-  iban: string
+  iban?: string
   instructions: string
 }
 
@@ -338,25 +338,23 @@ export function CheckoutForm({
             )}
           </div>
 
+          <p className="rounded-lg bg-[#EFF6FF] px-4 py-3 text-sm text-[#1D4ED8]">
+            Having issue with payment? Contact us at{' '}
+            <a href="tel:+923084432015" className="font-semibold underline underline-offset-4">0308 4432015</a>
+            {' '}or{' '}
+            <a href="tel:03008079480" className="font-semibold underline underline-offset-4">0300 8079480</a>.
+          </p>
+
           {receiptRequired && (
             <div className="space-y-4 rounded-lg bg-muted/50 p-4 text-sm">
               <div className="space-y-2">
                 <p className="font-semibold">
                   {paymentMethod === 'bank_transfer' ? 'Bank Account Details' : `${paymentOptions.find((option) => option.value === paymentMethod)?.title} Details`}
                 </p>
-                {paymentMethod === 'bank_transfer' ? (
-                  <>
-                    <p>Bank: {bankDetails.bankName}</p>
-                    <p>Account: {bankDetails.accountTitle}</p>
-                    <p>A/C No: {bankDetails.accountNumber}</p>
-                    <p>IBAN: {bankDetails.iban}</p>
-                  </>
-                ) : (
-                  <>
-                    <p>Account title: Fatima Tuz Zahra</p>
-                    <p>Number: 03084432015</p>
-                  </>
-                )}
+                <p>Bank: {bankDetails.bankName}</p>
+                <p>Account: {bankDetails.accountTitle}</p>
+                <p>A/C No: {bankDetails.accountNumber}</p>
+                {bankDetails.iban ? <p>IBAN: {bankDetails.iban}</p> : null}
                 <p className="text-muted-foreground">{bankDetails.instructions}</p>
               </div>
 

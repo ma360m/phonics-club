@@ -1,20 +1,13 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState } from 'react'
 import { submitOrderReceiptAction } from '@/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { ActionResult } from '@/types'
-import type { ShopPaymentMethod } from '@/lib/payment-methods'
 
 const initialState: ActionResult = { success: false }
-
-const receiptPaymentOptions: Array<{ value: Exclude<ShopPaymentMethod, 'cod'>; label: string }> = [
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'jazzcash', label: 'JazzCash' },
-  { value: 'easypaisa', label: 'EasyPaisa' },
-]
 
 export function PaymentReceiptUploadForm({
   orderId,
@@ -24,16 +17,22 @@ export function PaymentReceiptUploadForm({
   token?: string
 }) {
   const [state, formAction, pending] = useActionState(submitOrderReceiptAction, initialState)
-  const [paymentMethod, setPaymentMethod] = useState<Exclude<ShopPaymentMethod, 'cod'>>('bank_transfer')
 
   return (
     <form action={formAction} className="mt-8 rounded-2xl border bg-card p-5 text-left shadow-sm">
       <input type="hidden" name="orderId" value={orderId} />
       {token && <input type="hidden" name="token" value={token} />}
+      <input type="hidden" name="paymentMethod" value="bank_transfer" />
 
       <h2 className="text-lg font-bold">Upload Payment Receipt</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        If you selected Cash on Delivery but paid by transfer, JazzCash, or EasyPaisa, upload the receipt here.
+        If you selected Cash on Delivery but paid by bank transfer, upload the receipt here.
+      </p>
+      <p className="mt-3 rounded-xl bg-[#EFF6FF] px-3 py-2 text-sm text-[#1D4ED8]">
+        Having issue with payment? Contact us at{' '}
+        <a href="tel:+923084432015" className="font-semibold underline underline-offset-4">0308 4432015</a>
+        {' '}or{' '}
+        <a href="tel:03008079480" className="font-semibold underline underline-offset-4">0300 8079480</a>.
       </p>
 
       {state.error && (
@@ -45,25 +44,8 @@ export function PaymentReceiptUploadForm({
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {receiptPaymentOptions.map((option) => (
-          <label
-            key={option.value}
-            className={`cursor-pointer rounded-xl border px-3 py-2 text-center text-sm font-medium ${
-              paymentMethod === option.value ? 'border-[#1D4ED8] bg-[#1D4ED8]/5 text-[#1D4ED8]' : 'hover:border-[#1D4ED8]/50'
-            }`}
-          >
-            <input
-              type="radio"
-              name="paymentMethod"
-              value={option.value}
-              checked={paymentMethod === option.value}
-              onChange={() => setPaymentMethod(option.value)}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
+      <div className="mt-4 rounded-xl border border-[#1D4ED8] bg-[#1D4ED8]/5 px-4 py-3 text-center text-sm font-semibold text-[#1D4ED8]">
+        Bank Transfer
       </div>
 
       <div className="mt-4 space-y-2">

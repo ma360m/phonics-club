@@ -16,8 +16,6 @@ const initialState: ActionResult = { success: false }
 const paymentOptions: Array<{ value: ShopPaymentMethod; label: string }> = [
   { value: 'cod', label: 'Cash on Delivery' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'jazzcash', label: 'JazzCash' },
-  { value: 'easypaisa', label: 'EasyPaisa' },
 ]
 
 interface CustomerOrder {
@@ -147,7 +145,7 @@ export function CustomerOrderControls({
 
               <div className="space-y-3">
                 <Label>Payment Method</Label>
-                <div className="grid gap-2 sm:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {paymentOptions.map((option) => (
                     <label
                       key={option.value}

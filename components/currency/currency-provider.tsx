@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
+  CURRENCY_PREFERENCE_KEY,
   convertCurrency,
   DEFAULT_CURRENCY_SETTINGS,
   formatDisplayCurrency,
@@ -9,8 +10,6 @@ import {
   type CurrencyCode,
   type CurrencySettings,
 } from '@/lib/currency'
-
-const STORAGE_KEY = 'phonics-club-currency'
 
 interface CurrencyContextValue {
   currency: CurrencyCode
@@ -25,22 +24,37 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null)
 export function CurrencyProvider({
   children,
   settings = DEFAULT_CURRENCY_SETTINGS,
+  initialCurrency,
 }: {
   children: React.ReactNode
   settings?: CurrencySettings
+  initialCurrency?: CurrencyCode
 }) {
-  const normalizedDefault = normalizeCurrency(settings.defaultCurrency, settings.usdEnabled)
+  const normalizedDefault = normalizeCurrency(initialCurrency ?? settings.defaultCurrency, settings.usdEnabled)
   const [currency, setCurrencyState] = useState<CurrencyCode>(normalizedDefault)
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored) setCurrencyState(normalizeCurrency(stored, settings.usdEnabled))
+    const restoreStoredCurrency = () => {
+      const stored = window.localStorage.getItem(CURRENCY_PREFERENCE_KEY)
+      if (stored) setCurrencyState(normalizeCurrency(stored, settings.usdEnabled))
+    }
+
+    let secondFrame: number | null = null
+    const frame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(restoreStoredCurrency)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
   }, [settings.usdEnabled])
 
   function setCurrency(nextCurrency: CurrencyCode) {
     const normalized = normalizeCurrency(nextCurrency, settings.usdEnabled)
     setCurrencyState(normalized)
-    window.localStorage.setItem(STORAGE_KEY, normalized)
+    window.localStorage.setItem(CURRENCY_PREFERENCE_KEY, normalized)
+    document.cookie = `${CURRENCY_PREFERENCE_KEY}=${normalized}; path=/; max-age=31536000; samesite=lax`
   }
 
   const value = useMemo<CurrencyContextValue>(

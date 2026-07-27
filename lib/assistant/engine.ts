@@ -73,7 +73,7 @@ function coursePolicyReply() {
 }
 
 function paymentReply() {
-  return `Payment options:\n- Allied Bank: Phonics Club Consultancy, Account 0010033565850013, IBAN PK76ABPA0010033565850013\n- Standard Chartered: Fatima Tuz Zahra, Account 001917781701\n- JazzCash: Fatima Tuz Zahra, 03084432015\n- EasyPaisa: Fatima Tuz Zahra, 03084432015\n\nAfter payment, upload or share your receipt as requested. For confirmation, contact 03084432015 or ${COMPANY.email}.`
+  return `Payment options:\n- Cash on Delivery\n- Bank Transfer: MEEZAN BANK, Phonics Club PVT. LTD, A/C No: 02590104584267\n\nAfter bank transfer, upload or share your receipt as requested. Having issue with payment? Contact 0308 4432015, 0300 8079480, or ${COMPANY.email}.`
 }
 
 export function generateAssistantReply(input: string, ctx: AssistantContext): string {

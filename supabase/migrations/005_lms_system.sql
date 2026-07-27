@@ -278,7 +278,7 @@ INSERT INTO chatbot_knowledge (category, question, answer, keywords)
 SELECT * FROM (VALUES
   ('faq', 'What courses do you offer?', 'We offer Jolly Phonics teacher training, Preschool Professional, and free introductory courses. Visit /courses to browse all programs.', ARRAY['courses', 'training', 'offer']::TEXT[]),
   ('faq', 'How do I enroll?', 'Browse /courses, select a course, and click Enroll. Create an account if needed.', ARRAY['enroll', 'register', 'sign up']::TEXT[]),
-  ('faq', 'Payment methods?', 'We accept bank transfer, JazzCash, EasyPaisa, and card payments.', ARRAY['payment', 'jazzcash', 'easypaisa']::TEXT[]),
+  ('faq', 'Payment methods?', 'We currently offer Cash on Delivery and bank transfer to MEEZAN BANK, Phonics Club PVT. LTD, A/C No 02590104584267.', ARRAY['payment', 'bank transfer', 'cod']::TEXT[]),
   ('faq', 'Where are you located?', 'Phonics Club is based in Pakistan, Lahore (LHR).', ARRAY['location', 'lahore', 'pakistan']::TEXT[])
 ) AS v(category, question, answer, keywords)
 WHERE NOT EXISTS (SELECT 1 FROM chatbot_knowledge LIMIT 1);

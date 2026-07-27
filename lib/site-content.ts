@@ -183,11 +183,9 @@ export const DEFAULT_FAQS: FAQItem[] = [
   {
     q: 'What payment options are available?',
     a: [
-      'Bank Transfer: Allied Bank, Title: Phonics Club Consultancy, Account No: 0010033565850013, IBAN: PK76ABPA0010033565850013.',
-      'Standard Chartered: Title: Fatima Tuz Zahra, Account: 001917781701.',
-      'JazzCash: Fatima Tuz Zahra, 03084432015.',
-      'EasyPaisa: Fatima Tuz Zahra, 03084432015.',
-      'For payment confirmation, contact 03084432015 and upload or share your payment receipt where requested.',
+      'Cash on Delivery is available for eligible shop orders.',
+      'Bank Transfer: MEEZAN BANK, Account Title: Phonics Club PVT. LTD, A/C No: 02590104584267.',
+      'Having issue with payment? Contact us at 0308 4432015 or 0300 8079480.',
     ],
   },
   {
@@ -294,7 +292,7 @@ const DEFAULT_TRAINERS = [
     credentials: ['Certified Jolly Phonics trainer', 'Literacy consultant', 'Synthetic Phonics implementation specialist'],
     specialties: ['Jolly Phonics', 'Jolly Literacy Training', 'School implementation', 'Teacher training'],
     profile_details:
-      'City: Lahore\nPhone: 03084432015\nEmail: fatematuzzehra@gmail.com\n\nFatima is a trainer and literacy consultant currently running Phonics Club in Pakistan, where children, parents, and teachers benefit from her lively training. She provides Jolly Phonics and Jolly Literacy training along with concept progression, school consultancy, and practical classroom support.\n\nShe works closely with local education foundations, authorities, and publishers, and has piloted Jolly Phonics in low-cost public and private schools. She is acknowledged for her sessions on teaching with Jolly Learning products in Pakistan and abroad.',
+      'City: Lahore\nPhone: 0308 4432015\nEmail: fatematuzzehra@gmail.com\n\nFatima is a trainer and literacy consultant currently running Phonics Club in Pakistan, where children, parents, and teachers benefit from her lively training. She provides Jolly Phonics and Jolly Literacy training along with concept progression, school consultancy, and practical classroom support.\n\nShe works closely with local education foundations, authorities, and publishers, and has piloted Jolly Phonics in low-cost public and private schools. She is acknowledged for her sessions on teaching with Jolly Learning products in Pakistan and abroad.',
     sort_order: 1,
     published: true,
   },
@@ -832,17 +830,29 @@ export async function getWebsiteVideos(): Promise<WebsiteVideos> {
 }
 
 export async function getInvoiceTemplate() {
-  return getContent('invoice_template', {
+  const template = await getContent('invoice_template', {
     header: 'PHONICS CLUB PVT LTD',
     tagline: '',
     footer:
       'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight. Current standard shipping: PKR 550.',
     bankDetails: COMPANY_BANK_DETAILS,
   })
+
+  return {
+    ...template,
+    bankDetails: {
+      ...(template.bankDetails ?? {}),
+      ...COMPANY_BANK_DETAILS,
+    },
+  }
 }
 
 export async function getBankDetails() {
-  return getContent('bank_details', COMPANY_BANK_DETAILS)
+  const details = await getContent('bank_details', COMPANY_BANK_DETAILS)
+  return {
+    ...details,
+    ...COMPANY_BANK_DETAILS,
+  }
 }
 
 export async function getAboutPageContent(): Promise<AboutPageContent> {

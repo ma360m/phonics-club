@@ -1,6 +1,8 @@
 export const SHOP_PAYMENT_METHODS = ['cod', 'bank_transfer', 'jazzcash', 'easypaisa'] as const
+export const ACTIVE_SHOP_PAYMENT_METHODS = ['cod', 'bank_transfer'] as const
 
 export type ShopPaymentMethod = (typeof SHOP_PAYMENT_METHODS)[number]
+export type ActiveShopPaymentMethod = (typeof ACTIVE_SHOP_PAYMENT_METHODS)[number]
 
 export function normalizeShopPaymentMethod(method?: unknown): ShopPaymentMethod {
   const value = String(method ?? '').trim().toLowerCase()
@@ -16,11 +18,9 @@ export function shopPaymentNeedsReceipt(method?: unknown): boolean {
 export function shopPaymentLabel(method?: unknown): string {
   switch (normalizeShopPaymentMethod(method)) {
     case 'bank_transfer':
-      return 'Bank Transfer'
     case 'jazzcash':
-      return 'JazzCash'
     case 'easypaisa':
-      return 'EasyPaisa'
+      return 'Bank Transfer'
     default:
       return 'Cash on Delivery'
   }

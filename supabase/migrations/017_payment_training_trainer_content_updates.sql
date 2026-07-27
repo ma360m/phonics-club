@@ -107,7 +107,7 @@ VALUES
   ARRAY['Certified Jolly Phonics trainer', 'Literacy consultant', 'Synthetic Phonics implementation specialist']::TEXT[],
   ARRAY['Jolly Phonics', 'Jolly Literacy Training', 'School implementation', 'Teacher training']::TEXT[],
   $trainer$City: Lahore
-Phone: 03084432015
+Phone: 0308 4432015
 Email: fatematuzzehra@gmail.com
 
 Fatima is a trainer and literacy consultant currently running Phonics Club in Pakistan, where children, parents, and teachers benefit from her lively training. She provides Jolly Phonics and Jolly Literacy training along with concept progression, school consultancy, and practical classroom support.

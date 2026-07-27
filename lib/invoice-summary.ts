@@ -31,6 +31,9 @@ export type InvoiceOrder = Order & {
   display_currency?: string | null
   exchange_rate?: number | null
   exchange_rate_timestamp?: string | null
+  display_subtotal?: number | null
+  display_shipping_fee?: number | null
+  display_discount_amount?: number | null
   display_total?: number | null
 }
 

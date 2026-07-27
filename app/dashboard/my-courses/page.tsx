@@ -217,7 +217,7 @@ export default async function MyCoursesPage() {
                       <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm leading-6 text-slate-700">
                         <p className="font-semibold text-[#0F172A]">Payment options</p>
                         <p className="mt-1">
-                          {COMPANY_BANK_DETAILS.bankName}: {COMPANY_BANK_DETAILS.accountTitle}, Account {COMPANY_BANK_DETAILS.accountNumber}, IBAN {COMPANY_BANK_DETAILS.iban}
+                          {COMPANY_BANK_DETAILS.bankName}: {COMPANY_BANK_DETAILS.accountTitle}, Account {COMPANY_BANK_DETAILS.accountNumber}
                         </p>
                         <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
                         <p className="mt-2 font-medium text-[#1D4ED8]">

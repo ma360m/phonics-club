@@ -267,8 +267,17 @@ export async function buildInvoicePdf(
   if (order.member_id) totalsRows.push(['Member ID', order.member_id, false])
   totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
   if (order.display_currency === 'USD' && order.display_total && order.exchange_rate) {
+    if (order.display_subtotal) {
+      totalsRows.push(['USD Items Total', formatCurrency(Number(order.display_subtotal), 'USD', { freeLabel: false }), false])
+    }
+    if (order.display_discount_amount) {
+      totalsRows.push(['USD Discount', `-${formatCurrency(Number(order.display_discount_amount), 'USD', { freeLabel: false })}`, false])
+    }
+    if (order.display_shipping_fee) {
+      totalsRows.push(['USD Shipping', formatCurrency(Number(order.display_shipping_fee), 'USD', { freeLabel: false }), false])
+    }
     totalsRows.push([
-      'Displayed at checkout',
+      'USD Display Total',
       `${formatCurrency(Number(order.display_total), 'USD', { freeLabel: false })} @ ${Number(order.exchange_rate).toLocaleString('en-PK')}`,
       false,
     ])
@@ -297,8 +306,7 @@ export async function buildInvoicePdf(
     `Bank: ${bankDetails.bankName}`,
     `Account Title: ${bankDetails.accountTitle}`,
     `Account Number: ${bankDetails.accountNumber}`,
-    `IBAN: ${bankDetails.iban}`,
-  ]
+  ].concat(bankDetails.iban ? [`IBAN: ${bankDetails.iban}`] : [])
   const instructionLines = bankDetails.instructions ? wrapText(bankDetails.instructions, 72) : []
   const bankBoxHeight = 34 + bankLines.length * 12 + instructionLines.length * 10 + 14
   const bankBoxTop = y + 14
@@ -328,7 +336,7 @@ export async function buildInvoicePdf(
     page.drawText(line, { x: margin, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
     y -= 10
   }
-  page.drawText(`Contact: ${COMPANY.adminEmail} | ${COMPANY.phoneDisplay}`, {
+  page.drawText(`Contact: ${COMPANY.adminEmail} | 0308 4432015 | 0300 8079480`, {
     x: margin,
     y: y - 4,
     size: 8,

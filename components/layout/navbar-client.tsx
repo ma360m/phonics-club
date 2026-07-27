@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, Search, User } from 'lucide-react'
+import { Menu, X, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SiteLogo } from '@/components/layout/site-logo'
 import { CurrencySwitcher } from '@/components/currency/currency-switcher'
+import { HeaderSearchDialog } from '@/components/layout/header-search-dialog'
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -68,9 +69,7 @@ export function NavbarClient({
 
           <div className="flex items-center gap-2">
             <CurrencySwitcher className="hidden xl:inline-flex" />
-            <button className="hidden p-2 hover:bg-muted rounded-lg transition-colors sm:inline-flex" aria-label="Search">
-              <Search className="w-5 h-5 text-foreground/70" />
-            </button>
+            <HeaderSearchDialog className="hidden sm:inline-flex" />
             <Link href="/dashboard" className="hidden p-2 hover:bg-muted rounded-lg transition-colors sm:inline-flex" aria-label="Account">
               <User className="w-5 h-5 text-foreground/70" />
             </Link>
@@ -103,6 +102,9 @@ export function NavbarClient({
               <div className="py-4 space-y-2">
                 <div className="px-4 pb-2">
                   <CurrencySwitcher className="w-full justify-center bg-white" />
+                </div>
+                <div className="px-4 pb-2">
+                  <HeaderSearchDialog showLabel className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white py-3 text-sm font-semibold text-[#1D4ED8] shadow-sm" />
                 </div>
                 {navigation.map((item) => (
                   <Link

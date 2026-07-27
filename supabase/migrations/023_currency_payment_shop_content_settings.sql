@@ -111,9 +111,7 @@ INSERT INTO payment_method_settings (
 )
 VALUES
   ('cod', TRUE, 'Cash on Delivery', 'Pay when your order is delivered.', '', 10, 'PKR', FALSE),
-  ('bank_transfer', TRUE, 'Bank Transfer', 'Transfer to the Phonics Club bank account.', 'Verify uploaded payment receipts before processing the order.', 20, 'PKR', TRUE),
-  ('jazzcash', FALSE, 'JazzCash', 'Send payment to the listed JazzCash number.', 'Disabled by default. Enable only when JazzCash payments are active.', 30, 'PKR', TRUE),
-  ('easypaisa', FALSE, 'EasyPaisa', 'Send payment to the listed EasyPaisa number.', 'Disabled by default. Enable only when EasyPaisa payments are active.', 40, 'PKR', TRUE)
+  ('bank_transfer', TRUE, 'Bank Transfer', 'Transfer to the Phonics Club Meezan Bank account and upload your receipt.', 'Verify uploaded payment receipts before processing the order.', 20, 'PKR', TRUE)
 ON CONFLICT (method) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   customer_instructions = EXCLUDED.customer_instructions,
@@ -122,6 +120,54 @@ ON CONFLICT (method) DO UPDATE SET
   supported_currency = EXCLUDED.supported_currency,
   proof_upload_required = EXCLUDED.proof_upload_required,
   updated_at = NOW();
+
+DELETE FROM payment_method_settings
+WHERE method IN ('jazzcash', 'easypaisa');
+
+INSERT INTO site_content (key, content)
+VALUES (
+  'bank_details',
+  '{
+    "bankName":"MEEZAN BANK",
+    "accountTitle":"Phonics Club PVT. LTD",
+    "accountNumber":"02590104584267",
+    "iban":"",
+    "instructions":"Having issue with payment? Contact us at 0308 4432015 or 0300 8079480."
+  }'::jsonb
+)
+ON CONFLICT (key) DO UPDATE
+SET content = EXCLUDED.content,
+    updated_at = NOW();
+
+UPDATE site_content
+SET content =
+  jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        jsonb_set(
+          jsonb_set(
+            COALESCE(content, '{}'::jsonb),
+            '{bankDetails,bankName}',
+            '"MEEZAN BANK"'::jsonb,
+            TRUE
+          ),
+          '{bankDetails,instructions}',
+          '"Having issue with payment? Contact us at 0308 4432015 or 0300 8079480."'::jsonb,
+          TRUE
+        ),
+        '{bankDetails,accountTitle}',
+        '"Phonics Club PVT. LTD"'::jsonb,
+        TRUE
+      ),
+      '{bankDetails,accountNumber}',
+      '"02590104584267"'::jsonb,
+      TRUE
+    ),
+    '{bankDetails,iban}',
+    '""'::jsonb,
+    TRUE
+  )
+WHERE key = 'invoice_template';
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS display_currency TEXT DEFAULT 'PKR' CHECK (display_currency IN ('PKR', 'USD'));
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(12,4);

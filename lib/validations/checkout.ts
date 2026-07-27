@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const checkoutPaymentMethods = ['cod', 'bank_transfer', 'jazzcash', 'easypaisa', 'credit'] as const
+export const checkoutPaymentMethods = ['cod', 'bank_transfer', 'credit'] as const
 
 const pakistanPhone = z
   .string()
@@ -26,7 +26,7 @@ export const checkoutSchema = z.object({
   zip: z.string().trim().optional(),
   country: z.string().default('Pakistan'),
   paymentMethod: z.enum(checkoutPaymentMethods, {
-    errorMap: () => ({ message: 'Choose Cash on Delivery, bank transfer, JazzCash, or EasyPaisa.' }),
+    errorMap: () => ({ message: 'Choose Cash on Delivery or Bank Transfer.' }),
   }),
   couponCode: z.string().trim().optional(),
   memberId: z.string().trim().optional(),

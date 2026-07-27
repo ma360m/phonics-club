@@ -24,11 +24,26 @@ export function generateInvoiceNumber(): string {
   return `INV_${date}_${rand}`
 }
 
-export function invoiceFileBaseName(invoiceNumber: string): string {
-  return (
-    invoiceNumber
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'invoice'
+function invoiceFileSegment(value: unknown): string {
+  return String(value ?? '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+export function invoiceFileBaseName(invoiceNumber: string, customerName?: unknown): string {
+  const invoiceSegment = invoiceFileSegment(invoiceNumber) || 'invoice'
+  const customerSegment = invoiceFileSegment(customerName).toUpperCase()
+  return customerSegment ? `${invoiceSegment}_${customerSegment}` : invoiceSegment
+}
+
+export function invoiceCustomerName(order: Pick<InvoiceOrder, 'shipping_address' | 'guest_email'>): string {
+  const address = order.shipping_address as Record<string, unknown> | null
+  return String(
+    address?.fullName ??
+      address?.customerName ??
+      address?.name ??
+      order.guest_email?.split('@')[0] ??
+      '',
   )
 }
 
@@ -57,7 +72,21 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
   const tagline = invoiceTagline(template?.tagline)
   const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
   const exchangeRate = Number(order.exchange_rate ?? 0)
+  const displaySubtotal = Number(order.display_subtotal ?? 0)
+  const displayShipping = Number(order.display_shipping_fee ?? 0)
+  const displayDiscount = Number(order.display_discount_amount ?? 0)
   const displayTotal = Number(order.display_total ?? 0)
+  const usdSummary =
+    displayCurrency && exchangeRate && displayTotal
+      ? `<div style="margin-bottom:24px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;padding:14px;color:#1e3a8a">
+          <p style="margin:0 0 8px;font-weight:bold">USD Display Summary</p>
+          ${displaySubtotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Items Total</span><strong>${formatCurrency(displaySubtotal, 'USD', { freeLabel: false })}</strong></p>` : ''}
+          ${displayDiscount ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Discount</span><strong>-${formatCurrency(displayDiscount, 'USD', { freeLabel: false })}</strong></p>` : ''}
+          ${displayShipping ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Shipping</span><strong>${formatCurrency(displayShipping, 'USD', { freeLabel: false })}</strong></p>` : ''}
+          <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:6px 0 0;font-size:1.08em"><span>Displayed Total</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p>
+          <p style="margin:8px 0 0;color:#475569;font-size:12px">Official order total remains ${formatCurrency(summary.balanceDue, 'PKR', { freeLabel: false, useCode: true })}. Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR.</p>
+        </div>`
+      : ''
 
   const rows = summary.lines
     .map((line) => {
@@ -129,19 +158,20 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         ${displayCurrency && exchangeRate && displayTotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;background:#f8fafc;color:#64748b;font-size:12px"><span>Displayed at checkout</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p><p style="margin:0;padding:0 12px 10px;background:#f8fafc;color:#64748b;font-size:12px">Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR</p>` : ''}
       </div>
     </div>
+    ${usdSummary}
 
     <div style="border:1.5px solid #94A3B8;background:#f8fafc;padding:16px;border-radius:8px;margin-bottom:24px">
       <p style="margin:0 0 8px;font-weight:bold;color:#111827">Bank Details</p>
       <p style="margin:4px 0"><strong>Bank:</strong> ${escapeHtml(bankDetails.bankName)}</p>
       <p style="margin:4px 0"><strong>Account Title:</strong> ${escapeHtml(bankDetails.accountTitle)}</p>
       <p style="margin:4px 0"><strong>Account Number:</strong> ${escapeHtml(bankDetails.accountNumber)}</p>
-      <p style="margin:4px 0"><strong>IBAN:</strong> ${escapeHtml(bankDetails.iban)}</p>
+      ${bankDetails.iban ? `<p style="margin:4px 0"><strong>IBAN:</strong> ${escapeHtml(bankDetails.iban)}</p>` : ''}
       ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px">${escapeHtml(bankDetails.instructions)}</p>` : ''}
     </div>
 
     <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">
       <p style="margin:0"><strong>Shipping Notice:</strong> ${escapeHtml(footerNote)}</p>
-      <p style="margin:8px 0 0">Contact: ${escapeHtml(COMPANY.adminEmail)} | ${escapeHtml(COMPANY.phoneDisplay)}</p>
+      <p style="margin:8px 0 0">Contact: ${escapeHtml(COMPANY.adminEmail)} | 0308 4432015 | 0300 8079480</p>
     </div>
   </main>
 </body></html>`
