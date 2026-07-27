@@ -17,7 +17,7 @@ export function Testimonials({ items }: { items: Testimonial[] }) {
           <span className="text-sm font-semibold text-[#60A5FA] uppercase tracking-wider">Testimonials</span>
           <h2 className="text-3xl lg:text-4xl font-bold mt-2 mb-4">What Schools & Teachers Say</h2>
           <p className="text-white/70 max-w-2xl mx-auto">
-            Trusted by educators across Pakistan who use Phonics Club materials and training
+            Official Jolly Learning resources, trusted nationwide.
           </p>
         </motion.div>
 

@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/utils/format'
 import type { BlogPost } from '@/types/database'
 
+const BLOG_DESCRIPTION =
+  "Discover practical tips, educational news, professional development articles, and evidence-based literacy practices to support every child's reading journey."
+
 export function BlogPreviewGrid({ posts }: { posts: BlogPost[] }) {
   return (
     <section className="py-20 px-4">
@@ -12,7 +15,7 @@ export function BlogPreviewGrid({ posts }: { posts: BlogPost[] }) {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
             <h2 className="text-3xl font-bold">From Our Blog</h2>
-            <p className="text-muted-foreground mt-2">Phonics tips, teaching guides, and parent resources</p>
+            <p className="text-muted-foreground mt-2">{BLOG_DESCRIPTION}</p>
           </div>
           <Button asChild variant="outline" className="rounded-xl">
             <Link href="/blog">

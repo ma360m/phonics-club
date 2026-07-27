@@ -22,11 +22,12 @@ import { Button } from '@/components/ui/button'
 import {
   formatCourseCategory,
   getCourseDisplayMeta,
+  getCoursePrice,
   slugifyInstructor,
   youtubeEmbedUrl,
   type CourseModuleWithLessons,
 } from '@/lib/lms'
-import { formatPrice } from '@/utils/format'
+import { CurrencyDisplayNotice, PriceDisplay } from '@/components/currency/price-display'
 import type { Course, CourseQuiz, CourseResource, CourseReview } from '@/types/database'
 
 interface Props {
@@ -91,15 +92,16 @@ function EnrollmentCard({
   quizCount: number
   certificateEnabled: boolean
 }) {
-  const isFree = Number(course.price) === 0
+  const price = getCoursePrice(course)
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="border-b border-slate-200 pb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Course access</p>
         <p className="mt-2 text-3xl font-bold tracking-normal text-[#1D4ED8]">
-          {isFree ? 'Free' : formatPrice(course.price)}
+          <PriceDisplay amountPkr={price} className="text-3xl font-bold tracking-normal text-[#1D4ED8]" />
         </p>
+        <CurrencyDisplayNotice className="mt-2" />
         <div className="mt-4">
           {enrolled ? (
             <Button asChild className="h-11 w-full rounded-xl bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90">

@@ -57,6 +57,24 @@ export function ProductForm({ product }: { product?: Product }) {
           </select>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Product Number</Label>
+          <Input name="product_number" defaultValue={product?.product_number ?? ''} placeholder="PC-000123" className="rounded-xl font-mono" />
+        </div>
+        <div className="space-y-2">
+          <Label>SKU</Label>
+          <Input name="sku" defaultValue={product?.sku ?? ''} className="rounded-xl font-mono" />
+        </div>
+        <div className="space-y-2">
+          <Label>Barcode</Label>
+          <Input name="barcode" defaultValue={product?.barcode ?? ''} className="rounded-xl font-mono" />
+        </div>
+        <div className="space-y-2">
+          <Label>Alternate Barcode</Label>
+          <Input name="alternate_barcode" defaultValue={product?.alternate_barcode ?? ''} className="rounded-xl font-mono" />
+        </div>
+      </div>
       <div className="space-y-2">
         <Label>Product group</Label>
         <select name="collection" defaultValue={getCollection(product)} className="w-full rounded-xl border px-3 py-2">

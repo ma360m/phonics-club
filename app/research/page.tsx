@@ -35,7 +35,9 @@ export default async function ResearchPage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
           <h2 className="text-3xl font-bold">Research Focus</h2>
           <div className="space-y-4 text-muted-foreground">
-            {content.overview.map((paragraph) => (
+            {content.overview
+              .filter((paragraph) => !/Admins can update this page/i.test(paragraph))
+              .map((paragraph) => (
               <p key={paragraph} className="leading-8">{paragraph}</p>
             ))}
           </div>

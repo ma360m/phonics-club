@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Search, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SiteLogo } from '@/components/layout/site-logo'
+import { CurrencySwitcher } from '@/components/currency/currency-switcher'
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -66,6 +67,7 @@ export function NavbarClient({
           </div>
 
           <div className="flex items-center gap-2">
+            <CurrencySwitcher className="hidden xl:inline-flex" />
             <button className="hidden p-2 hover:bg-muted rounded-lg transition-colors sm:inline-flex" aria-label="Search">
               <Search className="w-5 h-5 text-foreground/70" />
             </button>
@@ -74,8 +76,10 @@ export function NavbarClient({
             </Link>
             <span className="hidden sm:inline-flex">{wishlistSlot}</span>
             <span className="hidden sm:inline-flex">{cartSlot}</span>
-            <Button asChild className="hidden sm:flex bg-[#D30000] hover:bg-[#D30000]/90 text-white ml-2 rounded-xl">
-              <Link href="/courses">Get Started</Link>
+            <Button asChild className="hidden h-8 rounded-full bg-[#D30000] px-2.5 text-xs text-white hover:bg-[#D30000]/90 2xl:flex">
+              <Link href="/courses">
+                Start
+              </Link>
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -97,6 +101,9 @@ export function NavbarClient({
               className="lg:hidden border-t border-border"
             >
               <div className="py-4 space-y-2">
+                <div className="px-4 pb-2">
+                  <CurrencySwitcher className="w-full justify-center bg-white" />
+                </div>
                 {navigation.map((item) => (
                   <Link
                     key={item.name}

@@ -60,9 +60,28 @@ export interface Product {
   price: number
   compare_at_price: number | null
   category: string
+  product_number?: string | null
+  sku?: string | null
+  barcode?: string | null
+  alternate_barcode?: string | null
   isbn?: string | null
   images: string[]
   stock: number
+  reserved_stock?: number
+  low_stock_threshold?: number
+  stock_management_enabled?: boolean
+  backorder_policy?: string
+  max_backorder_quantity?: number | null
+  estimated_availability_date?: string | null
+  backorder_message?: string | null
+  sale_enabled?: boolean
+  sale_price?: number | null
+  sale_start_at?: string | null
+  sale_end_at?: string | null
+  sale_badge_text?: string | null
+  sale_percentage?: number | null
+  max_purchase_quantity?: number | null
+  promotional_description?: string | null
   featured: boolean
   published: boolean
   metadata: Record<string, unknown>
@@ -214,6 +233,13 @@ export interface Order {
   phone?: string | null
   receipt_url?: string | null
   invoice_number?: string | null
+  display_currency?: string | null
+  exchange_rate?: number | null
+  exchange_rate_timestamp?: string | null
+  display_subtotal?: number | null
+  display_shipping_fee?: number | null
+  display_discount_amount?: number | null
+  display_total?: number | null
   items: OrderItem[]
   shipping_address: Record<string, string> | null
   notes: string | null

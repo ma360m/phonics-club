@@ -6,6 +6,7 @@ import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
+import { formatCurrency } from '@/lib/currency'
 
 interface InvoiceTemplate {
   header?: string
@@ -265,6 +266,13 @@ export async function buildInvoicePdf(
   totalsRows.push(['Shipping Fee', formatPrice(summary.shipping), false])
   if (order.member_id) totalsRows.push(['Member ID', order.member_id, false])
   totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
+  if (order.display_currency === 'USD' && order.display_total && order.exchange_rate) {
+    totalsRows.push([
+      'Displayed at checkout',
+      `${formatCurrency(Number(order.display_total), 'USD', { freeLabel: false })} @ ${Number(order.exchange_rate).toLocaleString('en-PK')}`,
+      false,
+    ])
+  }
   const totalsBoxWidth = 270
   const totalsLabelWidth = 154
   const totalsValueWidth = totalsBoxWidth - totalsLabelWidth

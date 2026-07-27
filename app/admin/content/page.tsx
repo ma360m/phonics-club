@@ -102,7 +102,7 @@ export default async function AdminContentPage() {
         <SocialReelsManager reels={socialReels} />
 
         {SECTIONS.map(({ key, label, hint }) => (
-          <form key={key} action={saveSiteContentFormAction} className="space-y-3 rounded-lg border bg-card p-6">
+          <form id={key} key={key} action={saveSiteContentFormAction} className="scroll-mt-6 space-y-3 rounded-lg border bg-card p-6">
             <input type="hidden" name="key" value={key} />
             <Label className="text-lg font-semibold">{label}</Label>
             <p className="text-xs text-muted-foreground">{hint}</p>

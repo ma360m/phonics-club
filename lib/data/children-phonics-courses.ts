@@ -29,7 +29,7 @@ const standardActivityTypes = [
 export const CHILDREN_PHONICS_COURSES: Course[] = [
   {
     id: 'course-jp-sounds-groups-1-3',
-    title: 'Jolly Phonics Sounds: Groups 1-3',
+    title: "Children's Phonics Course - Sound Groups 1-3",
     slug: 'jolly-phonics-sounds-groups-1-3',
     subtitle: 'Learn the first 18 letter sounds through songs, actions, flashcards, formation and interactive activities.',
     description:
@@ -122,7 +122,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
   },
   {
     id: 'course-jp-sounds-groups-4-7',
-    title: 'Jolly Phonics Sounds: Groups 4-7',
+    title: "Children's Phonics Course - Sound Groups 4-7",
     slug: 'jolly-phonics-sounds-groups-4-7',
     subtitle: 'Continue the phonics journey with digraphs, alternative sounds, formation, songs, blending and interactive practice.',
     description:

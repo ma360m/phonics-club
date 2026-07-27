@@ -105,7 +105,7 @@ VALUES
   (
     'faq',
     'How do I contact Phonics Club support?',
-    'For account-specific, order-specific, or complex questions, contact Phonics Club at info@phonicsclub.com, phonicsclub@gmail.com, +92 300 8079480, or +92 3022220448.',
+    'For account-specific, order-specific, or complex questions, contact Phonics Club at info@phonicsclub.com, phonicscclub@gmail.com, +92 300 8079480, or +92 3022220448.',
     ARRAY['contact', 'support', 'help', 'phone', 'email']::TEXT[]
   )
 ON CONFLICT DO NOTHING;

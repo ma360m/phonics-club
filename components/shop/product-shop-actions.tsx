@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Minus, Plus, Heart, ShoppingCart } from 'lucide-react'
+import { Heart, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { setProductCartQuantityAction } from '@/actions/cart'
 import { toggleWishlistAction } from '@/actions/wishlist'
@@ -9,6 +9,7 @@ import { addToGuestCart, syncGuestCartCookie } from '@/lib/guest-cart-client'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/types/database'
+import { QuantityStepper } from '@/components/shop/quantity-stepper'
 
 interface Props {
   product: Product
@@ -48,27 +49,13 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center border rounded-xl overflow-hidden">
-        <button
-          type="button"
-          className="px-3 py-2 hover:bg-muted disabled:opacity-40"
-          disabled={qty <= 1 || pending}
-          onClick={() => setQty((q) => Math.max(1, q - 1))}
-          aria-label="Decrease quantity"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <span className="px-4 py-2 min-w-[3rem] text-center font-medium border-x">{qty}</span>
-        <button
-          type="button"
-          className="px-3 py-2 hover:bg-muted disabled:opacity-40"
-          disabled={pending || qty >= product.stock}
-          onClick={() => setQty((q) => Math.min(product.stock || 99, q + 1))}
-          aria-label="Increase quantity"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </div>
+      <QuantityStepper
+        value={qty}
+        onChange={setQty}
+        min={1}
+        max={product.stock > 0 ? product.stock : 99}
+        disabled={pending}
+      />
 
       <Button onClick={addToCart} disabled={pending || product.stock <= 0} className="rounded-xl bg-[#1D4ED8]">
         <ShoppingCart className="w-4 h-4 mr-2" />
@@ -98,18 +85,19 @@ export function ProductCardActions({ product }: { product: Product }) {
 
   return (
     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.preventDefault()}>
-      <div className="flex items-center border rounded-lg text-sm">
-        <button type="button" className="px-2 py-1 hover:bg-muted" onClick={() => setQty((q) => Math.max(1, q - 1))}>
-          <Minus className="w-3 h-3" />
-        </button>
-        <span className="px-2 min-w-[1.5rem] text-center">{qty}</span>
-        <button type="button" className="px-2 py-1 hover:bg-muted" onClick={() => setQty((q) => q + 1)}>
-          <Plus className="w-3 h-3" />
-        </button>
-      </div>
+      <QuantityStepper
+        value={qty}
+        onChange={setQty}
+        min={1}
+        max={product.stock > 0 ? product.stock : 99}
+        disabled={pending}
+        className="rounded-lg"
+        buttonClassName="h-8 w-8"
+        inputClassName="h-8 w-10 text-xs"
+      />
       <Button
         size="sm"
-        disabled={pending}
+        disabled={pending || product.stock <= 0}
         className="rounded-lg bg-[#1D4ED8] h-8 text-xs flex-1"
         onClick={() =>
           startTransition(async () => {

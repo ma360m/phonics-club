@@ -54,7 +54,7 @@ export function ShopNowPopup() {
 
         <div className="space-y-5 p-6">
           <p className="text-sm leading-6 text-muted-foreground">
-            Shop approved phonics books, workbooks, readers, and classroom resources from Phonics Club.
+            Explore our collection of books, readers, workbooks, and other teaching resources.
           </p>
 
           <div className="grid gap-3">

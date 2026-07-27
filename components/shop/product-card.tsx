@@ -6,10 +6,10 @@ import { ZoomIn } from 'lucide-react'
 import type { Product } from '@/types/database'
 import { ProductImage } from './product-image'
 import { ProductCardActions } from './product-shop-actions'
-import { formatPrice } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { PriceDisplay } from '@/components/currency/price-display'
 
 export function ProductCard({ product }: { product: Product }) {
   const [isZoomOpen, setIsZoomOpen] = useState(false)
@@ -59,11 +59,13 @@ export function ProductCard({ product }: { product: Product }) {
             {product.name}
           </h3>
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-lg font-bold text-[#1D4ED8]">{formatPrice(product.price)}</span>
+            <PriceDisplay amountPkr={product.price} className="text-lg font-bold text-[#1D4ED8]" />
             {hasDiscount && (
-              <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(compareAtPrice)}
-              </span>
+              <PriceDisplay
+                amountPkr={compareAtPrice}
+                showApproxPkr={false}
+                className="text-sm text-muted-foreground line-through"
+              />
             )}
           </div>
         </Link>

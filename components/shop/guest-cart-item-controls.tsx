@@ -1,7 +1,7 @@
 'use client'
 
-import { Minus, Plus } from 'lucide-react'
 import { updateGuestCartQuantity } from '@/lib/guest-cart-client'
+import { QuantityStepper } from '@/components/shop/quantity-stepper'
 
 export function GuestCartItemControls({
   productId,
@@ -19,23 +19,14 @@ export function GuestCartItemControls({
 
   return (
     <div className="flex items-center gap-2 mt-2">
-      <button
-        type="button"
-        className="p-1 border rounded-lg hover:bg-muted"
-        onClick={() => update(quantity - 1)}
-        aria-label="Decrease quantity"
-      >
-        <Minus className="w-3.5 h-3.5" />
-      </button>
-      <span className="text-sm font-medium w-8 text-center">{quantity}</span>
-      <button
-        type="button"
-        className="p-1 border rounded-lg hover:bg-muted"
-        onClick={() => update(quantity + 1)}
-        aria-label="Increase quantity"
-      >
-        <Plus className="w-3.5 h-3.5" />
-      </button>
+      <QuantityStepper
+        value={quantity}
+        onChange={update}
+        min={1}
+        className="rounded-lg"
+        buttonClassName="h-8 w-8"
+        inputClassName="h-8 w-10"
+      />
     </div>
   )
 }

@@ -23,7 +23,7 @@ export default function ConsultancyPage() {
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {[
             { icon: School, title: 'School Assessments', desc: 'Evaluate your phonics and literacy programs with expert review.' },
-            { icon: BookOpen, title: 'Syllabus Design', desc: 'Custom syllabi aligned with Jolly Phonics and national standards.' },
+            { icon: BookOpen, title: 'Syllabus Design', desc: 'Custom syllabi aligned with Jolly Phonics and international standards.' },
             { icon: ClipboardList, title: 'Implementation Support', desc: 'On-site guidance for teachers and administrators.' },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="bg-card rounded-2xl border p-6">

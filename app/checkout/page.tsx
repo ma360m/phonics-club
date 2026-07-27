@@ -3,6 +3,7 @@ import { BackButton } from '@/components/layout/back-button'
 import { getSession, getProfile } from '@/lib/auth'
 import { resolveCartForCheckout } from '@/lib/cart/resolve'
 import { getBankDetails } from '@/lib/site-content'
+import { getEnabledPaymentMethodSettings } from '@/lib/payment-method-settings'
 import { CheckoutForm } from '@/components/checkout/checkout-form'
 import { redirect } from 'next/navigation'
 import { buildMetadata } from '@/utils/seo'
@@ -18,6 +19,7 @@ export default async function CheckoutPage() {
   if (!cartItems.length) redirect('/cart')
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const enabledPaymentMethods = await getEnabledPaymentMethodSettings(subtotal)
 
   return (
     <main>
@@ -41,6 +43,11 @@ export default async function CheckoutPage() {
           email={profile?.email}
           bankDetails={bankDetails}
           isGuest={!user}
+          paymentOptions={enabledPaymentMethods.map((method) => ({
+            value: method.method,
+            title: method.displayName,
+            description: method.customerInstructions,
+          }))}
         />
       </div>
       <Footer />

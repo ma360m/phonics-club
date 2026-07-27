@@ -11,7 +11,7 @@ export function FeaturedCoursesGrid({ courses }: { courses: Course[] }) {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
             <h2 className="text-3xl font-bold">Featured Courses</h2>
-            <p className="text-muted-foreground mt-2">Expert-led phonics programs for all ages</p>
+            <p className="text-muted-foreground mt-2">Discover courses designed to inspire confident learning at every stage.</p>
           </div>
           <Button asChild variant="outline" className="rounded-xl">
             <Link href="/courses">

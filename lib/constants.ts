@@ -31,6 +31,7 @@ export const PRODUCT_CATEGORY_LABELS: Record<string, string> = {
 
 export const COURSE_CATEGORIES = [
   'teacher-courses',
+  'children-courses',
   'phonics',
   'reading',
   'preschool',

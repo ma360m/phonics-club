@@ -7,6 +7,7 @@ import { WhatsAppFloating } from '@/components/layout/whatsapp-button'
 import { ShopNowPopup } from '@/components/layout/shop-now-popup'
 import { buildMetadata, organizationJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
+import { getCurrencySettings } from '@/lib/currency-settings'
 import './globals.css'
 
 const inter = Inter({
@@ -24,16 +25,18 @@ const poppins = Poppins({
 
 export const metadata: Metadata = buildMetadata({})
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const currencySettings = await getCurrencySettings()
+
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         <JsonLd data={organizationJsonLd()} />
-        <Providers>
+        <Providers currencySettings={currencySettings}>
           {children}
           <ShopNowPopup />
           <PhonicsAssistant />

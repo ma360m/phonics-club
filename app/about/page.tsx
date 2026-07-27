@@ -86,9 +86,6 @@ export default async function AboutPage() {
               {overviewParagraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
-              <p>
-                <strong className="font-semibold text-foreground">Phonics Club Private Limited</strong> is an independent organization working to strengthen literacy education in Pakistan and abroad through teacher training, resources, consultancy, and classroom support.
-              </p>
             </div>
           </div>
         </div>
@@ -160,17 +157,19 @@ export default async function AboutPage() {
                 <p key={paragraph}>{paragraph}</p>
               ))}
             </div>
-            <div className="rounded-lg border border-[#FBBF24]/60 bg-white p-5">
-              <h3 className="font-bold">Important Notice</h3>
-              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                {content.jollyNotice.notice.map((item) => (
-                  <li key={item} className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#D30000]" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {content.jollyNotice.notice.length ? (
+              <div className="rounded-lg border border-[#FBBF24]/60 bg-white p-5">
+                <h3 className="font-bold">Important Notice</h3>
+                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  {content.jollyNotice.notice.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#D30000]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -192,21 +191,23 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-[#F8FAFC]">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold">Recommended Learning Path</h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {content.learningPath.map((stage) => (
-              <article key={stage.title} className="rounded-lg border bg-white p-5">
-                <h3 className="font-bold text-[#1D4ED8]">{stage.title}</h3>
-                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  {stage.items?.map((item) => <li key={item}>{item}</li>)}
-                </ul>
-              </article>
-            ))}
+      {content.showLearningPath ? (
+        <section className="bg-[#F8FAFC]">
+          <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold">Recommended Learning Path</h2>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {content.learningPath.map((stage) => (
+                <article key={stage.title} className="rounded-lg border bg-white p-5">
+                  <h3 className="font-bold text-[#1D4ED8]">{stage.title}</h3>
+                  <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                    {stage.items?.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">

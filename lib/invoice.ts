@@ -3,6 +3,7 @@ import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
+import { formatCurrency } from '@/lib/currency'
 
 interface InvoiceTemplate {
   header?: string
@@ -54,6 +55,9 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     ...(template?.bankDetails ?? {}),
   }
   const tagline = invoiceTagline(template?.tagline)
+  const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
+  const exchangeRate = Number(order.exchange_rate ?? 0)
+  const displayTotal = Number(order.display_total ?? 0)
 
   const rows = summary.lines
     .map((line) => {
@@ -122,6 +126,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
         ${order.member_id ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Member ID</span><strong>${escapeHtml(order.member_id)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
+        ${displayCurrency && exchangeRate && displayTotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;background:#f8fafc;color:#64748b;font-size:12px"><span>Displayed at checkout</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p><p style="margin:0;padding:0 12px 10px;background:#f8fafc;color:#64748b;font-size:12px">Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR</p>` : ''}
       </div>
     </div>
 

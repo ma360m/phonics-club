@@ -82,7 +82,11 @@ export function Newsletter() {
           </form>
 
           <p className="text-white/60 text-sm mt-4">
-            No spam, unsubscribe at any time. By subscribing you agree to our Privacy Policy.
+            No spam, unsubscribe at any time. By subscribing you agree to our{' '}
+            <Link href="/privacy" className="underline underline-offset-4 hover:text-white">
+              Privacy Policy
+            </Link>
+            .
           </p>
 
           <Button asChild variant="outline" className="mt-6 rounded-xl border-white/40 bg-white/10 text-white hover:bg-white hover:text-[#1D4ED8]">

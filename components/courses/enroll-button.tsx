@@ -39,6 +39,7 @@ export function EnrollButton({
 
   return (
     <Button
+      type="button"
       onClick={handleEnroll}
       disabled={pending}
       className={className ?? 'rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90'}

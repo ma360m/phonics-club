@@ -1,20 +1,57 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import {
+  expireSupabaseAuthCookies,
+  getSupabaseAuthCookieNames,
+  isSupabaseRefreshTokenError,
+} from '@/lib/supabase/auth-cookies'
 import type { Profile, UserRole } from '@/types/database'
 
-export async function getSession() {
+async function clearStaleSupabaseAuthCookies() {
+  try {
+    const cookieStore = await cookies()
+    const staleCookieNames = getSupabaseAuthCookieNames(cookieStore.getAll())
+    expireSupabaseAuthCookies(cookieStore, staleCookieNames)
+  } catch {
+    // Server Components cannot mutate cookies; middleware clears them on the response.
+  }
+}
+
+async function getCurrentUser() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error) {
+      if (isSupabaseRefreshTokenError(error)) {
+        await clearStaleSupabaseAuthCookies()
+      }
+      return null
+    }
+
+    return user
+  } catch (error) {
+    if (isSupabaseRefreshTokenError(error)) {
+      await clearStaleSupabaseAuthCookies()
+      return null
+    }
+
+    throw error
+  }
+}
+
+export async function getSession() {
+  return getCurrentUser()
 }
 
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) return null
 
   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()

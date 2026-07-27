@@ -27,13 +27,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { formatPrice } from '@/utils/format'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
 import { bulkDeleteProductsAction, bulkUpdateProductsAction, importCatalogManifestAction, deleteAllProductsAction } from '@/actions/admin/products-bulk'
 import { deleteProductAction } from '@/actions/admin/products'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { toast } from 'sonner'
 import type { Product } from '@/types/database'
+import { PriceDisplay } from '@/components/currency/price-display'
 
 interface Props {
   products: Product[]
@@ -291,7 +291,8 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
               </th>
               <th className="text-left p-3 w-14">Img</th>
               <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">ISBN</th>
+              <th className="text-left p-3">Product #</th>
+              <th className="text-left p-3">ISBN / SKU</th>
               <th className="text-left p-3">Category</th>
               <th className="text-left p-3">Price</th>
               <th className="text-left p-3">Stock</th>
@@ -301,7 +302,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
           <tbody>
             {initialProducts.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-12 text-center text-muted-foreground">
+                <td colSpan={9} className="p-12 text-center text-muted-foreground">
                   No products in database. Click &quot;Import Catalog&quot; or import a CSV/Excel file.
                 </td>
               </tr>
@@ -324,9 +325,15 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                       </div>
                     </td>
                     <td className="p-3 font-medium max-w-[180px] truncate">{p.name}</td>
-                    <td className="p-3 font-mono text-xs">{isbn}</td>
+                    <td className="p-3 font-mono text-xs">{p.product_number || '--'}</td>
+                    <td className="p-3 font-mono text-xs">
+                      <span className="block">{isbn}</span>
+                      {p.sku ? <span className="mt-1 block text-muted-foreground">SKU: {p.sku}</span> : null}
+                    </td>
                     <td className="p-3 text-xs">{PRODUCT_CATEGORY_LABELS[p.category] ?? p.category}</td>
-                    <td className="p-3">{formatPrice(p.price)}</td>
+                    <td className="p-3">
+                      <PriceDisplay amountPkr={p.price} />
+                    </td>
                     <td className="p-3">{p.stock}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1">

@@ -7,6 +7,7 @@ import {
 } from '@/actions/orders'
 import { AdminOrderDeleteButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
 import { formatPrice, formatDate } from '@/utils/format'
+import { formatCurrency } from '@/lib/currency'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
@@ -49,6 +50,12 @@ export default async function AdminOrdersPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>
+                  {order.display_currency === 'USD' && order.display_total ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Displayed as {formatCurrency(Number(order.display_total), 'USD', { freeLabel: false })}
+                      {order.exchange_rate ? ` at 1 USD = ${Number(order.exchange_rate).toLocaleString('en-PK')} PKR` : ''}
+                    </p>
+                  ) : null}
                   <Badge className="mt-1">{getCustomerOrderStatusLabel(order.status, order.payment_method)}</Badge>
                   <p className="text-xs text-muted-foreground mt-1">{shopPaymentLabel(order.payment_method)}</p>
                 </div>

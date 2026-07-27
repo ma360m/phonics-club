@@ -6,7 +6,7 @@ import { requireAdmin, requireAdminOrInstructor } from '@/lib/auth'
 import { courseSchema } from '@/lib/validations/course'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { normalizeMediaUrl } from '@/lib/media-url'
-import { CHILDREN_PHONICS_COURSES } from '@/lib/data/children-phonics-courses'
+import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses } from '@/lib/data/children-phonics-courses'
 import { ensureChildrenPhonicsCoursesInstalled } from '@/lib/data/children-phonics-install'
 import type { ActionResult, CurriculumModule } from '@/types'
 import type { Course } from '@/types/database'
@@ -227,7 +227,8 @@ export async function getInstructorDashboardData() {
     supabase.from('lesson_progress').select('id, user_id, course_id, lesson_id, completed, updated_at, last_accessed_at').order('updated_at', { ascending: false }).limit(8),
   ])
 
-  const courses = (coursesResult.data ?? []) as Course[]
+  const dbCourses = (coursesResult.data ?? []) as Course[]
+  const courses = mergeMissingChildrenPhonicsCourses(dbCourses)
   const enrollments = enrollmentsResult.data ?? []
   const modules = modulesResult.data ?? []
   const lessons = lessonsResult.data ?? []
@@ -283,7 +284,7 @@ export async function getInstructorDashboardData() {
     },
     courses: courseRows,
     missingChildrenCourses: CHILDREN_PHONICS_COURSES.filter(
-      (course) => !courses.some((existing) => existing.slug === course.slug),
+      (course) => !dbCourses.some((existing) => existing.slug === course.slug),
     ),
     recentActivity: progress.map((item: any) => {
       const course = courses.find((row) => row.id === item.course_id)

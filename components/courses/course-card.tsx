@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import type { Course, Enrollment } from '@/types/database'
-import { formatPrice } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { PriceDisplay } from '@/components/currency/price-display'
 import { CourseImage } from '@/components/courses/course-image'
 import { CourseWishlistButton } from '@/components/courses/course-wishlist-button'
 import { formatCourseCategory, getCourseAccessState, getCourseDisplayMeta, getCoursePrice } from '@/lib/lms'
@@ -89,9 +89,7 @@ export function CourseCard({
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
-          <p className="text-xl font-bold text-[#1D4ED8]">
-            {price === 0 ? 'Free' : formatPrice(price)}
-          </p>
+          <PriceDisplay amountPkr={price} className="text-xl font-bold text-[#1D4ED8]" />
           <Button asChild size="sm" className={enrollment && access?.active ? 'rounded-xl bg-[#1D4ED8]' : 'rounded-xl bg-[#D30000] hover:bg-[#D30000]/90'}>
             <Link href={enrollment && access?.active ? `/course/${course.id}/learn` : `/courses/${course.slug}`}>
               {enrollment && access?.active ? (

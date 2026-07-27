@@ -19,6 +19,9 @@ import { uploadOrderReceipt } from '@/lib/orders/receipt-upload'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
 import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
+import { convertCurrency, normalizeCurrency } from '@/lib/currency'
+import { getCurrencySettings } from '@/lib/currency-settings'
+import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
 import type { ActionResult, OrderItem } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
@@ -194,8 +197,15 @@ export async function placeOrderAction(
 
   const total = subtotal + shippingFee - discountAmount
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
+  if (!(await isPaymentMethodEnabled(paymentMethod, total))) {
+    return { success: false, error: 'This payment method is currently unavailable. Please choose another payment method.' }
+  }
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
   const receiptTiming = String(formData.get('receiptTiming') ?? 'later') === 'now' ? 'now' : 'later'
+  const currencySettings = await getCurrencySettings()
+  const displayCurrency = normalizeCurrency(formData.get('displayCurrency'), currencySettings.usdEnabled)
+  const exchangeRate = currencySettings.usdToPkrRate
+  const exchangeRateTimestamp = currencySettings.lastUpdatedAt
 
   const accessToken = user ? null : generateOrderAccessToken()
   const invoiceNumber = await getNextInvoiceNumber()
@@ -228,7 +238,7 @@ export async function placeOrderAction(
     country: parsed.data.country,
   }
 
-  const orderPayload = {
+  const orderPayload: Record<string, unknown> = {
     user_id: user?.id ?? null,
     guest_email: user ? null : parsed.data.email,
     access_token: accessToken,
@@ -245,14 +255,39 @@ export async function placeOrderAction(
     invoice_number: invoiceNumber,
     items,
     shipping_address: shippingAddress,
+    display_currency: displayCurrency,
+    exchange_rate: exchangeRate,
+    exchange_rate_timestamp: exchangeRateTimestamp,
+    display_subtotal: convertCurrency(subtotal, displayCurrency, exchangeRate),
+    display_shipping_fee: convertCurrency(shippingFee, displayCurrency, exchangeRate),
+    display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
+    display_total: convertCurrency(total, displayCurrency, exchangeRate),
   }
 
   const supabase = user ? await createClient() : await createServiceClient()
-  const { data: order, error } = await supabase
+  let { data: order, error } = await supabase
     .from('orders')
     .insert(orderPayload as never)
     .select()
     .single()
+
+  if (error && /display_currency|exchange_rate|display_subtotal|display_total/i.test(error.message)) {
+    const legacyPayload = { ...orderPayload }
+    delete legacyPayload.display_currency
+    delete legacyPayload.exchange_rate
+    delete legacyPayload.exchange_rate_timestamp
+    delete legacyPayload.display_subtotal
+    delete legacyPayload.display_shipping_fee
+    delete legacyPayload.display_discount_amount
+    delete legacyPayload.display_total
+    const retry = await supabase
+      .from('orders')
+      .insert(legacyPayload as never)
+      .select()
+      .single()
+    order = retry.data
+    error = retry.error
+  }
 
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be placed.') }
 
@@ -295,6 +330,9 @@ export async function placeOrderAction(
     orderDate: order.created_at ?? new Date().toISOString(),
     paymentStatus: order.status,
     total: Number(order.total ?? total),
+    displayCurrency,
+    displayTotal: convertCurrency(total, displayCurrency, exchangeRate),
+    exchangeRate,
     items,
     shippingAddress,
   })

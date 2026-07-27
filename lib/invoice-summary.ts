@@ -28,6 +28,10 @@ export type InvoiceOrder = Order & {
   member_id?: string | null
   payment_method?: string | null
   phone?: string | null
+  display_currency?: string | null
+  exchange_rate?: number | null
+  exchange_rate_timestamp?: string | null
+  display_total?: number | null
 }
 
 export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {

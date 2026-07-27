@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Package, GraduationCap, FileText, Users, ShoppingBag, BookOpen, TrendingUp } from 'lucide-react'
+import { Package, GraduationCap, FileText, Users, ShoppingBag, BookOpen, TrendingUp, Code2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/utils/format'
 
@@ -44,8 +44,11 @@ export default async function AdminDashboardPage() {
   ]
 
   const quickLinks = [
+    { href: '/admin/developer-mode', label: 'Developer Mode' },
     { href: '/admin/courses/new', label: 'Create Course' },
     { href: '/admin/products', label: 'Manage Products' },
+    { href: '/admin/settings/currency', label: 'Currency Settings' },
+    { href: '/admin/settings/payment-methods', label: 'Payment Methods' },
     { href: '/admin/blog/new', label: 'New Blog Post' },
     { href: '/admin/users', label: 'View Users' },
     { href: '/admin/certificates', label: 'Certificates' },
@@ -72,7 +75,10 @@ export default async function AdminDashboardPage() {
       <div className="flex flex-wrap gap-2">
         {quickLinks.map((link) => (
           <Button key={link.href} asChild variant="outline" className="rounded-xl">
-            <Link href={link.href}>{link.label}</Link>
+            <Link href={link.href}>
+              {link.href === '/admin/developer-mode' ? <Code2 className="h-4 w-4" /> : null}
+              {link.label}
+            </Link>
           </Button>
         ))}
       </div>

@@ -7,8 +7,8 @@ import {
 } from '@/lib/data/children-phonics-install'
 import { isChildrenPhonicsCourseSlug } from '@/lib/data/children-phonics-courses'
 
-export async function GET(
-  _request: Request,
+async function enrollFromSlug(
+  request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
@@ -35,4 +35,18 @@ export async function GET(
   }
 
   redirect(`/courses/${slug}?enrollError=${encodeURIComponent(result.error ?? 'Enrollment could not be started')}`)
+}
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ slug: string }> },
+) {
+  return enrollFromSlug(request, context)
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ slug: string }> },
+) {
+  return enrollFromSlug(request, context)
 }

@@ -87,12 +87,13 @@ export default async function TrainingsPage() {
                 <div className="aspect-video bg-[#0F172A]">
                   <video
                     src={websiteVideos.trainingsOnsiteVideoUrl}
+                    autoPlay
                     muted
                     loop
                     playsInline
                     controls
-                    preload="metadata"
-                    className="h-full w-full object-contain"
+                    preload="auto"
+                    className="h-full w-full object-cover sm:object-contain"
                   />
                 </div>
               </div>
@@ -143,7 +144,11 @@ export default async function TrainingsPage() {
         </section>
 
         <section className="mb-16 rounded-2xl bg-muted/30 p-8">
-          <h2 className="mb-6 text-2xl font-bold">Weekly Plan (Kindergarten - Grade 2)</h2>
+          <h2 className="mb-3 text-2xl font-bold">Weekly Plan</h2>
+          <p className="mb-2 text-sm font-semibold text-[#1D4ED8]">
+            Need a customized plan for your school? Contact Phonics Club for professional consultancy services.
+          </p>
+          <p className="mb-6 text-sm text-muted-foreground">Grade 2 example:</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {WEEKLY_PLAN.map((day) => (
               <div key={day.day} className="rounded-xl border bg-card p-4 text-center">

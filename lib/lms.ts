@@ -2,6 +2,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import { SEED_COURSES } from '@/lib/data/seed'
+import { CHILDREN_PHONICS_COURSES } from '@/lib/data/children-phonics-courses'
 import { getCourses, getCourseBySlug } from '@/lib/data/queries'
 import { formatCourseCategory } from '@/lib/course-format'
 import type {
@@ -242,7 +243,7 @@ export async function getCourseById(
   options?: { includeUnpublished?: boolean },
 ): Promise<Course | null> {
   if (!isSupabaseConfigured()) {
-    return SEED_COURSES.find((course) => course.id === courseId) ?? null
+    return [...SEED_COURSES, ...CHILDREN_PHONICS_COURSES].find((course) => course.id === courseId) ?? null
   }
 
   const supabase = options?.includeUnpublished && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -252,7 +253,7 @@ export async function getCourseById(
   if (!options?.includeUnpublished) query = query.eq('published', true)
   const { data } = await query.maybeSingle()
 
-  return (data as Course | null) ?? null
+  return (data as Course | null) ?? CHILDREN_PHONICS_COURSES.find((course) => course.id === courseId) ?? null
 }
 
 export async function getCourseModules(course: Course): Promise<CourseModuleWithLessons[]> {

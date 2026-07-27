@@ -6,9 +6,12 @@ import { buildMetadata } from '@/utils/seo'
 import { formatDate } from '@/utils/format'
 import { BLOG_CATEGORIES } from '@/lib/constants'
 
+const BLOG_DESCRIPTION =
+  "Discover practical tips, educational news, professional development articles, and evidence-based literacy practices to support every child's reading journey."
+
 export const metadata = buildMetadata({
   title: 'Blog',
-  description: 'Phonics tips, teaching strategies, and literacy resources',
+  description: BLOG_DESCRIPTION,
   path: '/blog',
 })
 
@@ -35,7 +38,7 @@ export default async function BlogPage({
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold mb-2">Blog</h1>
-        <p className="text-muted-foreground mb-8">Insights for parents, teachers, and learners</p>
+        <p className="text-muted-foreground mb-8">{BLOG_DESCRIPTION}</p>
         <div className="flex flex-wrap gap-2 mb-6">
           <a href="/blog" className={`px-4 py-2 rounded-xl text-sm font-medium ${!category ? 'bg-[#1D4ED8] text-white' : 'bg-muted'}`}>
             All

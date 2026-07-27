@@ -60,7 +60,7 @@ INSERT INTO blog_posts (
 VALUES (
   'Jolly Phonics 2017 Training Video',
   'jolly-phonics-2017-training-video',
-  'A 2017 Phonics Club video resource highlighting Jolly Phonics training and literacy work.',
+  'Discover effective phonics teaching strategies from one of our early training sessions.',
   $blog$<p>This 2017 video shares Phonics Club training and classroom literacy work using Jolly Phonics.</p><p><a href="https://youtu.be/F8Rfx7Bn-I4?si=rSB5jssgwYR8uQ_T" target="_blank" rel="noopener noreferrer">Watch on YouTube</a></p><div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;margin-top:16px"><iframe src="https://www.youtube.com/embed/F8Rfx7Bn-I4" title="Jolly Phonics 2017 Training Video" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>$blog$,
   'news',
   ARRAY['Jolly Phonics', '2017', 'Training Video']::TEXT[],

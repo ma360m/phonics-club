@@ -1,6 +1,7 @@
 import { COMPANY } from '@/lib/company'
 import { invoiceFileBaseName } from '@/lib/invoice'
 import { formatDate, formatPrice } from '@/utils/format'
+import { formatCurrency } from '@/lib/currency'
 
 interface EmailAttachment {
   filename: string
@@ -46,6 +47,9 @@ interface OrderEmailOptions {
   orderDate: string
   paymentStatus: string
   total: number
+  displayCurrency?: string
+  displayTotal?: number
+  exchangeRate?: number
   items: OrderEmailItem[]
   shippingAddress: OrderEmailShippingAddress | null
 }
@@ -171,6 +175,9 @@ function buildCustomerEmailHtml({
   orderDate,
   paymentStatus,
   total,
+  displayCurrency,
+  displayTotal,
+  exchangeRate,
 }: {
   customerName: string
   invoiceNumber: string
@@ -179,6 +186,9 @@ function buildCustomerEmailHtml({
   orderDate: string
   paymentStatus: string
   total: number
+  displayCurrency?: string
+  displayTotal?: number
+  exchangeRate?: number
 }): string {
   const safeName = customerName.trim() || 'there'
   const body = `
@@ -198,6 +208,7 @@ function buildCustomerEmailHtml({
           ${buildDetailRow('Order date', formatOrderDate(orderDate))}
           ${buildDetailRow('Payment status', formatStatus(paymentStatus))}
           ${buildDetailRow('Total amount', formatPrice(total))}
+          ${displayCurrency === 'USD' && displayTotal && exchangeRate ? buildDetailRow('Displayed at checkout', `${formatCurrency(displayTotal, 'USD', { freeLabel: false })} (1 USD = ${exchangeRate.toLocaleString('en-PK')} PKR)`) : ''}
         </table>
         <div style="margin:0 0 28px;">
           ${buildButton('Download Invoice', invoicePdfUrl, '#1D4ED8')}
@@ -229,6 +240,9 @@ function buildAdminEmailHtml({
   invoiceNumber,
   items,
   total,
+  displayCurrency,
+  displayTotal,
+  exchangeRate,
   paymentStatus,
   shippingAddress,
   adminOrderUrl,
@@ -240,6 +254,9 @@ function buildAdminEmailHtml({
   invoiceNumber: string
   items: OrderEmailItem[]
   total: number
+  displayCurrency?: string
+  displayTotal?: number
+  exchangeRate?: number
   paymentStatus: string
   shippingAddress: OrderEmailShippingAddress | null
   adminOrderUrl: string
@@ -273,6 +290,7 @@ function buildAdminEmailHtml({
           ${buildDetailRow('Invoice number', invoiceNumber)}
           ${buildDetailRow('Payment status', formatStatus(paymentStatus))}
           ${buildDetailRow('Total', formatPrice(total))}
+          ${displayCurrency === 'USD' && displayTotal && exchangeRate ? buildDetailRow('Displayed at checkout', `${formatCurrency(displayTotal, 'USD', { freeLabel: false })} (1 USD = ${exchangeRate.toLocaleString('en-PK')} PKR)`) : ''}
         </table>
 
         <h2 style="color:#111827;font-size:16px;margin:0 0 12px;">Ordered items</h2>
@@ -364,6 +382,9 @@ export async function sendOrderConfirmationEmail(
       orderDate: options.orderDate,
       paymentStatus: options.paymentStatus,
       total: options.total,
+      displayCurrency: options.displayCurrency,
+      displayTotal: options.displayTotal,
+      exchangeRate: options.exchangeRate,
     }),
     attachments: attachment,
   }
@@ -378,6 +399,9 @@ export async function sendOrderConfirmationEmail(
       invoiceNumber,
       items: options.items,
       total: options.total,
+      displayCurrency: options.displayCurrency,
+      displayTotal: options.displayTotal,
+      exchangeRate: options.exchangeRate,
       paymentStatus: options.paymentStatus,
       shippingAddress: options.shippingAddress,
       adminOrderUrl,

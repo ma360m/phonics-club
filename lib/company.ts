@@ -6,8 +6,8 @@ export const COMPANY = {
   description:
     'Phonics Club Pvt Ltd is a registered organization dedicated to promoting the Synthetic Phonics teaching principles which empower children to apply taught knowledge and skills to their independent reading, writing and spellings. This is achievable only when a teacher has full confidence of knowledge. Phonics Club offers training, support and consultancy to ensure effective language instruction.',
   email: 'info@phonicsclub.com',
-  adminEmail: 'phonicsclub@gmail.com',
-  emails: ['info@phonicsclub.com', 'phonicsclub@gmail.com'],
+  adminEmail: 'phonicscclub@gmail.com',
+  emails: ['info@phonicsclub.com', 'phonicscclub@gmail.com'],
   phone: '03008079480',
   phoneAlt: '03022220448',
   phoneDisplay: '+92 300 8079480',

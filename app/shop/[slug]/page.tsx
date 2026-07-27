@@ -7,8 +7,8 @@ import { ProductGallery } from '@/components/shop/product-gallery'
 import { getProductBySlug, getProducts } from '@/lib/data/queries'
 import { buildMetadata, productJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
-import { formatPrice } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
+import { PriceDisplay } from '@/components/currency/price-display'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -48,11 +48,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             {isbn ? <p className="mb-4 font-mono text-sm text-muted-foreground">ISBN: {isbn}</p> : null}
             <h1 className="mb-4 text-4xl font-bold">{product.name}</h1>
             <div className="mb-6 flex items-center gap-3">
-              <span className="text-3xl font-bold text-[#1D4ED8]">{formatPrice(product.price)}</span>
+              <PriceDisplay amountPkr={product.price} className="text-3xl font-bold text-[#1D4ED8]" />
               {product.compare_at_price ? (
-                <span className="text-xl text-muted-foreground line-through">
-                  {formatPrice(product.compare_at_price)}
-                </span>
+                <PriceDisplay
+                  amountPkr={product.compare_at_price}
+                  showApproxPkr={false}
+                  className="text-xl text-muted-foreground line-through"
+                />
               ) : null}
             </div>
             {product.description ? (

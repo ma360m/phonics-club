@@ -8,21 +8,19 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { shopPaymentLabel, shopPaymentNeedsReceipt, type ShopPaymentMethod } from '@/lib/payment-methods'
-import { formatPrice } from '@/utils/format'
 import type { ActionResult } from '@/types'
 import { getGuestCart } from '@/lib/guest-cart-client'
+import { CurrencyDisplayNotice } from '@/components/currency/price-display'
+import { useCurrency } from '@/components/currency/currency-provider'
+import { formatCurrency } from '@/lib/currency'
 
 const initialState: ActionResult = { success: false }
-const paymentOptions: Array<{
+
+type PaymentOption = {
   value: ShopPaymentMethod
   title: string
   description: string
-}> = [
-  { value: 'cod', title: 'Cash on Delivery', description: 'Pay when your order is delivered.' },
-  { value: 'bank_transfer', title: 'Bank Transfer', description: 'Transfer to the Phonics Club bank account.' },
-  { value: 'jazzcash', title: 'JazzCash', description: 'Send payment to the listed JazzCash number.' },
-  { value: 'easypaisa', title: 'EasyPaisa', description: 'Send payment to the listed EasyPaisa number.' },
-]
+}
 
 interface BankDetails {
   bankName: string
@@ -62,16 +60,19 @@ export function CheckoutForm({
   email,
   bankDetails,
   isGuest = false,
+  paymentOptions,
 }: {
   subtotal: number
   cartItems: CheckoutItem[]
   email?: string
   bankDetails: BankDetails
   isGuest?: boolean
+  paymentOptions: PaymentOption[]
 }) {
+  const { currency, settings, format } = useCurrency()
   const [state, formAction, pending] = useActionState(placeOrderAction, initialState)
   const formRef = useRef<HTMLFormElement>(null)
-  const [paymentMethod, setPaymentMethod] = useState<ShopPaymentMethod>('cod')
+  const [paymentMethod, setPaymentMethod] = useState<ShopPaymentMethod>(paymentOptions[0]?.value ?? 'cod')
   const [receiptTiming, setReceiptTiming] = useState<'now' | 'later'>('later')
   const [showMemberHelp, setShowMemberHelp] = useState(false)
   const [reviewReady, setReviewReady] = useState(false)
@@ -95,6 +96,12 @@ export function CheckoutForm({
   useEffect(() => {
     if (paymentMethod === 'cod') setReceiptTiming('later')
   }, [paymentMethod])
+
+  useEffect(() => {
+    if (!paymentOptions.some((option) => option.value === paymentMethod)) {
+      setPaymentMethod(paymentOptions[0]?.value ?? 'cod')
+    }
+  }, [paymentMethod, paymentOptions])
 
   useEffect(() => {
     const code = couponCode.trim()
@@ -248,6 +255,7 @@ export function CheckoutForm({
         <input type="hidden" name="country" value="Pakistan" />
         {isGuest && <input type="hidden" name="guestCart" value={guestCartJson} />}
         <input type="hidden" name="receiptTiming" value={receiptTiming} />
+        <input type="hidden" name="displayCurrency" value={currency} />
 
         <div className="border-t pt-5 space-y-3">
           <Label>Coupon / Member ID</Label>
@@ -285,7 +293,7 @@ export function CheckoutForm({
                 ? 'Checking coupon...'
                 : couponPreview?.valid
                   ? couponDiscount > 0
-                    ? `Coupon ${previewCouponCode} applies ${formatPrice(couponDiscount)} discount. Estimated total: ${formatPrice(payableTotal)}.`
+                    ? `Coupon ${previewCouponCode} applies ${format(couponDiscount)} discount. Estimated total: ${format(payableTotal)}.`
                     : `Coupon ${previewCouponCode} is valid but does not reduce this order.`
                   : couponPreview?.error ?? 'Coupon could not be checked.'}
             </p>
@@ -303,7 +311,7 @@ export function CheckoutForm({
         <div className="border-t pt-5 space-y-3">
           <Label>Payment Method *</Label>
           <div className="grid gap-3 sm:grid-cols-2">
-            {paymentOptions.map((option) => (
+            {paymentOptions.length ? paymentOptions.map((option) => (
               <label
                 key={option.value}
                 className={`flex min-h-28 cursor-pointer gap-3 rounded-lg border p-4 transition-colors ${
@@ -323,7 +331,11 @@ export function CheckoutForm({
                   <span className="mt-1 block text-sm text-muted-foreground">{option.description}</span>
                 </span>
               </label>
-            ))}
+            )) : (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                No payment methods are currently available. Please contact Phonics Club.
+              </p>
+            )}
           </div>
 
           {receiptRequired && (
@@ -450,7 +462,9 @@ export function CheckoutForm({
             </Button>
           )}
           <p className="text-center text-xs text-muted-foreground">
-            Confirmation emails with the invoice are sent to the customer and admin.
+            {currency === 'USD'
+              ? `Your prices are displayed in USD. Payment will be processed in PKR using 1 USD = ${settings.usdToPkrRate.toLocaleString('en-PK')} PKR.`
+              : 'Confirmation emails with the invoice are sent to the customer and admin.'}
           </p>
         </div>
       </aside>
@@ -479,6 +493,7 @@ function InvoicePreview({
   paymentMethod: ShopPaymentMethod
   receiptTiming: 'now' | 'later'
 }) {
+  const { currency, format } = useCurrency()
   return (
     <div className="space-y-5 text-sm">
       <div className="rounded-lg bg-[#1D4ED8] p-4 text-white">
@@ -504,27 +519,36 @@ function InvoicePreview({
               <span>
                 <span className="block font-medium">{item.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {item.quantity} x {formatPrice(item.price)}
+                  {item.quantity} x {format(item.price)}
                 </span>
               </span>
-              <span className="font-semibold">{formatPrice(item.price * item.quantity)}</span>
+              <span className="font-semibold">{format(item.price * item.quantity)}</span>
             </li>
           ))}
         </ul>
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
-        <div className="flex justify-between"><span>Shipping</span><span>{formatPrice(shipping)}</span></div>
+        <div className="flex justify-between"><span>Subtotal</span><span>{format(subtotal)}</span></div>
+        <div className="flex justify-between"><span>Shipping</span><span>{format(shipping)}</span></div>
         {couponDiscount > 0 && (
           <div className="flex justify-between text-[#D30000]">
             <span>Coupon{couponCode ? ` (${couponCode})` : ''}</span>
-            <span>-{formatPrice(couponDiscount)}</span>
+            <span>-{format(couponDiscount)}</span>
           </div>
         )}
         <div className="flex justify-between text-lg font-bold text-[#1D4ED8]">
-          <span>Total</span><span>{formatPrice(payableTotal)}</span>
+          <span>Total</span>
+          <span className="text-right">
+            <span className="block">{format(payableTotal)}</span>
+            {currency === 'USD' ? (
+              <span className="mt-1 block text-xs font-medium text-muted-foreground">
+                ≈ {formatCurrency(payableTotal, 'PKR', { freeLabel: false, useCode: true })}
+              </span>
+            ) : null}
+          </span>
         </div>
+        <CurrencyDisplayNotice />
         <p className="text-xs text-muted-foreground">Final coupon validation happens when the order is placed.</p>
       </div>
 

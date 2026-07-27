@@ -91,6 +91,7 @@ export interface AboutPageContent {
     notice: string[]
   }
   services: string[]
+  showLearningPath?: boolean
   learningPath: AboutCard[]
   milestones: { year: string; title: string; items: string[] }[]
   impact: { label: string; value: string }[]
@@ -240,6 +241,14 @@ const DEFAULT_SOCIAL_REELS: SocialReel[] = [
   { id: '4', thumbnail: '', videoUrl: COMPANY.social.facebook, title: 'Teacher workshop' },
   { id: '5', thumbnail: '', videoUrl: COMPANY.social.instagram, title: 'Student progress' },
   { id: '6', thumbnail: '', videoUrl: COMPANY.social.youtube, title: 'Phonics Club community' },
+]
+
+const JOLLY_NOC_IMPORTANT_NOTICE = [
+  'School administrations, distributors, and retailers are strongly advised to purchase only through authorized channels.',
+  'Some unauthorized editions have been modified to comply with PCTB requirements and may differ from approved versions.',
+  'Phonics Club cannot guarantee the authenticity or quality of books purchased through unauthorized dealers.',
+  'Customers who purchased books from Phonics Club before the issuance of NOCs should claim their official QR Code verification stickers.',
+  'Approved book lists are also available on the PCTB website.',
 ]
 
 const SCHOOL_LOGO_PATHS: Record<string, string> = {
@@ -462,9 +471,9 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   overview: {
     title: 'About Phonics Club',
     paragraphs: [
-      'Phonics Club Pvt. Ltd. is a registered organization dedicated to promoting the Synthetic Phonics approach to literacy education. The organization equips teachers with the knowledge, confidence, and practical skills required to help children become independent readers, writers, and spellers.',
-      'Phonics Club is an independent organization working across Pakistan and internationally to improve English language education through evidence-based literacy practices.',
-      'The organization provides professional teacher training, educational consultancy, curriculum development, school support, language assessments, and internationally aligned literacy programs.',
+      'Phonics Club Pvt. Ltd. is a registered organization dedicated to advancing literacy through the Synthetic Phonics approach. As the Official Jolly Learning Distributor in Pakistan, Phonics Club provides authentic Jolly Learning resources, professional development, and literacy solutions that empower teachers to help children become confident, independent readers, writers, and spellers.',
+      'Since its establishment in 2015, Phonics Club has worked with schools, educators, and institutions across Pakistan and internationally to strengthen English language education through evidence-based literacy practices.',
+      'The organization offers professional teacher training, educational consultancy, curriculum development, school support, language assessments, internationally aligned literacy programs, and access to official Jolly Learning teaching materials. Through expert guidance, quality resources, and ongoing support, Phonics Club helps educators create engaging, effective, and successful literacy classrooms.',
     ],
   },
   mission:
@@ -516,16 +525,9 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     title: 'Jolly Learning Books and Official NOCs',
     subtitle: 'Official Distributor and Authorized Educational Partner',
     paragraphs: [
-      'Almost all approved Jolly Learning books are available with the required PCTB approvals, with little or no editing.',
-      'Phonics Club has acquired, or is in the process of acquiring, the required NOCs for relevant textbooks and supplementary reading materials.',
+      'As the Official Jolly Learning Distributor in Pakistan, Phonics Club provides authentic Jolly Learning books with all required PCTB approvals and NOCs already secured, ensuring educators have access to fully approved and internationally recognized literacy resources.',
     ],
-    notice: [
-      'School administrations, distributors, and retailers are strongly advised to purchase only through authorized channels.',
-      'Some unauthorized editions have been modified to comply with PCTB requirements and may differ from approved versions.',
-      'Phonics Club cannot guarantee the authenticity or quality of books purchased through unauthorized dealers.',
-      'Customers who purchased books from Phonics Club before the issuance of NOCs should claim their official QR Code verification stickers.',
-      'Approved book lists are also available on the PCTB website.',
-    ],
+    notice: JOLLY_NOC_IMPORTANT_NOTICE,
   },
   services: [
     'Teacher Training',
@@ -537,6 +539,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     'Professional Workshops',
     'School Partnerships',
   ],
+  showLearningPath: false,
   learningPath: [
     { title: 'Playgroup (Age 3+)', items: ['Fun Phonics Pack 1', 'Letters and Sounds Strip', 'Optional Fun Phonics Pack 2', 'Picture Stories'] },
     { title: 'Pre-K (Age 4+)', items: ['Jolly Phonics Pupil Book 1', 'Orange Level Readers', 'Little Word Books'] },
@@ -607,7 +610,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   ],
   contact: {
     phones: ['0300-8079480', '0302-2220448'],
-    emails: ['info@phonicsclub.com', 'phonicsclub@gmail.com'],
+    emails: ['info@phonicsclub.com', 'phonicscclub@gmail.com'],
   },
   cta: {
     title: 'Ready to Transform Literacy Education?',
@@ -629,7 +632,6 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
   },
   overview: [
     'Our research activity focuses on practical classroom implementation: training teachers, observing learners, improving methodology, and using evidence to guide future literacy work.',
-    'Admins can update this page with new project notes, research photographs, reports, and supporting media from the site content dashboard.',
   ],
   projects: [
     {
@@ -682,7 +684,7 @@ export const DEFAULT_POLICIES: Record<string, PolicyContent> = {
       { title: 'Sharing Information', body: ['We never sell personal information. Information may be shared only with trusted third parties where necessary, including courier companies, payment processors, hosting providers, analytics providers, security providers, or authorities where legally required.'] },
       { title: 'Cookies and Analytics', body: ['Our website may use cookies to remember preferences, keep users signed in, improve functionality, and understand website usage. You may disable cookies through your browser settings.'] },
       { title: 'Changes to this Policy', body: ['We may update this Privacy Policy from time to time. Any updates become effective when published on this page.'] },
-      { title: 'Contact Us', body: ['For questions regarding this Privacy Policy, contact info@phonicsclub.com or phonicsclub@gmail.com.'] },
+      { title: 'Contact Us', body: ['For questions regarding this Privacy Policy, contact info@phonicsclub.com or phonicscclub@gmail.com.'] },
     ],
   },
   terms_policy: {
@@ -845,17 +847,22 @@ export async function getBankDetails() {
 
 export async function getAboutPageContent(): Promise<AboutPageContent> {
   const data = await getContent('about_page', DEFAULT_ABOUT_PAGE)
+  const jollyNotice = { ...DEFAULT_ABOUT_PAGE.jollyNotice, ...(data.jollyNotice ?? {}) }
   return {
     ...DEFAULT_ABOUT_PAGE,
     ...data,
     hero: { ...DEFAULT_ABOUT_PAGE.hero, ...(data.hero ?? {}) },
     overview: { ...DEFAULT_ABOUT_PAGE.overview, ...(data.overview ?? {}) },
-    jollyNotice: { ...DEFAULT_ABOUT_PAGE.jollyNotice, ...(data.jollyNotice ?? {}) },
+    jollyNotice: {
+      ...jollyNotice,
+      notice: jollyNotice.notice?.length ? jollyNotice.notice : DEFAULT_ABOUT_PAGE.jollyNotice.notice,
+    },
     contact: { ...DEFAULT_ABOUT_PAGE.contact, ...(data.contact ?? {}) },
     cta: { ...DEFAULT_ABOUT_PAGE.cta, ...(data.cta ?? {}) },
     whatWeDo: data.whatWeDo ?? DEFAULT_ABOUT_PAGE.whatWeDo,
     whyChoose: data.whyChoose ?? DEFAULT_ABOUT_PAGE.whyChoose,
     services: data.services ?? DEFAULT_ABOUT_PAGE.services,
+    showLearningPath: data.showLearningPath ?? DEFAULT_ABOUT_PAGE.showLearningPath,
     learningPath: data.learningPath ?? DEFAULT_ABOUT_PAGE.learningPath,
     milestones: data.milestones ?? DEFAULT_ABOUT_PAGE.milestones,
     impact: data.impact ?? DEFAULT_ABOUT_PAGE.impact,
