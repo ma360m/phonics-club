@@ -12,6 +12,8 @@ import {
   LayoutDashboard,
   Menu,
   MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   ShoppingBag,
 } from 'lucide-react'
@@ -47,6 +49,7 @@ function SidebarContent({
   userEmail,
   isAdmin,
   compact = false,
+  onToggleCompact,
 }: {
   pathname: string
   onNavigate?: () => void
@@ -54,6 +57,7 @@ function SidebarContent({
   userEmail?: string | null
   isAdmin?: boolean
   compact?: boolean
+  onToggleCompact?: () => void
 }) {
   const initials = (userName || userEmail || 'PC')
     .split(/\s|@/)
@@ -65,17 +69,30 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className={cn('border-b border-slate-200 px-4 py-5', compact && 'px-3')}>
-        <Link href="/dashboard" onClick={onNavigate} className={cn('flex items-center gap-3', compact && 'justify-center')}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#1D4ED8] text-sm font-bold text-white shadow-sm">
-            PC
-          </span>
-          {!compact && (
-            <span>
-              <span className="block text-sm font-bold text-[#0F172A]">Phonics Club</span>
-              <span className="block text-xs text-slate-500">Learning space</span>
+        <div className={cn('flex items-center gap-3', compact ? 'flex-col' : 'justify-between')}>
+          <Link href="/dashboard" onClick={onNavigate} className={cn('flex min-w-0 items-center gap-3', compact && 'justify-center')}>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#1D4ED8] text-sm font-bold text-white shadow-sm">
+              PC
             </span>
-          )}
-        </Link>
+            {!compact && (
+              <span>
+                <span className="block text-sm font-bold text-[#0F172A]">Phonics Club</span>
+                <span className="block text-xs text-slate-500">Learning space</span>
+              </span>
+            )}
+          </Link>
+          {onToggleCompact ? (
+            <button
+              type="button"
+              onClick={onToggleCompact}
+              aria-label={compact ? 'Expand learning sidebar' : 'Collapse learning sidebar'}
+              title={compact ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2"
+            >
+              {compact ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <nav className={cn('flex-1 space-y-1 overflow-y-auto px-3 py-4', compact && 'px-2')} aria-label="Learning navigation">
@@ -151,20 +168,43 @@ function SidebarContent({
 export function LmsShell({ children, userName, userEmail, isAdmin }: LmsShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     setOpen(false)
   }, [pathname])
 
+  useEffect(() => {
+    const stored = window.localStorage.getItem('phonics-lms-sidebar-collapsed')
+    if (stored) setSidebarCollapsed(stored === 'true')
+  }, [])
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((value) => {
+      const nextValue = !value
+      window.localStorage.setItem('phonics-lms-sidebar-collapsed', String(nextValue))
+      return nextValue
+    })
+  }
+
   return (
     <div className="bg-[#F4F8FF]">
       <div className="mx-auto flex min-h-[calc(100vh-96px)] max-w-[1480px] gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-[76px] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block xl:w-72">
-          <div className="hidden h-full xl:block">
-            <SidebarContent pathname={pathname} userName={userName} userEmail={userEmail} isAdmin={isAdmin} />
-          </div>
-          <div className="block h-full xl:hidden">
-            <SidebarContent pathname={pathname} userName={userName} userEmail={userEmail} isAdmin={isAdmin} compact />
+        <aside
+          className={cn(
+            'sticky top-4 hidden h-[calc(100vh-2rem)] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[width] duration-200 ease-out md:block',
+            sidebarCollapsed ? 'w-[76px]' : 'w-72',
+          )}
+        >
+          <div className="h-full">
+            <SidebarContent
+              pathname={pathname}
+              userName={userName}
+              userEmail={userEmail}
+              isAdmin={isAdmin}
+              compact={sidebarCollapsed}
+              onToggleCompact={toggleSidebarCollapsed}
+            />
           </div>
         </aside>
 
