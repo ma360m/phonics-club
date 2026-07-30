@@ -257,12 +257,14 @@ export default async function AdminCoursesPage() {
                               Preview quiz page
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/course/${course.id}/certificate?preview=admin`}>
-                              <GraduationCap className="mr-2 h-4 w-4" />
-                              Preview certificate page
-                            </Link>
-                          </DropdownMenuItem>
+                          {course.certificate_enabled !== false && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/course/${course.id}/certificate?preview=admin`}>
+                                <GraduationCap className="mr-2 h-4 w-4" />
+                                Preview certificate page
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

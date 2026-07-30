@@ -234,6 +234,11 @@ export interface Order {
   subtotal?: number
   shipping_fee?: number
   discount_amount?: number
+  discount_percent?: number
+  coupon_discount_percent?: number
+  member_discount_percent?: number
+  shipping_discount_amount?: number
+  shipping_discount_reason?: string | null
   coupon_code?: string | null
   member_id?: string | null
   payment_method?: string
@@ -1067,6 +1072,7 @@ export interface MemberDiscount {
   member_id: string
   discount_amount: number
   discount_percent: number
+  free_shipping_enabled: boolean
   max_uses: number | null
   used_count: number
   active: boolean
@@ -1074,6 +1080,37 @@ export interface MemberDiscount {
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface TrainingEvent {
+  id: string
+  title: string
+  event_type: 'onsite_training' | 'online_webinar'
+  event_date: string | null
+  season: string | null
+  status: 'draft' | 'open' | 'upcoming' | 'closed' | 'cancelled'
+  description: string | null
+  sort_order: number
+  published: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CourseCancellationRequest {
+  id: string
+  user_id: string
+  course_id: string
+  enrollment_id: string | null
+  reason: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled_by_user'
+  admin_notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+  courses?: Pick<Course, 'id' | 'title' | 'slug'> | null
+  profiles?: Pick<Profile, 'full_name' | 'email'> | null
 }
 
 export interface Database {
@@ -1130,6 +1167,8 @@ export interface Database {
       user_display_preferences: { Row: UserDisplayPreferencesRow; Insert: Partial<UserDisplayPreferencesRow>; Update: Partial<UserDisplayPreferencesRow> }
       appearance_settings: { Row: AppearanceSettingsRow; Insert: Partial<AppearanceSettingsRow>; Update: Partial<AppearanceSettingsRow> }
       member_discounts: { Row: MemberDiscount; Insert: Partial<MemberDiscount>; Update: Partial<MemberDiscount> }
+      training_events: { Row: TrainingEvent; Insert: Partial<TrainingEvent>; Update: Partial<TrainingEvent> }
+      course_cancellation_requests: { Row: CourseCancellationRequest; Insert: Partial<CourseCancellationRequest>; Update: Partial<CourseCancellationRequest> }
     }
   }
 }

@@ -76,6 +76,13 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
   const displayShipping = Number(order.display_shipping_fee ?? 0)
   const displayDiscount = Number(order.display_discount_amount ?? 0)
   const displayTotal = Number(order.display_total ?? 0)
+  const discountLabel =
+    order.coupon_code || order.member_id
+      ? [
+          order.coupon_code ? `Coupon ${escapeHtml(order.coupon_code)}${Number(order.coupon_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.coupon_discount_percent))})` : ''}` : null,
+          order.member_id ? `Member ID ${escapeHtml(order.member_id)}${Number(order.member_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.member_discount_percent))})` : ''}` : null,
+        ].filter(Boolean).join(' + ')
+      : formatDiscountPercent(summary.discountPercent)
   const usdSummary =
     displayCurrency && exchangeRate && displayTotal
       ? `<div style="margin-bottom:24px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;padding:14px;color:#1e3a8a">
@@ -150,8 +157,9 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="width:340px;border:1px solid #b6c3d8;background:white;border-radius:8px;overflow:hidden">
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
-        ${summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount${order.coupon_code ? ` (${escapeHtml(order.coupon_code)})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
+        ${summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount - ${discountLabel}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>
+        ${summary.shippingDiscount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Waived${order.shipping_discount_reason ? ` (${escapeHtml(order.shipping_discount_reason)})` : ''}</span><strong>-${formatPrice(summary.shippingDiscount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
         ${order.member_id ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Member ID</span><strong>${escapeHtml(order.member_id)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>

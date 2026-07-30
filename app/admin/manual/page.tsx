@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 const sections = [
   {
     title: 'Products and Stock',
-    body: 'Use Products to create full product records with images, descriptions, ISBN, category, price, stock, published state, and featured state. Use Fast Update when you only need quick price, compare-at price, stock, low-stock threshold, published, or featured changes.',
+    body: 'Use Products to create full product records with images, descriptions, ISBN, category, price, stock, published state, and featured state. Use Fast Update when you only need quick price, stock, published, or featured changes.',
     limits: 'Fast Update does not edit descriptions, images, categories, or SEO fields. Stock changes should still be checked against pending orders before large manual corrections.',
   },
   {
@@ -14,13 +14,23 @@ const sections = [
   },
   {
     title: 'Coupons and Member IDs',
-    body: 'Use Coupons for campaign-wide discounts. Use Member ID Discounts for percentage discounts assigned to a specific member ID with optional max uses and expiry. Customers enter the ID at checkout and the invoice preview shows the discount.',
-    limits: 'Member IDs are percentage discounts. The server caps discounts so an item subtotal cannot become negative.',
+    body: 'Use Coupons for campaign-wide discounts. Use Member ID Discounts for percentage discounts assigned to a specific member ID with optional max uses, expiry, and shipping-fee waiver. Customers enter the ID at checkout and the invoice preview shows the discount percentage and shipping waiver where applicable.',
+    limits: 'Member IDs are percentage discounts. The server caps discounts so an item subtotal cannot become negative. Only admins should create or edit Member IDs.',
+  },
+  {
+    title: 'Customers and Exports',
+    body: 'Use Customers to see consolidated customer activity from product orders, course enrollments, course payments, trainings, and webinars. Export CSV when you need a spreadsheet of names, email, phone, address, discounts used, courses, registrations, and invoice numbers.',
+    limits: 'The Customers page is a report built from existing records. If a course-only learner has no address, that CSV cell remains blank.',
+  },
+  {
+    title: 'Trainings and Webinars',
+    body: 'Use Trainings & Webinars to add upcoming onsite trainings and online webinars for the public Trainings page. Published events show publicly; draft items remain admin-only.',
+    limits: 'Registration records are separate from event publishing. Closing or deleting an event does not automatically delete existing registration submissions.',
   },
   {
     title: 'Courses and LMS',
     body: 'Use Courses to manage course details, modules, lessons, quiz structures, resources, instructors, enrollment rules, certificates, and paid access settings. Instructors can manage assigned course content according to their role.',
-    limits: 'Do not publish protected files with permanent public URLs. Lesson access, quiz grading, progress, and certificate creation should remain server controlled.',
+    limits: 'Do not publish protected files with permanent public URLs. Lesson access, quiz grading, progress, and certificate creation should remain server controlled. Learner cancellation requests should be reviewed from Course Cancellations before changing refunds or access.',
   },
   {
     title: 'Blog and Gallery',

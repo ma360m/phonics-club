@@ -21,7 +21,7 @@ export async function validateMemberDiscount(input: unknown, subtotal: number) {
   const supabase = await createServiceClient()
   const { data: member, error } = await supabase
     .from('member_discounts')
-    .select('id, member_id, discount_percent, max_uses, used_count, active, expires_at')
+    .select('id, member_id, discount_percent, free_shipping_enabled, max_uses, used_count, active, expires_at')
     .eq('member_id', memberId)
     .maybeSingle()
 
@@ -44,10 +44,19 @@ export async function validateMemberDiscount(input: unknown, subtotal: number) {
 
   const availableSubtotal = Math.max(0, Number(subtotal) || 0)
   const discountPercent = Math.min(100, Math.max(0, Number(member.discount_percent ?? 0)))
-  if (discountPercent <= 0) return { discount: 0, memberId, error: 'This Member ID has no active discount.' }
+  const freeShippingEnabled = Boolean(member.free_shipping_enabled)
+  if (discountPercent <= 0 && !freeShippingEnabled) {
+    return { discount: 0, memberId, error: 'This Member ID has no active discount.' }
+  }
 
   const discount = Math.min(Math.round(availableSubtotal * (discountPercent / 100)), availableSubtotal)
-  return { discount, memberId: member.member_id as string, member }
+  return {
+    discount,
+    discountPercent,
+    freeShippingEnabled,
+    memberId: member.member_id as string,
+    member,
+  }
 }
 
 export async function incrementMemberDiscountUsage(memberId: string) {

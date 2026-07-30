@@ -10,6 +10,7 @@ import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses } from '@/
 import { ensureChildrenPhonicsCoursesInstalled } from '@/lib/data/children-phonics-install'
 import type { ActionResult, CurriculumModule } from '@/types'
 import type { Course } from '@/types/database'
+import { z } from 'zod'
 
 function parseLines(formData: FormData, key: string): string[] {
   const raw = formData.get(key)
@@ -153,6 +154,32 @@ export async function deleteCourseAction(id: string): Promise<void> {
   if (error) throw toError(error, 'Course could not be deleted.')
 
   revalidatePath('/admin/courses')
+}
+
+export async function deleteCourseWithOptionsFormAction(formData: FormData): Promise<void> {
+  await requireAdmin()
+  const parsed = z.object({
+    courseId: z.string().uuid(),
+    confirm: z.literal('DELETE'),
+    deleteCoursePayments: z.boolean(),
+  }).safeParse({
+    courseId: formData.get('courseId'),
+    confirm: formData.get('confirm'),
+    deleteCoursePayments: formData.get('deleteCoursePayments') === 'on',
+  })
+  if (!parsed.success) throw new Error('Type DELETE to confirm course deletion.')
+
+  const supabase = await createClient()
+  if (parsed.data.deleteCoursePayments) {
+    await supabase.from('course_payments').delete().eq('course_id', parsed.data.courseId)
+  }
+
+  const { error } = await supabase.from('courses').delete().eq('id', parsed.data.courseId)
+  if (error) throw toError(error, 'Course could not be deleted.')
+
+  revalidatePath('/admin/courses')
+  revalidatePath('/courses')
+  revalidatePath('/dashboard/my-courses')
 }
 
 export async function updateCoursePublishStatusAction(id: string, published: boolean): Promise<void> {

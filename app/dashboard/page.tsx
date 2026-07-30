@@ -9,11 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatusBadge } from '@/components/lms/lms-primitives'
-import { BookOpen, Download, FileText, GraduationCap, Heart, Play, Shield, ShoppingBag } from 'lucide-react'
+import { BookOpen, CalendarDays, Download, FileText, GraduationCap, Heart, Play, Shield, ShoppingBag } from 'lucide-react'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { getCourseAccessState } from '@/lib/lms'
+import { getPublishedTrainingEvents } from '@/actions/training'
 import { formatPrice, formatDate } from '@/utils/format'
 
 export default async function DashboardPage() {
@@ -34,13 +35,18 @@ export default async function DashboardPage() {
     guest_email?: string | null
   }[] = []
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('orders')
-    .select('id, total, status, created_at, payment_method, receipt_url, receipt_path, shipping_address, phone, guest_email')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(5)
+  const [ordersResult, trainingEvents] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, total, status, created_at, payment_method, receipt_url, receipt_path, shipping_address, phone, guest_email')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    getPublishedTrainingEvents(),
+  ])
+  const { data } = ordersResult
   orders = data ?? []
+  const upcomingTrainingEvents = trainingEvents.slice(0, 5)
 
   const inProgress = enrollments.filter((e) => e.progress > 0 && e.progress < 100)
   const completed = enrollments.filter((e) => e.progress >= 100)
@@ -108,7 +114,7 @@ export default async function DashboardPage() {
           </summary>
 
           <div className="border-t border-slate-200 p-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Link
                 href="/dashboard/my-courses"
                 className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2"
@@ -128,6 +134,7 @@ export default async function DashboardPage() {
                 { href: '/cart', label: 'Cart', icon: ShoppingBag, detail: 'Open checkout items' },
                 { href: '/wishlist', label: 'Wishlist', icon: Heart, detail: 'Saved books and courses' },
                 { href: '/courses', label: 'Browse Courses', icon: BookOpen, detail: 'Find another course' },
+                { href: '/trainings', label: 'Trainings', icon: CalendarDays, detail: 'Upcoming trainings and webinars' },
               ].map(({ href, label, icon: Icon, detail }) => (
                 <Link
                   key={href}
@@ -269,6 +276,53 @@ export default async function DashboardPage() {
             )}
           </LmsSectionCard>
         </div>
+
+        <details className="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none flex-col gap-3 rounded-2xl px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#1D4ED8]">
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-base font-bold text-[#0F172A]">Trainings & Webinars</span>
+                <span className="mt-0.5 block text-sm text-slate-500">
+                  {upcomingTrainingEvents.length} upcoming option{upcomingTrainingEvents.length === 1 ? '' : 's'}
+                </span>
+              </span>
+            </span>
+            <span className="w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 group-open:bg-[#EFF6FF] group-open:text-[#1D4ED8]">
+              Toggle
+            </span>
+          </summary>
+          <div className="border-t border-slate-200 p-4">
+            {upcomingTrainingEvents.length ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {upcomingTrainingEvents.map((event) => (
+                  <Link
+                    key={event.id}
+                    href="/trainings"
+                    className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#1D4ED8]">
+                      {event.event_type === 'online_webinar' ? 'Webinar' : 'Training'}
+                    </p>
+                    <p className="mt-1 font-semibold text-[#0F172A]">{event.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {event.event_date ? formatDate(event.event_date) : 'Date to be announced'} - {event.status}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <LmsEmptyState
+                icon={CalendarDays}
+                title="No upcoming trainings yet"
+                description="New training and webinar dates will appear here after the admin publishes them."
+                action={<Button asChild className="rounded-xl bg-[#1D4ED8]"><Link href="/trainings">Open Trainings</Link></Button>}
+              />
+            )}
+          </div>
+        </details>
 
       </LmsShell>
       <Footer />

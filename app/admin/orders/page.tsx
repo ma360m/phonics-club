@@ -25,6 +25,10 @@ export default async function AdminOrdersPage() {
           const items = order.items as { name: string; quantity: number; price: number }[]
           const addr = order.shipping_address as Record<string, string> | null
           const needsPaymentReview = ['awaiting_payment', 'payment_submitted', 'payment_review'].includes(order.status)
+          const discountPercent = Number(order.discount_percent ?? 0)
+          const couponPercent = Number(order.coupon_discount_percent ?? 0)
+          const memberPercent = Number(order.member_discount_percent ?? 0)
+          const shippingDiscount = Number(order.shipping_discount_amount ?? 0)
 
           return (
             <div key={order.id} id={`order-${order.id}`} className="scroll-mt-24 bg-card rounded-2xl border p-6">
@@ -70,7 +74,21 @@ export default async function AdminOrdersPage() {
               <div className="text-sm mb-4 grid sm:grid-cols-3 gap-2">
                 <span>Subtotal: {formatPrice(order.subtotal ?? order.total)}</span>
                 <span>Shipping: {formatPrice(order.shipping_fee ?? SHIPPING_FEE_PKR)}</span>
-                {(order.discount_amount ?? 0) > 0 && <span>Discount: -{formatPrice(order.discount_amount!)}</span>}
+                {(order.discount_amount ?? 0) > 0 && (
+                  <span>
+                    Discount: -{formatPrice(order.discount_amount!)}
+                    {discountPercent > 0 ? ` (${discountPercent}%)` : ''}
+                  </span>
+                )}
+                {order.coupon_code && (
+                  <span>Coupon: <span className="font-mono">{order.coupon_code}</span>{couponPercent > 0 ? ` (${couponPercent}%)` : ''}</span>
+                )}
+                {order.member_id && (
+                  <span>Member ID: <span className="font-mono">{order.member_id}</span>{memberPercent > 0 ? ` (${memberPercent}%)` : ''}</span>
+                )}
+                {shippingDiscount > 0 && (
+                  <span>Shipping waived: -{formatPrice(shippingDiscount)}{order.shipping_discount_reason ? ` (${order.shipping_discount_reason})` : ''}</span>
+                )}
               </div>
 
               {(order.receipt_url || order.receipt_path) && (

@@ -14,6 +14,7 @@ const memberDiscountBaseSchema = z.object({
   used_count: z.coerce.number().int().min(0).default(0),
   expires_at: z.string().optional().nullable(),
   active: z.coerce.boolean().default(true),
+  free_shipping_enabled: z.coerce.boolean().default(false),
 })
 
 const memberDiscountSchema = memberDiscountBaseSchema.refine((value) => /^[A-Z0-9_-]{3,40}$/.test(value.member_id), {
@@ -48,6 +49,7 @@ export async function upsertMemberDiscountAction(
     used_count: formData.get('used_count') || 0,
     expires_at: formData.get('expires_at') || null,
     active: formData.get('active') === 'on',
+    free_shipping_enabled: formData.get('free_shipping_enabled') === 'on',
   })
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
 
@@ -56,6 +58,7 @@ export async function upsertMemberDiscountAction(
     member_id: parsed.data.member_id,
     discount_amount: 0,
     discount_percent: parsed.data.discount_percent,
+    free_shipping_enabled: parsed.data.free_shipping_enabled,
     max_uses: parsed.data.max_uses ?? null,
     used_count: parsed.data.used_count,
     expires_at: normalizeExpiry(parsed.data.expires_at),
@@ -77,6 +80,7 @@ export async function updateMemberDiscountAction(id: string, formData: FormData)
     used_count: formData.get('used_count') || 0,
     expires_at: formData.get('expires_at') || null,
     active: formData.get('active') === 'on',
+    free_shipping_enabled: formData.get('free_shipping_enabled') === 'on',
   })
   if (!idParsed.success || !parsed.success) return
 
@@ -86,6 +90,7 @@ export async function updateMemberDiscountAction(id: string, formData: FormData)
     .update({
       discount_amount: 0,
       discount_percent: parsed.data.discount_percent,
+      free_shipping_enabled: parsed.data.free_shipping_enabled,
       max_uses: parsed.data.max_uses ?? null,
       used_count: parsed.data.used_count,
       expires_at: normalizeExpiry(parsed.data.expires_at),

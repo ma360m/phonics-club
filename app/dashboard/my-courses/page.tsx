@@ -3,8 +3,9 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { getProfile, isAdminRole, isSupabaseConfigured, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@/actions/lms'
-import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments } from '@/lib/lms'
+import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments, isCourseCertificateEnabled } from '@/lib/lms'
 import { getCourses } from '@/lib/data/queries'
+import { requestCourseCancellationAction } from '@/actions/enrollments'
 import { COMPANY_BANK_DETAILS } from '@/lib/company'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
@@ -318,6 +319,7 @@ function EnrollmentRow({
   if (!course) return null
   const progress = Number(enrollment.progress ?? 0)
   const access = getCourseAccessState(enrollment as never)
+  const certificateEnabled = isCourseCertificateEnabled(course)
 
   return (
     <article className={`grid gap-4 rounded-2xl border bg-white p-4 shadow-sm sm:grid-cols-[180px_1fr_auto] ${featured ? 'border-[#BFDBFE]' : 'border-slate-200'}`}>
@@ -342,7 +344,7 @@ function EnrollmentRow({
           <Progress value={progress} className="h-2 flex-1" />
           <span className="text-sm font-semibold text-[#0F172A]">{progress}%</span>
         </div>
-        {progress >= 100 && (
+        {progress >= 100 && certificateEnabled && (
           <p className="mt-2 flex items-center gap-1 text-sm text-emerald-700">
             <Award className="h-4 w-4" />
             Lesson progress complete. Certificate checks all course requirements.
@@ -356,9 +358,29 @@ function EnrollmentRow({
             {access.active ? (progress > 0 ? 'Continue' : 'Start') : 'View Course'}
           </Link>
         </Button>
-        <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
-          <Link href={`/course/${course.id}/certificate`}>Certificate</Link>
-        </Button>
+        {certificateEnabled && (
+          <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+            <Link href={`/course/${course.id}/certificate`}>Certificate</Link>
+          </Button>
+        )}
+        <details className="group w-full rounded-xl border border-slate-200 bg-[#F8FAFC] p-2 text-left text-xs text-slate-600 sm:w-48">
+          <summary className="cursor-pointer list-none font-semibold text-[#8B1E2D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]">
+            Request cancellation
+          </summary>
+          <form action={requestCourseCancellationAction} className="mt-2 space-y-2">
+            <input type="hidden" name="courseId" value={course.id} />
+            <input type="hidden" name="enrollmentId" value={enrollment.id} />
+            <textarea
+              name="reason"
+              rows={3}
+              placeholder="Reason, refund notes, or access issue"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+            />
+            <Button type="submit" size="sm" variant="outline" className="h-8 w-full rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50">
+              Submit request
+            </Button>
+          </form>
+        </details>
       </div>
     </article>
   )

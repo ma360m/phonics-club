@@ -28,12 +28,12 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
       const result = await setProductCartQuantityAction(product.id, qty)
       if (result.success) {
         window.dispatchEvent(new Event(CART_UPDATED_EVENT))
-        toast.success(`Added ${qty} to cart`, { duration: 1200 })
+        toast.success(`Added ${qty} to cart`, { duration: 800 })
         router.refresh()
       } else if (result.error?.toLowerCase().includes('sign in')) {
         addToGuestCart(product.id, qty)
         await syncGuestCartCookie()
-        toast.success(`Added ${qty} to cart`, { duration: 1200 })
+        toast.success(`Added ${qty} to cart`, { duration: 800 })
       } else toast.error(result.error ?? 'Failed to add to cart')
     })
   }
@@ -105,12 +105,12 @@ export function ProductCardActions({ product }: { product: Product }) {
             const r = await setProductCartQuantityAction(product.id, qty)
             if (r.success) {
               window.dispatchEvent(new Event(CART_UPDATED_EVENT))
-              toast.success('Added to cart', { duration: 1200 })
+              toast.success('Added to cart', { duration: 800 })
               router.refresh()
             } else if (r.error?.toLowerCase().includes('sign in')) {
               addToGuestCart(product.id, qty)
               await syncGuestCartCookie()
-              toast.success('Added to cart', { duration: 1200 })
+              toast.success('Added to cart', { duration: 800 })
             } else toast.error(r.error)
           })
         }

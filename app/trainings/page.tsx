@@ -5,6 +5,7 @@ import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY, TRAINING_CALENDAR_2026, ONLINE_WEBINARS, WEEKLY_PLAN } from '@/lib/company'
 import { getWebsiteVideos } from '@/lib/site-content'
+import { getPublishedTrainingEvents } from '@/actions/training'
 import { formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { GraduationCap, MapPin, Monitor } from 'lucide-react'
@@ -19,7 +20,27 @@ export const metadata = buildMetadata({
 })
 
 export default async function TrainingsPage() {
-  const websiteVideos = await getWebsiteVideos()
+  const [websiteVideos, trainingEvents] = await Promise.all([
+    getWebsiteVideos(),
+    getPublishedTrainingEvents(),
+  ])
+  const adminOnsiteEvents = trainingEvents
+    .filter((event) => event.event_type === 'onsite_training' && event.event_date)
+    .map((event) => ({
+      title: event.title,
+      date: event.event_date as string,
+      season: event.season ?? 'Upcoming Cohort',
+      description: event.description,
+    }))
+  const adminWebinars = trainingEvents
+    .filter((event) => event.event_type === 'online_webinar' && event.event_date)
+    .map((event) => ({
+      title: event.title,
+      date: event.event_date as string,
+      status: event.status,
+    }))
+  const onsiteEvents = adminOnsiteEvents.length ? adminOnsiteEvents : TRAINING_CALENDAR_2026
+  const webinars = adminWebinars.length ? adminWebinars : ONLINE_WEBINARS
 
   return (
     <main>
@@ -101,7 +122,7 @@ export default async function TrainingsPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            {TRAINING_CALENDAR_2026.map((event) => (
+            {onsiteEvents.map((event) => (
               <div key={event.date + event.title} className="rounded-2xl border border-[#CBD5E1] bg-white p-6 text-[#111827] shadow-sm">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
@@ -111,7 +132,9 @@ export default async function TrainingsPage() {
                   <Badge variant="outline">{formatDate(event.date)}</Badge>
                 </div>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Register your interest below. Minimum delegates are required. Cancellation policy applies with 15 working days notice.
+                  {'description' in event && event.description
+                    ? event.description
+                    : 'Register your interest below. Minimum delegates are required. Cancellation policy applies with 15 working days notice.'}
                 </p>
                 <TrainingRegistrationForm
                   trainingType="onsite_classroom"
@@ -140,7 +163,7 @@ export default async function TrainingsPage() {
             <Monitor className="h-6 w-6 text-[#1D4ED8]" />
             Online Webinars
           </h2>
-          <WebinarCarousel webinars={ONLINE_WEBINARS} />
+          <WebinarCarousel webinars={webinars} />
         </section>
 
         <section className="mb-16 rounded-2xl bg-muted/30 p-8">

@@ -14,6 +14,7 @@ export interface InvoiceSummary {
   discount: number
   totalAfterDiscount: number
   shipping: number
+  shippingDiscount: number
   balanceDue: number
   discountPercent: number
   lines: InvoiceLine[]
@@ -24,6 +25,11 @@ export type InvoiceOrder = Order & {
   subtotal?: number
   shipping_fee?: number
   discount_amount?: number
+  discount_percent?: number
+  coupon_discount_percent?: number
+  member_discount_percent?: number
+  shipping_discount_amount?: number
+  shipping_discount_reason?: string | null
   coupon_code?: string | null
   member_id?: string | null
   payment_method?: string | null
@@ -41,8 +47,9 @@ export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
   const items = order.items as OrderItem[]
   const subtotal = Number(order.subtotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0))
   const shipping = Number(order.shipping_fee ?? SHIPPING_FEE_PKR)
+  const shippingDiscount = Number(order.shipping_discount_amount ?? 0)
   const discount = Math.min(Number(order.discount_amount ?? 0), subtotal)
-  const discountPercent = subtotal > 0 ? (discount / subtotal) * 100 : 0
+  const discountPercent = Number(order.discount_percent ?? (subtotal > 0 ? (discount / subtotal) * 100 : 0))
   let allocatedDiscount = 0
 
   const lines = items.map((item, index) => {
@@ -74,6 +81,7 @@ export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
     discount,
     totalAfterDiscount,
     shipping,
+    shippingDiscount,
     balanceDue: totalAfterDiscount + shipping,
     discountPercent,
     lines,

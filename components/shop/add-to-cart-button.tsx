@@ -15,7 +15,7 @@ export function AddToCartButton({ productId }: { productId: string }) {
       const result = await addToCartAction(productId)
       if (result.success) {
         window.dispatchEvent(new Event(CART_UPDATED_EVENT))
-        toast.success('Added to cart', { duration: 1200 })
+        toast.success('Added to cart', { duration: 800 })
       } else toast.error(result.error ?? 'Failed to add')
     })
   }

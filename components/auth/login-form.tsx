@@ -25,7 +25,12 @@ export function LoginForm({ redirectTo = '/dashboard' }: { redirectTo?: string }
         <Input id="email" name="email" type="email" required placeholder="you@example.com" className="rounded-xl" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="password">Password</Label>
+          <Link href="/auth/forgot-password" className="text-xs font-medium text-[#1D4ED8] hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <PasswordInput id="password" name="password" required className="rounded-xl" />
       </div>
       <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">

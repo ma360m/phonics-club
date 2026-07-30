@@ -6,6 +6,13 @@ import { getSession } from '@/lib/auth'
 import { createCourseCheckoutAction } from '@/actions/lms'
 import { getCoursePrice, isCourseFree } from '@/lib/lms'
 import type { ActionResult } from '@/types'
+import { z } from 'zod'
+
+const courseCancellationRequestSchema = z.object({
+  courseId: z.string().uuid(),
+  enrollmentId: z.string().uuid().optional(),
+  reason: z.string().trim().max(1000).optional(),
+})
 
 export async function enrollInCourseAction(courseId: string): Promise<ActionResult<{ redirectTo?: string }>> {
   const user = await getSession()
@@ -67,4 +74,44 @@ export async function getUserEnrollments() {
     .eq('user_id', user.id)
 
   return data ?? []
+}
+
+export async function requestCourseCancellationAction(formData: FormData): Promise<void> {
+  const user = await getSession()
+  if (!user) throw new Error('Please sign in to request cancellation.')
+
+  const parsed = courseCancellationRequestSchema.safeParse({
+    courseId: formData.get('courseId'),
+    enrollmentId: formData.get('enrollmentId') || undefined,
+    reason: formData.get('reason') || undefined,
+  })
+  if (!parsed.success) throw new Error('Course cancellation request is invalid.')
+
+  const supabase = await createClient()
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('id', parsed.data.enrollmentId ?? '')
+    .eq('course_id', parsed.data.courseId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!enrollment) throw new Error('This course enrollment could not be found on your account.')
+
+  const { error } = await supabase.from('course_cancellation_requests').insert({
+    user_id: user.id,
+    course_id: parsed.data.courseId,
+    enrollment_id: enrollment.id,
+    reason: parsed.data.reason ?? null,
+    status: 'pending',
+  } as never)
+
+  if (error) {
+    if (error.code === '23505') throw new Error('A cancellation request for this course is already pending.')
+    if (error.code === '42P01') throw new Error('Course cancellation requests need database migration 030 applied first.')
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/dashboard/my-courses')
+  revalidatePath('/admin/customers')
 }

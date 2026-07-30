@@ -7,6 +7,7 @@ const previewCouponSchema = z.object({
   code: z.string().trim().optional().nullable(),
   memberId: z.string().trim().optional().nullable(),
   subtotal: z.coerce.number().min(0),
+  shipping: z.coerce.number().min(0).optional().default(0),
 }).refine((value) => Boolean(value.code || value.memberId), {
   message: 'Enter a coupon code or Member ID.',
 })
@@ -22,8 +23,13 @@ export async function POST(request: Request) {
   const code = parsed.data.code?.trim().toUpperCase() || null
   const memberId = normalizeMemberId(parsed.data.memberId)
   const subtotal = parsed.data.subtotal
+  const shipping = parsed.data.shipping
   let couponDiscount = 0
   let memberDiscount = 0
+  let couponDiscountPercent = 0
+  let memberDiscountPercent = 0
+  let freeShipping = false
+  let shippingDiscount = 0
 
   if (code) {
     if (code.length < 3) return NextResponse.json({ valid: false, error: 'Enter a valid coupon code.' }, { status: 400 })
@@ -56,23 +62,33 @@ export async function POST(request: Request) {
     const fixedDiscount = Number(coupon.discount_amount ?? 0)
     const rawDiscount = percentDiscount > 0 ? Math.round(subtotal * (percentDiscount / 100)) : fixedDiscount
     couponDiscount = Math.min(Math.max(0, rawDiscount), subtotal)
+    couponDiscountPercent = subtotal > 0 ? Number(((couponDiscount / subtotal) * 100).toFixed(2)) : 0
   }
 
   if (memberId) {
     const memberResult = await validateMemberDiscount(memberId, Math.max(0, subtotal - couponDiscount))
     if (memberResult.error) return NextResponse.json({ valid: false, error: memberResult.error })
     memberDiscount = memberResult.discount
+    memberDiscountPercent = Number(memberResult.discountPercent ?? 0)
+    freeShipping = Boolean(memberResult.freeShippingEnabled)
+    shippingDiscount = freeShipping ? shipping : 0
   }
 
   const discount = Math.min(subtotal, couponDiscount + memberDiscount)
+  const totalDiscount = discount + shippingDiscount
 
   return NextResponse.json({
     valid: true,
     code,
     memberId: memberId || null,
     discount,
+    totalDiscount,
     couponDiscount,
     memberDiscount,
+    couponDiscountPercent,
+    memberDiscountPercent,
+    freeShipping,
+    shippingDiscount,
     discountPercent: subtotal > 0 ? Number(((discount / subtotal) * 100).toFixed(2)) : 0,
     subtotalAfterDiscount: Math.max(0, subtotal - discount),
   })

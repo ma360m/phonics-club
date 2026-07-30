@@ -257,14 +257,34 @@ export async function buildInvoicePdf(
   ]
   if (summary.discount > 0) {
     totalsRows.push([
-      `Final Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}`,
+      `Discount (${formatDiscountPercent(Number(order.discount_percent ?? summary.discountPercent))})`,
       `-${formatPrice(summary.discount)}`,
       false,
     ])
   }
   totalsRows.push(['Total after Discount', formatPrice(summary.totalAfterDiscount), false])
+  if (order.coupon_code) {
+    totalsRows.push([
+      `Coupon${Number(order.coupon_discount_percent ?? 0) > 0 ? ` ${formatDiscountPercent(Number(order.coupon_discount_percent))}` : ''}`,
+      order.coupon_code,
+      false,
+    ])
+  }
+  if (summary.shippingDiscount > 0) {
+    totalsRows.push([
+      `Shipping Waived${order.shipping_discount_reason ? ` (${order.shipping_discount_reason})` : ''}`,
+      `-${formatPrice(summary.shippingDiscount)}`,
+      false,
+    ])
+  }
   totalsRows.push(['Shipping Fee', formatPrice(summary.shipping), false])
-  if (order.member_id) totalsRows.push(['Member ID', order.member_id, false])
+  if (order.member_id) {
+    totalsRows.push([
+      `Member ID${Number(order.member_discount_percent ?? 0) > 0 ? ` ${formatDiscountPercent(Number(order.member_discount_percent))}` : ''}`,
+      order.member_id,
+      false,
+    ])
+  }
   totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
   if (order.display_currency === 'USD' && order.display_total && order.exchange_rate) {
     if (order.display_subtotal) {

@@ -17,7 +17,7 @@ export function MemberDiscountForm() {
       <div className="mb-4">
         <h2 className="text-lg font-bold">Create or Update Member ID</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Member IDs apply a percentage discount at checkout and can be limited by number of uses.
+          Member IDs apply a percentage discount at checkout, can waive shipping, and can be limited by number of uses.
         </p>
       </div>
 
@@ -44,10 +44,16 @@ export function MemberDiscountForm() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="active" defaultChecked />
-          Active
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="active" defaultChecked />
+            Active
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="free_shipping_enabled" />
+            Waive shipping fee
+          </label>
+        </div>
         <Button type="submit" disabled={pending} className="rounded-xl bg-[#1D4ED8]">
           {pending ? 'Saving...' : 'Save Member ID'}
         </Button>

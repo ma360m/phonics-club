@@ -3,16 +3,18 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { placeOrderAction } from '@/actions/orders'
+import { setProductCartQuantityAction } from '@/actions/cart'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { shopPaymentLabel, shopPaymentNeedsReceipt, type ShopPaymentMethod } from '@/lib/payment-methods'
 import type { ActionResult } from '@/types'
-import { getGuestCart } from '@/lib/guest-cart-client'
+import { CART_UPDATED_EVENT, getGuestCart, updateGuestCartQuantity } from '@/lib/guest-cart-client'
 import { CurrencyDisplayNotice } from '@/components/currency/price-display'
 import { useCurrency } from '@/components/currency/currency-provider'
 import { formatCurrency } from '@/lib/currency'
+import { Minus, Plus, Trash2 } from 'lucide-react'
 
 const initialState: ActionResult = { success: false }
 
@@ -31,9 +33,12 @@ interface BankDetails {
 }
 
 interface CheckoutItem {
+  id?: string
+  product_id?: string
   name: string
   price: number
   quantity: number
+  image?: string
 }
 
 interface CheckoutDetails {
@@ -53,12 +58,28 @@ interface CouponPreview {
   couponDiscount?: number
   memberDiscount?: number
   discountPercent?: number
+  couponDiscountPercent?: number
+  memberDiscountPercent?: number
+  totalDiscount?: number
+  freeShipping?: boolean
+  shippingDiscount?: number
   subtotalAfterDiscount?: number
   error?: string
 }
 
+type ApiCartItem = {
+  id: string
+  product_id?: string
+  quantity: number
+  products?: {
+    id: string
+    name: string
+    price: number
+    images?: string[]
+  } | null
+}
+
 export function CheckoutForm({
-  subtotal,
   cartItems,
   email,
   bankDetails,
@@ -92,6 +113,11 @@ export function CheckoutForm({
   const [memberId, setMemberId] = useState('')
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
   const [couponChecking, setCouponChecking] = useState(false)
+  const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>(cartItems)
+  const [cartUpdatingId, setCartUpdatingId] = useState<string | null>(null)
+  const [cartError, setCartError] = useState<string | null>(null)
+
+  const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
 
   useEffect(() => {
     if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
@@ -130,7 +156,12 @@ export function CheckoutForm({
         const response = await fetch('/api/coupons/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: code || undefined, memberId: member || undefined, subtotal }),
+          body: JSON.stringify({
+            code: code || undefined,
+            memberId: member || undefined,
+            subtotal: checkoutSubtotal,
+            shipping: SHIPPING_FEE_PKR,
+          }),
           signal: controller.signal,
         })
         const result = (await response.json()) as CouponPreview
@@ -148,14 +179,15 @@ export function CheckoutForm({
       controller.abort()
       window.clearTimeout(timeout)
     }
-  }, [couponCode, memberId, subtotal])
+  }, [checkoutSubtotal, couponCode, memberId])
 
   const shipping = SHIPPING_FEE_PKR
-  const grandTotal = subtotal + shipping
+  const shippingDiscount = couponPreview?.valid ? couponPreview.shippingDiscount ?? 0 : 0
+  const chargedShipping = Math.max(0, shipping - shippingDiscount)
   const couponDiscount = couponPreview?.valid ? couponPreview.couponDiscount ?? couponPreview.discount ?? 0 : 0
   const memberDiscount = couponPreview?.valid ? couponPreview.memberDiscount ?? 0 : 0
   const totalDiscount = couponPreview?.valid ? couponPreview.discount ?? couponDiscount + memberDiscount : 0
-  const payableTotal = Math.max(0, grandTotal - totalDiscount)
+  const payableTotal = Math.max(0, checkoutSubtotal + chargedShipping - totalDiscount)
   const previewCouponCode = couponPreview?.valid ? couponPreview.code ?? couponCode.trim().toUpperCase() : undefined
   const previewMemberId = couponPreview?.valid ? couponPreview.memberId ?? memberId.trim().toUpperCase() : undefined
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
@@ -165,9 +197,69 @@ export function CheckoutForm({
     setDetails((current) => ({ ...current, [field]: value }))
   }
 
+  async function refreshCheckoutCart() {
+    const response = await fetch('/api/cart/items', { cache: 'no-store' })
+    if (!response.ok) return
+    const result = (await response.json()) as { items?: ApiCartItem[] }
+    const nextItems: CheckoutItem[] = []
+    for (const item of result.items ?? []) {
+      const product = item.products
+      const quantity = Number(item.quantity ?? 0)
+      if (!product || quantity <= 0) continue
+      nextItems.push({
+        id: item.id,
+        product_id: item.product_id ?? product.id,
+        name: product.name,
+        price: Number(product.price ?? 0),
+        quantity,
+        image: product.images?.[0],
+      })
+    }
+
+    setCheckoutItems(nextItems)
+    if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
+  }
+
+  async function changeCartQuantity(item: CheckoutItem, nextQuantity: number) {
+    const productId = item.product_id
+    if (!productId) {
+      setCartError('This cart item cannot be changed from checkout. Open the cart page and try again.')
+      return
+    }
+
+    if (nextQuantity <= 0) {
+      const confirmed = window.confirm(`Remove "${item.name}" from your cart?`)
+      if (!confirmed) return
+    }
+
+    setCartError(null)
+    setCartUpdatingId(productId)
+    setReviewReady(false)
+
+    try {
+      if (isGuest) {
+        updateGuestCartQuantity(productId, nextQuantity)
+      } else {
+        const result = await setProductCartQuantityAction(productId, nextQuantity)
+        if (!result.success) {
+          setCartError(result.error ?? 'Cart could not be updated.')
+          return
+        }
+        window.dispatchEvent(new Event(CART_UPDATED_EVENT))
+      }
+      await refreshCheckoutCart()
+    } finally {
+      setCartUpdatingId(null)
+    }
+  }
+
   function showInvoicePreview() {
     const form = formRef.current
     if (!form) return
+    if (!checkoutItems.length) {
+      setCartError('Your cart is empty. Add an item before placing an order.')
+      return
+    }
     if (!form.checkValidity()) {
       form.reportValidity()
       return
@@ -186,6 +278,78 @@ export function CheckoutForm({
         {state.error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p>
         )}
+        {cartError && (
+          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{cartError}</p>
+        )}
+
+        <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[#0F172A]">Checkout Cart</p>
+              <p className="text-xs text-slate-500">Add, reduce, or remove items before reviewing the invoice.</p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="rounded-lg bg-white">
+              <Link href="/cart">Open Cart</Link>
+            </Button>
+          </div>
+          {checkoutItems.length ? (
+            <ul className="space-y-2">
+              {checkoutItems.map((item) => {
+                const productId = item.product_id ?? item.id ?? item.name
+                const updating = cartUpdatingId === item.product_id
+                return (
+                  <li key={productId} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-[#0F172A]">{item.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">{format(item.price)} each</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <div className="flex items-center rounded-full border border-slate-200 bg-[#F8FAFC] p-1">
+                        <button
+                          type="button"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-white disabled:opacity-50"
+                          onClick={() => changeCartQuantity(item, item.quantity - 1)}
+                          disabled={updating}
+                          aria-label={`Reduce ${item.name} quantity`}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="min-w-8 text-center text-sm font-semibold">{item.quantity}</span>
+                        <button
+                          type="button"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-white disabled:opacity-50"
+                          onClick={() => changeCartQuantity(item, item.quantity + 1)}
+                          disabled={updating}
+                          aria-label={`Increase ${item.name} quantity`}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="w-24 text-right text-sm font-semibold">{format(item.price * item.quantity)}</p>
+                      <button
+                        type="button"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        onClick={() => changeCartQuantity(item, 0)}
+                        disabled={updating}
+                        aria-label={`Remove ${item.name} from cart`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+              Your cart is empty. Add an item before placing an order.
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <span className="text-slate-500">Cart subtotal</span>
+            <span className="font-bold text-[#1D4ED8]">{format(checkoutSubtotal)}</span>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="fullName">Full Name *</Label>
@@ -306,10 +470,11 @@ export function CheckoutForm({
               {couponChecking
                 ? 'Checking discount...'
                 : couponPreview?.valid
-                  ? totalDiscount > 0
+                  ? totalDiscount + shippingDiscount > 0
                     ? `Discount applied: ${[
-                        couponDiscount > 0 && previewCouponCode ? `coupon ${previewCouponCode} ${format(couponDiscount)}` : null,
-                        memberDiscount > 0 && previewMemberId ? `Member ID ${previewMemberId} ${format(memberDiscount)}` : null,
+                        couponDiscount > 0 && previewCouponCode ? `coupon ${previewCouponCode}${couponPreview.couponDiscountPercent ? ` (${couponPreview.couponDiscountPercent}%)` : ''} ${format(couponDiscount)}` : null,
+                        memberDiscount > 0 && previewMemberId ? `Member ID ${previewMemberId}${couponPreview.memberDiscountPercent ? ` (${couponPreview.memberDiscountPercent}%)` : ''} ${format(memberDiscount)}` : null,
+                        shippingDiscount > 0 ? `shipping waived ${format(shippingDiscount)}` : null,
                       ].filter(Boolean).join(' + ')}. Estimated total: ${format(payableTotal)}.`
                     : 'Discount code is valid but does not reduce this order.'
                   : couponPreview?.error ?? 'Coupon could not be checked.'}
@@ -437,13 +602,16 @@ export function CheckoutForm({
         {reviewReady ? (
           <InvoicePreview
             details={details}
-            cartItems={cartItems}
-            subtotal={subtotal}
+            cartItems={checkoutItems}
+            subtotal={checkoutSubtotal}
             shipping={shipping}
+            shippingDiscount={shippingDiscount}
             couponDiscount={couponDiscount}
             couponCode={previewCouponCode}
+            couponDiscountPercent={couponPreview?.valid ? couponPreview.couponDiscountPercent : undefined}
             memberDiscount={memberDiscount}
             memberId={previewMemberId}
+            memberDiscountPercent={couponPreview?.valid ? couponPreview.memberDiscountPercent : undefined}
             totalDiscount={totalDiscount}
             payableTotal={payableTotal}
             paymentMethod={paymentMethod}
@@ -475,7 +643,7 @@ export function CheckoutForm({
               </Button>
             </>
           ) : (
-            <Button type="button" onClick={showInvoicePreview} className="w-full rounded-lg bg-[#1D4ED8]">
+            <Button type="button" onClick={showInvoicePreview} disabled={!checkoutItems.length} className="w-full rounded-lg bg-[#1D4ED8]">
               Next: Review Invoice
             </Button>
           )}
@@ -495,10 +663,13 @@ function InvoicePreview({
   cartItems,
   subtotal,
   shipping,
+  shippingDiscount,
   couponDiscount,
   couponCode,
+  couponDiscountPercent,
   memberDiscount,
   memberId,
+  memberDiscountPercent,
   totalDiscount,
   payableTotal,
   paymentMethod,
@@ -508,10 +679,13 @@ function InvoicePreview({
   cartItems: CheckoutItem[]
   subtotal: number
   shipping: number
+  shippingDiscount: number
   couponDiscount: number
   couponCode?: string
+  couponDiscountPercent?: number
   memberDiscount: number
   memberId?: string | null
+  memberDiscountPercent?: number
   totalDiscount: number
   payableTotal: number
   paymentMethod: ShopPaymentMethod
@@ -557,14 +731,26 @@ function InvoicePreview({
         <div className="flex justify-between"><span>Shipping</span><span>{format(shipping)}</span></div>
         {couponDiscount > 0 && (
           <div className="flex justify-between text-[#D30000]">
-            <span>Coupon{couponCode ? ` (${couponCode})` : ''}</span>
+            <span>
+              Coupon{couponCode ? ` (${couponCode})` : ''}
+              {couponDiscountPercent ? ` ${couponDiscountPercent}%` : ''}
+            </span>
             <span>-{format(couponDiscount)}</span>
           </div>
         )}
         {memberDiscount > 0 && (
           <div className="flex justify-between text-[#D30000]">
-            <span>Member ID{memberId ? ` (${memberId})` : ''}</span>
+            <span>
+              Member ID{memberId ? ` (${memberId})` : ''}
+              {memberDiscountPercent ? ` ${memberDiscountPercent}%` : ''}
+            </span>
             <span>-{format(memberDiscount)}</span>
+          </div>
+        )}
+        {shippingDiscount > 0 && (
+          <div className="flex justify-between text-[#D30000]">
+            <span>Shipping waived{memberId ? ` by ${memberId}` : ''}</span>
+            <span>-{format(shippingDiscount)}</span>
           </div>
         )}
         {couponDiscount > 0 && memberDiscount > 0 && (

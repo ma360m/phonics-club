@@ -186,27 +186,43 @@ export async function placeOrderAction(
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const shippingFee = SHIPPING_FEE_PKR
   let discountAmount = 0
+  let couponDiscountAmount = 0
+  let memberDiscountAmount = 0
+  let couponDiscountPercent = 0
+  let memberDiscountPercent = 0
+  let shippingDiscountAmount = 0
+  let shippingDiscountReason: string | null = null
   let couponCode: string | null = null
   let memberId: string | null = null
 
   if (parsed.data.couponCode?.trim()) {
     const couponResult = await validateCoupon(parsed.data.couponCode.trim(), subtotal)
     if (couponResult.error) return { success: false, error: couponResult.error }
-    discountAmount += couponResult.discount
+    couponDiscountAmount = couponResult.discount
+    couponDiscountPercent = Number(couponResult.discountPercent.toFixed(2))
+    discountAmount += couponDiscountAmount
     couponCode = parsed.data.couponCode.trim().toUpperCase()
   }
 
   if (parsed.data.memberId?.trim()) {
     const memberResult = await validateMemberDiscount(parsed.data.memberId, Math.max(0, subtotal - discountAmount))
     if (memberResult.error) return { success: false, error: memberResult.error }
-    discountAmount += memberResult.discount
+    memberDiscountAmount = memberResult.discount
+    memberDiscountPercent = Number(memberResult.discountPercent ?? 0)
+    discountAmount += memberDiscountAmount
     memberId = memberResult.memberId
+    if (memberResult.freeShippingEnabled) {
+      shippingDiscountAmount = shippingFee
+      shippingDiscountReason = `Member ID ${memberResult.memberId}`
+    }
   }
 
   discountAmount = Math.min(discountAmount, subtotal)
-  items = applyItemDiscounts(items, discountAmount, subtotal > 0 ? (discountAmount / subtotal) * 100 : 0)
+  const discountPercent = subtotal > 0 ? Number(((discountAmount / subtotal) * 100).toFixed(2)) : 0
+  const chargedShippingFee = Math.max(0, shippingFee - shippingDiscountAmount)
+  items = applyItemDiscounts(items, discountAmount, discountPercent)
 
-  const total = Math.max(0, subtotal + shippingFee - discountAmount)
+  const total = Math.max(0, subtotal + chargedShippingFee - discountAmount)
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
   if (!(await isPaymentMethodEnabled(paymentMethod, total))) {
     return { success: false, error: 'This payment method is currently unavailable. Please choose another payment method.' }
@@ -255,8 +271,13 @@ export async function placeOrderAction(
     status,
     total,
     subtotal,
-    shipping_fee: shippingFee,
+    shipping_fee: chargedShippingFee,
     discount_amount: discountAmount,
+    discount_percent: discountPercent,
+    coupon_discount_percent: couponDiscountPercent,
+    member_discount_percent: memberDiscountPercent,
+    shipping_discount_amount: shippingDiscountAmount,
+    shipping_discount_reason: shippingDiscountReason,
     coupon_code: couponCode,
     member_id: memberId,
     payment_method: paymentMethod,
@@ -275,7 +296,7 @@ export async function placeOrderAction(
     exchange_rate: exchangeRate,
     exchange_rate_timestamp: exchangeRateTimestamp,
     display_subtotal: convertCurrency(subtotal, displayCurrency, exchangeRate),
-    display_shipping_fee: convertCurrency(shippingFee, displayCurrency, exchangeRate),
+    display_shipping_fee: convertCurrency(chargedShippingFee, displayCurrency, exchangeRate),
     display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
   }
@@ -287,7 +308,7 @@ export async function placeOrderAction(
     .select()
     .single()
 
-  if (error && /display_currency|exchange_rate|display_subtotal|display_total/i.test(error.message)) {
+  if (error && /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason/i.test(error.message)) {
     const legacyPayload = { ...orderPayload }
     delete legacyPayload.display_currency
     delete legacyPayload.exchange_rate
@@ -296,6 +317,11 @@ export async function placeOrderAction(
     delete legacyPayload.display_shipping_fee
     delete legacyPayload.display_discount_amount
     delete legacyPayload.display_total
+    delete legacyPayload.discount_percent
+    delete legacyPayload.coupon_discount_percent
+    delete legacyPayload.member_discount_percent
+    delete legacyPayload.shipping_discount_amount
+    delete legacyPayload.shipping_discount_reason
     const retry = await supabase
       .from('orders')
       .insert(legacyPayload as never)

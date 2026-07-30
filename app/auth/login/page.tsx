@@ -15,7 +15,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ message?: string; error?: string; redirect?: string }>
 }) {
-  const { redirect } = await searchParams
+  const { redirect, message, error } = await searchParams
   const redirectTo = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
 
   return (
@@ -33,6 +33,8 @@ export default async function LoginPage({
             <p className="text-muted-foreground mt-1">Sign in to {APP_NAME}</p>
           </div>
           <div className="bg-card rounded-2xl border border-border p-8 shadow-xl glass">
+            {message && <p className="mb-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+            {error && <p className="mb-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
             <LoginForm redirectTo={redirectTo} />
           </div>
         </div>
