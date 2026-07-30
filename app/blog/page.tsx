@@ -72,9 +72,13 @@ export default async function BlogPage({
               href={`/blog/${post.slug}`}
               className="group bg-card rounded-2xl border overflow-hidden shadow-sm hover:shadow-xl transition-all"
             >
-              <div className="aspect-video bg-gradient-to-br from-[#1D4ED8]/10 to-[#FBBF24]/20 flex items-center justify-center text-4xl">
-                📝
-              </div>
+              {post.cover_image ? (
+                <img src={post.cover_image} alt="" className="aspect-video w-full object-cover" />
+              ) : (
+                <div className="aspect-video bg-gradient-to-br from-[#1D4ED8]/10 to-[#FBBF24]/20 flex items-center justify-center text-sm font-semibold text-[#1D4ED8]">
+                  Article
+                </div>
+              )}
               <div className="p-6">
                 <Badge variant="secondary" className="mb-2">{post.category}</Badge>
                 <h2 className="font-semibold text-lg group-hover:text-[#1D4ED8] line-clamp-2">{post.title}</h2>

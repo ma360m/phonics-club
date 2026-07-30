@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { getSession } from '@/lib/auth'
+import { getSession, isAdminRole } from '@/lib/auth'
 import { buildInvoiceHtml, invoiceCustomerName, invoiceFileBaseName } from '@/lib/invoice'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
@@ -29,7 +29,7 @@ export async function GET(
   } else if (user) {
     const supabase = await createClient()
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (order.user_id === user.id || profile?.role === 'admin') authorized = true
+    if (order.user_id === user.id || isAdminRole(profile?.role)) authorized = true
   }
 
   if (!authorized) {

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { uploadImage, isCloudinaryConfigured } from '@/lib/cloudinary'
 import { rateLimit } from '@/lib/rate-limit'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
 
 export async function POST(request: Request) {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'You must be signed in as an admin before uploading media.' }, { status: 401 })
   }
 

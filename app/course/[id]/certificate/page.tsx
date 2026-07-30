@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { LmsStatusBadge } from '@/components/lms/lms-primitives'
-import { getProfile, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { getCertificateStatus, getCourseAccessState, getCourseById, getUserEnrollment, isCourseCertificateEnabled } from '@/lib/lms'
 import { createServiceClient } from '@/lib/supabase/server'
 import { Award, CheckCircle2, ChevronLeft, Clock, Download, ExternalLink, ShieldCheck } from 'lucide-react'
@@ -81,7 +81,7 @@ export default async function CertificateStatusPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
         <div className="mx-auto max-w-6xl space-y-6">
           <Button asChild variant="ghost" className="rounded-xl text-slate-600 hover:text-[#1D4ED8]">
             <Link href={managerPreview ? '/admin/courses' : '/dashboard/my-courses'}>

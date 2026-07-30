@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin' | 'instructor'
+export type UserRole = 'user' | 'customer' | 'student' | 'parent' | 'admin' | 'instructor' | 'super_admin'
 export type CoursePaymentStatus =
   | 'pending'
   | 'processing'
@@ -208,6 +208,7 @@ export interface BlogPost {
   category: string
   tags: string[]
   cover_image: string | null
+  gallery_images?: BlogGalleryImage[] | null
   author_id: string | null
   published: boolean
   seo_title: string | null
@@ -215,6 +216,12 @@ export interface BlogPost {
   created_at: string
   updated_at: string
   profiles?: Pick<Profile, 'full_name' | 'avatar_url'> | null
+}
+
+export interface BlogGalleryImage {
+  src: string
+  alt?: string | null
+  caption?: string | null
 }
 
 export interface Order {
@@ -232,6 +239,12 @@ export interface Order {
   payment_method?: string
   phone?: string | null
   receipt_url?: string | null
+  receipt_bucket?: string | null
+  receipt_path?: string | null
+  receipt_filename?: string | null
+  receipt_mime_type?: string | null
+  receipt_size_bytes?: number | null
+  receipt_uploaded_at?: string | null
   invoice_number?: string | null
   display_currency?: string | null
   exchange_rate?: number | null
@@ -1006,6 +1019,63 @@ export interface NewsletterIssue {
   updated_at: string
 }
 
+export interface UserDisplayPreferencesRow {
+  id: string
+  user_id: string
+  theme: string
+  accent_color: string
+  greyscale_enabled: boolean
+  high_visibility_enabled: boolean
+  negative_contrast_enabled: boolean
+  light_background_enabled: boolean
+  highlight_links_enabled: boolean
+  underline_links_enabled: boolean
+  strong_focus_enabled: boolean
+  text_size: string
+  reading_width: string
+  line_spacing: string
+  letter_spacing: string
+  font_mode: string
+  motion_mode: string
+  larger_buttons_enabled: boolean
+  larger_targets_enabled: boolean
+  simplified_interface_enabled: boolean
+  reduce_decorations_enabled: boolean
+  reading_focus_enabled: boolean
+  children_mode_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AppearanceSettingsRow {
+  id: number
+  default_theme: string
+  enabled_themes: string[]
+  neon_learning_enabled: boolean
+  children_mode_enabled: boolean
+  accessibility_controls_enabled: boolean
+  default_accent_color: string
+  theme_config: Record<string, unknown>
+  draft_config: Record<string, unknown>
+  published_at: string | null
+  published_by: string | null
+  updated_at: string
+}
+
+export interface MemberDiscount {
+  id: string
+  member_id: string
+  discount_amount: number
+  discount_percent: number
+  max_uses: number | null
+  used_count: number
+  active: boolean
+  expires_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -1057,6 +1127,9 @@ export interface Database {
       course_completion_status: { Row: CourseCompletionStatus; Insert: Partial<CourseCompletionStatus>; Update: Partial<CourseCompletionStatus> }
       newsletter_issues: { Row: NewsletterIssue; Insert: Partial<NewsletterIssue>; Update: Partial<NewsletterIssue> }
       trainers: { Row: Trainer; Insert: Partial<Trainer>; Update: Partial<Trainer> }
+      user_display_preferences: { Row: UserDisplayPreferencesRow; Insert: Partial<UserDisplayPreferencesRow>; Update: Partial<UserDisplayPreferencesRow> }
+      appearance_settings: { Row: AppearanceSettingsRow; Insert: Partial<AppearanceSettingsRow>; Update: Partial<AppearanceSettingsRow> }
+      member_discounts: { Row: MemberDiscount; Insert: Partial<MemberDiscount>; Update: Partial<MemberDiscount> }
     }
   }
 }

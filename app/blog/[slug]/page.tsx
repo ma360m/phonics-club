@@ -38,6 +38,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           className="prose prose-lg max-w-none dark:prose-invert"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
+        {post.gallery_images?.length ? (
+          <section className="mt-12" aria-labelledby="blog-gallery-heading">
+            <h2 id="blog-gallery-heading" className="mb-5 text-2xl font-bold">Gallery</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {post.gallery_images.map((image, index) => (
+                <figure key={`${image.src}-${index}`} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                  <img src={image.src} alt={image.alt ?? ''} className="aspect-video w-full object-cover" />
+                  {image.caption ? (
+                    <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption>
+                  ) : null}
+                </figure>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {post.tags?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-10">
             {post.tags.map((tag) => (

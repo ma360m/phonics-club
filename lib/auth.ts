@@ -66,14 +66,18 @@ export async function requireAuth(redirectTo = '/auth/login') {
 
 export async function requireAdmin() {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     redirect('/dashboard')
   }
   return profile
 }
 
+export function isAdminRole(role: UserRole | null | undefined) {
+  return role === 'admin' || role === 'super_admin'
+}
+
 export function isLmsManagerRole(role: UserRole | null | undefined) {
-  return role === 'admin' || role === 'instructor'
+  return isAdminRole(role) || role === 'instructor'
 }
 
 export async function requireLmsManager() {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { COMPANY } from '@/lib/company'
 
 const DAY_MS = 86_400_000
@@ -78,7 +78,7 @@ async function authorized(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
   const profile = await getProfile()
-  return profile?.role === 'admin'
+  return isAdminRole(profile?.role)
 }
 
 export async function POST(request: Request) {

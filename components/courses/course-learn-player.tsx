@@ -188,6 +188,7 @@ export function CourseLearnPlayer({
   const [completed, setCompleted] = useState(initialCompleted)
   const [progress, setProgress] = useState(initialProgress)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false)
   const [mobileCurriculumOpen, setMobileCurriculumOpen] = useState(false)
   const [completionBurst, setCompletionBurst] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -402,12 +403,14 @@ export function CourseLearnPlayer({
       courseId={course.id}
       sourceUrl={sourceUrl}
       previewMode={previewMode}
+      collapsed={detailsCollapsed}
+      onToggleCollapsed={() => setDetailsCollapsed((value) => !value)}
     />
   ) : null
 
   return (
-    <div className="space-y-4 pb-24 lg:pb-2">
-      <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="pc-course-workspace space-y-4 pb-24 lg:pb-2">
+      <header className="pc-course-header rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -427,7 +430,7 @@ export function CourseLearnPlayer({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="min-w-[220px] rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2">
+            <div className="pc-course-progress rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 sm:min-w-[180px]">
               <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
                 <span>Overall progress</span>
                 <span className="text-[#0F172A]">{progress}%</span>
@@ -456,20 +459,24 @@ export function CourseLearnPlayer({
 
       <div
         className={cn(
-          'grid gap-4',
+          'pc-course-layout grid gap-4',
           sidebarCollapsed
             ? showInfoPanel
-              ? 'lg:grid-cols-[84px_minmax(0,1fr)] 2xl:grid-cols-[84px_minmax(0,1fr)_280px]'
+              ? detailsCollapsed
+                ? 'lg:grid-cols-[84px_minmax(0,1fr)] 2xl:grid-cols-[84px_minmax(0,1fr)_76px]'
+                : 'lg:grid-cols-[84px_minmax(0,1fr)] 2xl:grid-cols-[84px_minmax(0,1fr)_280px]'
               : 'lg:grid-cols-[84px_minmax(0,1fr)]'
             : showInfoPanel
-              ? 'lg:grid-cols-[310px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)_280px]'
+              ? detailsCollapsed
+                ? 'lg:grid-cols-[310px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)_76px]'
+                : 'lg:grid-cols-[310px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)_280px]'
               : 'lg:grid-cols-[310px_minmax(0,1fr)]',
         )}
       >
         <aside className="hidden lg:block">{desktopCurriculum}</aside>
 
-        <main key={activeLesson.id} className="min-w-0 space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
-          <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <main key={activeLesson.id} className="pc-course-main min-w-0 space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
+          <section className="pc-course-card pc-course-player-card relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {completionBurst && (
               <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
                 <div className="mt-4 rounded-full border border-[#FDE68A] bg-white px-4 py-2 text-sm font-bold text-[#8B1E2D] shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2">
@@ -612,7 +619,7 @@ function CurriculumSidebar({
 }) {
   if (collapsed) {
     return (
-      <div className="sticky top-4 h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="pc-course-curriculum pc-course-curriculum-collapsed sticky top-4 h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         <Button
           type="button"
           size="icon"
@@ -660,7 +667,7 @@ function CurriculumSidebar({
   }
 
   return (
-    <div className="sticky top-4 h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="pc-course-curriculum sticky top-4 h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -782,8 +789,8 @@ function LessonContent({
   return (
     <div className="space-y-0">
       {showVideo && (
-        <div className="border-b border-slate-200 bg-[#0F172A] p-4 sm:p-5">
-          <div className="aspect-video overflow-hidden rounded-xl bg-black">
+        <div className="pc-course-video-shell border-b border-slate-200 bg-[#0F172A] p-4 sm:p-5">
+          <div className="pc-course-video aspect-video overflow-hidden rounded-xl bg-black">
             {videoUrl ? (
               <iframe
                 className="h-full w-full"
@@ -964,7 +971,7 @@ function DocumentContent({ title, content }: { title: string; content: string })
   const html = /<\/?[a-z][\s\S]*>/i.test(content)
 
   return (
-    <article className="mt-4 mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white px-5 py-6 text-[#0F172A] shadow-sm sm:px-8 sm:py-8 [&_a]:font-semibold [&_a]:text-[#1D4ED8] [&_blockquote]:border-l-4 [&_blockquote]:border-[#BFDBFE] [&_blockquote]:bg-[#F8FAFC] [&_blockquote]:px-4 [&_blockquote]:py-2 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-bold [&_img]:my-5 [&_img]:rounded-xl [&_img]:border [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_p]:leading-8 [&_table]:my-5 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:p-3 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-[#F8FAFC] [&_th]:p-3 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6">
+    <article className="pc-reading-surface mt-4 mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white px-5 py-6 text-[#0F172A] shadow-sm sm:px-8 sm:py-8 [&_a]:font-semibold [&_a]:text-[#1D4ED8] [&_blockquote]:border-l-4 [&_blockquote]:border-[#BFDBFE] [&_blockquote]:bg-[#F8FAFC] [&_blockquote]:px-4 [&_blockquote]:py-2 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-bold [&_img]:my-5 [&_img]:rounded-xl [&_img]:border [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_p]:leading-8 [&_table]:my-5 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:p-3 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-[#F8FAFC] [&_th]:p-3 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6">
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: content }} />
       ) : (
@@ -1146,6 +1153,8 @@ function LessonInfoPanel({
   courseId,
   sourceUrl,
   previewMode,
+  collapsed,
+  onToggleCollapsed,
 }: {
   lesson: CourseLesson
   moduleTitle: string
@@ -1154,6 +1163,8 @@ function LessonInfoPanel({
   courseId: string
   sourceUrl: string | null
   previewMode: boolean
+  collapsed: boolean
+  onToggleCollapsed: () => void
 }) {
   const details = [
     { label: 'Module', value: moduleTitle, icon: Layers3 },
@@ -1163,9 +1174,43 @@ function LessonInfoPanel({
     { label: 'Required', value: lesson.is_compulsory === false ? 'Optional' : 'Required', icon: CheckCircle2 },
   ].filter(Boolean) as Array<{ label: string; value: string; icon: LucideIcon }>
 
+  if (collapsed) {
+    return (
+      <aside className="pc-course-info-panel flex min-h-[220px] flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-xl text-slate-600 hover:text-[#1D4ED8]"
+          aria-label="Expand lesson details"
+          onClick={onToggleCollapsed}
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <div className="flex flex-1 items-center">
+          <span className="[writing-mode:vertical-rl] rotate-180 text-xs font-bold uppercase tracking-wide text-slate-500">
+            Details
+          </span>
+        </div>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Lesson details</h3>
+    <aside className="pc-course-info-panel rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Lesson details</h3>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-xl text-slate-600 hover:text-[#1D4ED8]"
+          aria-label="Collapse lesson details"
+          onClick={onToggleCollapsed}
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
       <ul className="mt-4 space-y-2.5">
         {details.map(({ label, value, icon: Icon }) => (
           <li key={label} className="flex gap-3 rounded-xl bg-[#F8FAFC] p-3">

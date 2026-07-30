@@ -15,13 +15,14 @@ import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { buildInvoicePdf, generateOrderAccessToken } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail, type LowStockEmailAlert } from '@/lib/email/send-order-email'
-import { uploadOrderReceipt } from '@/lib/orders/receipt-upload'
+import { uploadOrderReceiptFile, type OrderReceiptUpload } from '@/lib/orders/receipt-upload'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
 import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
+import { incrementMemberDiscountUsage, validateMemberDiscount } from '@/lib/discounts/member-discounts'
 import type { ActionResult, OrderItem } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
@@ -98,7 +99,7 @@ async function applyStockChangesForOrder(orderId: string, items: OrderItem[]): P
 }
 
 async function validateCoupon(code: string, subtotal: number) {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const { data: coupon } = await supabase
     .from('coupons')
     .select('*')
@@ -186,16 +187,26 @@ export async function placeOrderAction(
   const shippingFee = SHIPPING_FEE_PKR
   let discountAmount = 0
   let couponCode: string | null = null
+  let memberId: string | null = null
 
   if (parsed.data.couponCode?.trim()) {
     const couponResult = await validateCoupon(parsed.data.couponCode.trim(), subtotal)
     if (couponResult.error) return { success: false, error: couponResult.error }
-    discountAmount = couponResult.discount
-    items = applyItemDiscounts(items, discountAmount, couponResult.discountPercent)
+    discountAmount += couponResult.discount
     couponCode = parsed.data.couponCode.trim().toUpperCase()
   }
 
-  const total = subtotal + shippingFee - discountAmount
+  if (parsed.data.memberId?.trim()) {
+    const memberResult = await validateMemberDiscount(parsed.data.memberId, Math.max(0, subtotal - discountAmount))
+    if (memberResult.error) return { success: false, error: memberResult.error }
+    discountAmount += memberResult.discount
+    memberId = memberResult.memberId
+  }
+
+  discountAmount = Math.min(discountAmount, subtotal)
+  items = applyItemDiscounts(items, discountAmount, subtotal > 0 ? (discountAmount / subtotal) * 100 : 0)
+
+  const total = Math.max(0, subtotal + shippingFee - discountAmount)
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
   if (!(await isPaymentMethodEnabled(paymentMethod, total))) {
     return { success: false, error: 'This payment method is currently unavailable. Please choose another payment method.' }
@@ -209,9 +220,8 @@ export async function placeOrderAction(
 
   const accessToken = user ? null : generateOrderAccessToken()
   const invoiceNumber = await getNextInvoiceNumber()
-  const orderIdForReceipt = user?.id ?? `guest-${Date.now()}`
-
   let receiptUrl: string | null = null
+  let receiptUpload: OrderReceiptUpload | null = null
   const receiptFile = formData.get('receipt') as File | null
   if (receiptRequired && receiptTiming === 'now' && (!receiptFile || receiptFile.size <= 0)) {
     return {
@@ -221,12 +231,12 @@ export async function placeOrderAction(
   }
   if (receiptRequired && receiptFile && receiptFile.size > 0) {
     try {
-      receiptUrl = await uploadOrderReceipt(receiptFile, orderIdForReceipt)
+      receiptUpload = await uploadOrderReceiptFile(receiptFile, `orders/pending/${user?.id ?? `guest-${Date.now()}`}`)
     } catch (err) {
       return { success: false, error: friendlyErrorMessage(err, 'Receipt upload failed.') }
     }
   }
-  const status = receiptRequired ? (receiptUrl ? 'payment_submitted' : 'awaiting_payment') : 'pending'
+  const status = receiptRequired ? (receiptUpload ? 'payment_submitted' : 'awaiting_payment') : 'pending'
 
   const shippingAddress = {
     fullName: parsed.data.fullName,
@@ -248,10 +258,16 @@ export async function placeOrderAction(
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     coupon_code: couponCode,
-    member_id: parsed.data.memberId || null,
+    member_id: memberId,
     payment_method: paymentMethod,
     phone: normalizePhone(parsed.data.phone),
     receipt_url: receiptUrl,
+    receipt_bucket: receiptUpload?.bucket ?? null,
+    receipt_path: receiptUpload?.path ?? null,
+    receipt_filename: receiptUpload?.filename ?? null,
+    receipt_mime_type: receiptUpload?.mimeType ?? null,
+    receipt_size_bytes: receiptUpload?.sizeBytes ?? null,
+    receipt_uploaded_at: receiptUpload ? new Date().toISOString() : null,
     invoice_number: invoiceNumber,
     items,
     shipping_address: shippingAddress,
@@ -291,10 +307,20 @@ export async function placeOrderAction(
 
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be placed.') }
 
+  if (receiptUpload) {
+    receiptUrl = `/api/orders/${order.id}/receipt`
+    const serviceSupabase = await createServiceClient()
+    await serviceSupabase
+      .from('orders')
+      .update({ receipt_url: receiptUrl } as never)
+      .eq('id', order.id)
+    order = { ...order, receipt_url: receiptUrl }
+  }
+
   const lowStockAlerts = await applyStockChangesForOrder(order.id, items)
 
   if (couponCode) {
-    const couponClient = await createClient()
+    const couponClient = await createServiceClient()
     const { data: coupon } = await couponClient
       .from('coupons')
       .select('id, used_count')
@@ -306,6 +332,10 @@ export async function placeOrderAction(
         .update({ used_count: (coupon.used_count ?? 0) + 1 } as never)
         .eq('id', coupon.id)
     }
+  }
+
+  if (memberId) {
+    await incrementMemberDiscountUsage(memberId)
   }
 
   if (user) {
@@ -392,11 +422,18 @@ export async function submitOrderReceiptAction(
       return { success: false, error: 'This order can no longer accept a payment receipt.' }
     }
 
-    const receiptUrl = await uploadOrderReceipt(receiptFile, order.user_id ?? `guest-${order.id}`)
+    const receiptUpload = await uploadOrderReceiptFile(receiptFile, `orders/${order.id}`)
+    const receiptUrl = `/api/orders/${order.id}/receipt`
     const { error: updateError } = await serviceSupabase
       .from('orders')
       .update({
         receipt_url: receiptUrl,
+        receipt_bucket: receiptUpload.bucket,
+        receipt_path: receiptUpload.path,
+        receipt_filename: receiptUpload.filename,
+        receipt_mime_type: receiptUpload.mimeType,
+        receipt_size_bytes: receiptUpload.sizeBytes,
+        receipt_uploaded_at: new Date().toISOString(),
         payment_method: paymentMethod,
         status: 'payment_submitted',
       } as never)
@@ -451,8 +488,10 @@ export async function updateCustomerOrderDetailsAction(
     const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
     const receiptFile = formData.get('receipt') as File | null
     let receiptUrl = result.order.receipt_url as string | null
+    let receiptUpload: OrderReceiptUpload | null = null
     if (shopPaymentNeedsReceipt(paymentMethod) && receiptFile && receiptFile.size > 0) {
-      receiptUrl = await uploadOrderReceipt(receiptFile, result.order.user_id ?? `guest-${result.order.id}`)
+      receiptUpload = await uploadOrderReceiptFile(receiptFile, `orders/${result.order.id}`)
+      receiptUrl = `/api/orders/${result.order.id}/receipt`
     }
 
     const shippingAddress = {
@@ -475,6 +514,14 @@ export async function updateCustomerOrderDetailsAction(
       receipt_url: receiptUrl,
       shipping_address: shippingAddress,
       status,
+    }
+    if (receiptUpload) {
+      updatePayload.receipt_bucket = receiptUpload.bucket
+      updatePayload.receipt_path = receiptUpload.path
+      updatePayload.receipt_filename = receiptUpload.filename
+      updatePayload.receipt_mime_type = receiptUpload.mimeType
+      updatePayload.receipt_size_bytes = receiptUpload.sizeBytes
+      updatePayload.receipt_uploaded_at = new Date().toISOString()
     }
     if (!result.order.user_id) updatePayload.guest_email = parsed.data.email
 

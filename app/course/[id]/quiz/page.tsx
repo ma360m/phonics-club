@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { CourseQuiz } from '@/components/courses/course-quiz'
 import { Button } from '@/components/ui/button'
-import { getProfile, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { getCourseById, getQuizForCourse, getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
 import { ChevronLeft, CircleAlert } from 'lucide-react'
@@ -43,7 +43,7 @@ export default async function QuizPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
         <Button asChild variant="ghost" className="mb-4 rounded-xl text-slate-600 hover:text-[#1D4ED8]">
           <Link href={learnHref}>
             <ChevronLeft className="mr-1 h-4 w-4" />

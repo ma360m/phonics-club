@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react'
 import { COMPANY } from '@/lib/company'
 import { APP_NAME } from '@/lib/constants'
+import { AppearanceAccessibilityLink } from '@/components/display-preferences/appearance-accessibility-link'
 
 const footerLinks = {
   company: [
@@ -112,6 +113,7 @@ export function Footer() {
               &copy; {new Date().getFullYear()} {COMPANY.name}. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
+              <AppearanceAccessibilityLink />
               {socialLinks.map((social) => (
                 <a
                   key={social.name}

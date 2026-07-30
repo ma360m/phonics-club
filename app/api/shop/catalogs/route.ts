@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { deleteShopCatalog, listShopCatalogs, saveShopCatalog } from '@/lib/shop-catalogs'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 
 export async function GET() {
   const catalogs = await listShopCatalogs()
@@ -9,7 +9,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

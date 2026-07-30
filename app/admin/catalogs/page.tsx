@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { listShopCatalogs } from '@/lib/shop-catalogs'
 import { Button } from '@/components/ui/button'
 import { AdminCatalogsManager } from '@/components/admin/catalogs-manager'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminCatalogsPage() {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     redirect('/dashboard')
   }
 

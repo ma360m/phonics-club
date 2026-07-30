@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { getProfile, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { CourseLearnPlayer } from '@/components/courses/course-learn-player'
 import { LmsShell } from '@/components/lms/lms-shell'
 import {
@@ -45,7 +45,7 @@ export default async function CourseLearnPage({
 
   return (
     <main className="min-h-screen bg-[#F4F8FF]">
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
         <CourseLearnPlayer
           course={course}
           modules={modules}

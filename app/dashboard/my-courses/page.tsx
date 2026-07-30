@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { getProfile, isSupabaseConfigured, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isSupabaseConfigured, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@/actions/lms'
 import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments } from '@/lib/lms'
@@ -51,6 +51,7 @@ export default async function MyCoursesPage() {
     .filter((entry) => entry.status === 'submitted' || entry.status === 'draft')
     .reduce((sum, entry) => sum + Number(entry.claimed_minutes ?? 0), 0)
   const hasOpenPayments = payments.some((payment) => ['pending', 'processing', 'submitted', 'rejected'].includes(payment.status))
+  const isAdmin = isAdminRole(profile?.role)
 
   async function submitOfflineActivityFormAction(formData: FormData) {
     'use server'
@@ -69,7 +70,7 @@ export default async function MyCoursesPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={profile?.role === 'admin'}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdmin}>
         <LmsPageHeader
           eyebrow="My Courses"
           title="Your learning path"

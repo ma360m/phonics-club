@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { productsToCsv } from '@/lib/products/import-export'
 import { productsToXlsxBuffer } from '@/lib/products/xlsx'
 
 export async function GET(request: Request) {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

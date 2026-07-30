@@ -68,7 +68,9 @@ export default async function AdminCurrencySettingsPage() {
               <option value="manual">Manual</option>
               <option value="automatic">Automatic</option>
             </select>
-            <p className="text-xs text-muted-foreground">Automatic mode is ready for a server-side rate API when configured.</p>
+            <p className="text-xs text-muted-foreground">
+              Automatic mode fetches USD to PKR on the server from Frankfurter by default. Set CURRENCY_RATE_API_URL only if you want another provider.
+            </p>
           </div>
         </div>
 

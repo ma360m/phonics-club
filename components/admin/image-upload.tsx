@@ -15,6 +15,7 @@ interface ImageUploadProps {
   /** Attach uploaded image to product by ISBN (Supabase Storage only) */
   isbn?: string
   multiple?: boolean
+  uploadEndpoint?: string
 }
 
 export function ImageUpload({
@@ -23,6 +24,7 @@ export function ImageUpload({
   storage = false,
   isbn,
   multiple = false,
+  uploadEndpoint,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
 
@@ -36,9 +38,10 @@ export function ImageUpload({
         const formData = new FormData()
         formData.append('file', file)
 
-        if (storage) {
+        if (storage || uploadEndpoint) {
           if (isbn) formData.append('isbn', isbn)
-          const res = await fetch('/api/admin/products/upload-image', { method: 'POST', body: formData })
+          if (folder) formData.append('folder', folder)
+          const res = await fetch(uploadEndpoint ?? '/api/admin/products/upload-image', { method: 'POST', body: formData })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Upload failed')
           onUpload(data.url)

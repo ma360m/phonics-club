@@ -3,6 +3,7 @@ import { toError } from '@/lib/friendly-error'
 
 export const PRODUCT_IMAGES_BUCKET = 'product-images'
 export const SITE_MEDIA_BUCKET = 'site-media'
+export const BLOG_GALLERY_BUCKET = 'blog-gallery'
 
 export function getStoragePublicUrl(path: string, bucket = PRODUCT_IMAGES_BUCKET): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -59,6 +60,27 @@ export async function uploadSiteMediaToStorage(
   if (error) throw toError(error, 'Media upload failed.')
 
   return { url: getStoragePublicUrl(path, SITE_MEDIA_BUCKET), path }
+}
+
+export async function uploadBlogGalleryImageToStorage(
+  file: Buffer,
+  filename: string,
+  contentType: string,
+  folder = 'blog-gallery'
+): Promise<{ url: string; path: string }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw toError('SUPABASE_SERVICE_ROLE_KEY is missing', 'Blog gallery upload failed.')
+  }
+  const supabase = await createServiceClient()
+  const path = safeStoragePath(filename, folder)
+
+  const { error } = await supabase.storage
+    .from(BLOG_GALLERY_BUCKET)
+    .upload(path, file, { contentType, upsert: false })
+
+  if (error) throw toError(error, 'Blog gallery upload failed.')
+
+  return { url: getStoragePublicUrl(path, BLOG_GALLERY_BUCKET), path }
 }
 
 export async function deleteProductImageFromStorage(path: string): Promise<void> {

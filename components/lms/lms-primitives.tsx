@@ -24,13 +24,13 @@ export function LmsPageHeader({
   meta?: ReactNode
 }) {
   return (
-    <header className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           {eyebrow && <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">{eyebrow}</p>}
-          <h1 className="mt-1 text-3xl font-bold tracking-normal text-[#0F172A] sm:text-4xl">{title}</h1>
-          {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">{description}</p>}
-          {meta && <div className="mt-4">{meta}</div>}
+          <h1 className="mt-1 text-2xl font-bold tracking-normal text-[#0F172A] sm:text-3xl">{title}</h1>
+          {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>}
+          {meta && <div className="mt-3">{meta}</div>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -52,15 +52,15 @@ export function LmsStatCard({
   tone?: keyof typeof toneClasses
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-[#BFDBFE]">
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-[#BFDBFE]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-[#0F172A]">{value}</p>
-          {detail && <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>}
+          <p className="mt-1 text-2xl font-bold text-[#0F172A]">{value}</p>
+          {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
         </div>
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border', toneClasses[tone])}>
-          <Icon className="h-5 w-5" />
+        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border', toneClasses[tone])}>
+          <Icon className="h-4 w-4" />
         </span>
       </div>
     </article>

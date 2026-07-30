@@ -6,10 +6,12 @@ import { Providers } from '@/components/providers'
 import { PhonicsAssistant } from '@/components/assistant/phonics-assistant'
 import { WhatsAppFloating } from '@/components/layout/whatsapp-button'
 import { ShopNowPopup } from '@/components/layout/shop-now-popup'
+import { FloatingCartButton } from '@/components/layout/floating-cart-button'
 import { buildMetadata, organizationJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { CURRENCY_PREFERENCE_KEY, normalizeCurrency } from '@/lib/currency'
+import { getDisplayPreferencesInitScript } from '@/lib/display-preferences/init-script'
 import './globals.css'
 
 const inter = Inter({
@@ -39,10 +41,12 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
+        <script dangerouslySetInnerHTML={{ __html: getDisplayPreferencesInitScript() }} />
         <JsonLd data={organizationJsonLd()} />
         <Providers currencySettings={currencySettings} initialCurrency={initialCurrency}>
           {children}
           <ShopNowPopup />
+          <FloatingCartButton />
           <PhonicsAssistant />
           <WhatsAppFloating />
         </Providers>

@@ -6,14 +6,63 @@ import { requireAdmin } from '@/lib/auth'
 import { normalizeCurrency, validateUsdToPkrRate } from '@/lib/currency'
 import { DEFAULT_PAYMENT_METHOD_SETTINGS } from '@/lib/payment-method-settings'
 
+type RateApiPayload = {
+  rate?: unknown
+  rates?: Record<string, unknown>
+  conversion_rate?: unknown
+  result?: unknown
+}
+
+const DEFAULT_USD_PKR_RATE_API_URL = 'https://api.frankfurter.dev/v2/rate/USD/PKR'
+
+function extractUsdToPkrRate(payload: RateApiPayload) {
+  return validateUsdToPkrRate(
+    payload.rate ??
+    payload.rates?.PKR ??
+    payload.conversion_rate ??
+    payload.result,
+  )
+}
+
+async function fetchAutomaticUsdToPkrRate() {
+  const endpoint = process.env.CURRENCY_RATE_API_URL?.trim() || DEFAULT_USD_PKR_RATE_API_URL
+  const response = await fetch(endpoint, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
+  })
+
+  if (!response.ok) throw new Error('Currency rate API returned an error.')
+
+  const payload = await response.json().catch(() => null) as RateApiPayload | null
+  const rate = payload ? extractUsdToPkrRate(payload) : null
+  if (!rate) throw new Error('Currency rate API returned an unusable USD-to-PKR rate.')
+
+  return {
+    rate,
+    sourceLabel: endpoint === DEFAULT_USD_PKR_RATE_API_URL ? 'Frankfurter API' : 'Configured server rate API',
+  }
+}
+
 export async function updateCurrencySettingsAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin()
-  const rate = validateUsdToPkrRate(formData.get('usd_to_pkr_rate'))
-  if (!rate) throw new Error('Enter a realistic USD-to-PKR rate between 100 and 600.')
-
   const usdEnabled = formData.get('usd_enabled') === 'on'
   const defaultCurrency = normalizeCurrency(formData.get('default_currency'), usdEnabled)
   const rateMode = formData.get('rate_mode') === 'automatic' ? 'automatic' : 'manual'
+  const manualRate = validateUsdToPkrRate(formData.get('usd_to_pkr_rate'))
+  let rate = manualRate
+  let sourceLabel = 'Manual admin entry'
+
+  if (rateMode === 'automatic') {
+    try {
+      const automaticRate = await fetchAutomaticUsdToPkrRate()
+      rate = automaticRate.rate
+      sourceLabel = automaticRate.sourceLabel
+    } catch {
+      throw new Error('Automatic exchange-rate update failed. Check server internet access or CURRENCY_RATE_API_URL, or switch to Manual mode.')
+    }
+  }
+
+  if (!rate) throw new Error('Enter a realistic USD-to-PKR rate between 100 and 600.')
 
   const supabase = await createClient()
   const { error } = await supabase.from('currency_settings').upsert({
@@ -31,7 +80,7 @@ export async function updateCurrencySettingsAction(formData: FormData): Promise<
     from_currency: 'USD',
     to_currency: 'PKR',
     rate,
-    source_label: rateMode === 'automatic' ? 'Automatic' : 'Manual admin entry',
+    source_label: sourceLabel,
     updated_by: admin.id,
   } as never)
 

@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react'
 import { addToCartAction } from '@/actions/cart'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { CART_UPDATED_EVENT } from '@/lib/guest-cart-client'
 
 export function AddToCartButton({ productId }: { productId: string }) {
   const [pending, startTransition] = useTransition()
@@ -12,8 +13,10 @@ export function AddToCartButton({ productId }: { productId: string }) {
   function handleClick() {
     startTransition(async () => {
       const result = await addToCartAction(productId)
-      if (result.success) toast.success('Added to cart')
-      else toast.error(result.error ?? 'Failed to add')
+      if (result.success) {
+        window.dispatchEvent(new Event(CART_UPDATED_EVENT))
+        toast.success('Added to cart', { duration: 1200 })
+      } else toast.error(result.error ?? 'Failed to add')
     })
   }
 

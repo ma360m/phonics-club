@@ -1,6 +1,7 @@
 import { getAdminLmsReport } from '@/actions/admin/lms'
 import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatCard } from '@/components/lms/lms-primitives'
 import { Activity, AlertTriangle, Award, BarChart3, BookOpenCheck, Clock, CreditCard, TrendingUp, Users } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 type ReportRow = Record<string, unknown>
 
@@ -59,6 +60,37 @@ function StatusBars({ title, rows }: { title: string; rows: Array<{ label: strin
   )
 }
 
+function ReportGroup({
+  id,
+  title,
+  description,
+  children,
+  defaultOpen = true,
+}: {
+  id?: string
+  title: string
+  description: string
+  children: ReactNode
+  defaultOpen?: boolean
+}) {
+  return (
+    <details id={id} open={defaultOpen} className="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2">
+        <span>
+          <span className="block text-lg font-bold text-[#0F172A]">{title}</span>
+          <span className="mt-1 block text-sm text-slate-500">{description}</span>
+        </span>
+        <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 group-open:bg-[#EFF6FF] group-open:text-[#1D4ED8]">
+          Toggle
+        </span>
+      </summary>
+      <div className="border-t border-slate-200 p-5">
+        {children}
+      </div>
+    </details>
+  )
+}
+
 export default async function AdminLmsReportsPage() {
   const report = await getAdminLmsReport()
   const payments = report.payments as ReportRow[]
@@ -103,26 +135,38 @@ export default async function AdminLmsReportsPage() {
         <LmsStatCard title="Flagged Sessions" value={formatNumber(flaggedSessions.length)} detail="Sessions needing attention" icon={AlertTriangle} tone="red" />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
-        <StatusBars title="Enrollment Status" rows={statusRows(enrollments, 'status')} />
-        <StatusBars title="Payment Status" rows={statusRows(payments, 'status')} />
-        <LmsSectionCard title="Completion Health" icon={BookOpenCheck}>
-          <div className="flex items-center gap-5">
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-[10px] border-[#DBEAFE] bg-white text-2xl font-bold text-[#1D4ED8]">
-              {completionRate}%
+      <ReportGroup
+        title="Core Reports"
+        description="Enrollment, payment and completion status in one compact area."
+      >
+        <div className="grid gap-6 xl:grid-cols-3">
+          <StatusBars title="Enrollment Status" rows={statusRows(enrollments, 'status')} />
+          <StatusBars title="Payment Status" rows={statusRows(payments, 'status')} />
+          <LmsSectionCard title="Completion Health" icon={BookOpenCheck}>
+            <div className="flex items-center gap-5">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-[10px] border-[#DBEAFE] bg-white text-2xl font-bold text-[#1D4ED8]">
+                {completionRate}%
+              </div>
+              <p className="text-sm leading-6 text-slate-500">
+                Shows how many tracked completion records have reached the completed state.
+              </p>
             </div>
-            <p className="text-sm leading-6 text-slate-500">
-              Shows how many tracked completion records have reached the completed state.
-            </p>
-          </div>
-        </LmsSectionCard>
-      </div>
+          </LmsSectionCard>
+        </div>
+      </ReportGroup>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <StatusBars title="Offline Activity Review" rows={statusRows(offline, 'status')} />
-        <StatusBars title="Assignment Review" rows={statusRows(assignments, 'status')} />
-        <StatusBars title="Session Quality" rows={statusRows(sessions, 'status')} />
-      </div>
+      <ReportGroup
+        id="assessments"
+        title="Assessments and Review Queues"
+        description="Open this when you need quizzes, assignments, offline activity or flagged session review."
+        defaultOpen={false}
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          <StatusBars title="Offline Activity Review" rows={statusRows(offline, 'status')} />
+          <StatusBars title="Assignment Review" rows={statusRows(assignments, 'status')} />
+          <StatusBars title="Session Quality" rows={statusRows(sessions, 'status')} />
+        </div>
+      </ReportGroup>
     </div>
   )
 }

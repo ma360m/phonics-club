@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole, isSupabaseConfigured } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { isSupabaseConfigured } from '@/lib/auth'
 
 export async function GET() {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

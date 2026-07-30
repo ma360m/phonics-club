@@ -17,7 +17,7 @@ import {
   Users,
 } from 'lucide-react'
 import { getInstructorDashboardData, installChildrenPhonicsCoursesAction } from '@/actions/admin/courses'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -121,7 +121,7 @@ export default async function AdminCoursesPage() {
                 ))}
               </div>
             </div>
-            {profile?.role === 'admin' && (
+            {isAdminRole(profile?.role) && (
               <form action={installChildrenPhonicsCoursesAction}>
                 <Button type="submit" className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
                   <Plus className="mr-2 h-4 w-4" />

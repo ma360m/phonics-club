@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useMemo, useState } from 'react'
 import { createBlogPostAction, updateBlogPostAction } from '@/actions/admin/blog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ImageUpload } from './image-upload'
 import { BLOG_CATEGORIES } from '@/lib/constants'
 import type { BlogPost } from '@/types/database'
+import type { BlogGalleryImage } from '@/types/database'
 import type { ActionResult } from '@/types'
 
 const initial: ActionResult = { success: false }
@@ -16,9 +17,20 @@ const initial: ActionResult = { success: false }
 export function BlogForm({ post }: { post?: BlogPost }) {
   const action = post ? updateBlogPostAction.bind(null, post.id) : createBlogPostAction
   const [state, formAction, pending] = useActionState(action, initial)
+  const [galleryImages, setGalleryImages] = useState<BlogGalleryImage[]>(() => post?.gallery_images ?? [])
+  const galleryJson = useMemo(() => JSON.stringify(galleryImages), [galleryImages])
+
+  function updateGalleryImage(index: number, patch: Partial<BlogGalleryImage>) {
+    setGalleryImages((current) => current.map((image, itemIndex) => (itemIndex === index ? { ...image, ...patch } : image)))
+  }
+
+  function removeGalleryImage(index: number) {
+    setGalleryImages((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
 
   return (
     <form action={formAction} className="space-y-4 max-w-3xl">
+      <input type="hidden" name="gallery_images" value={galleryJson} />
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       {state.success && <p className="text-emerald-600 text-sm">Saved!</p>}
       <div className="grid grid-cols-2 gap-4">
@@ -57,6 +69,48 @@ export function BlogForm({ post }: { post?: BlogPost }) {
             const input = document.querySelector<HTMLInputElement>('input[name="cover_image"]')
             if (input) input.value = url
           }} />
+        </div>
+        <div className="space-y-3 col-span-2 rounded-2xl border bg-card p-4">
+          <div>
+            <Label>Gallery Images</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Upload supporting pictures for this blog post. They appear in a clean gallery below the article.
+            </p>
+          </div>
+          <ImageUpload
+            folder="blog-gallery"
+            multiple
+            uploadEndpoint="/api/admin/blog/gallery/upload"
+            onUpload={(url) => {
+              setGalleryImages((current) => [...current, { src: url, alt: post?.title ?? '', caption: '' }])
+            }}
+          />
+          {galleryImages.length > 0 && (
+            <div className="space-y-3">
+              {galleryImages.map((image, index) => (
+                <div key={`${image.src}-${index}`} className="grid gap-3 rounded-xl border bg-background p-3 sm:grid-cols-[88px_1fr_auto] sm:items-start">
+                  <img src={image.src} alt={image.alt ?? ''} className="h-20 w-20 rounded-lg object-cover" />
+                  <div className="grid gap-2">
+                    <Input
+                      value={image.alt ?? ''}
+                      onChange={(event) => updateGalleryImage(index, { alt: event.target.value })}
+                      placeholder="Alt text"
+                      className="rounded-lg"
+                    />
+                    <Input
+                      value={image.caption ?? ''}
+                      onChange={(event) => updateGalleryImage(index, { caption: event.target.value })}
+                      placeholder="Caption (optional)"
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <Button type="button" variant="outline" className="rounded-lg" onClick={() => removeGalleryImage(index)}>
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           <Label>SEO Title</Label>

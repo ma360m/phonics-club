@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getProfile } from '@/lib/auth'
+import { getProfile, isAdminRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { parseCsv, parseImportRowsFromObjects } from '@/lib/products/import-export'
 import { parseXlsxImport } from '@/lib/products/xlsx'
@@ -8,7 +8,7 @@ import { upsertProductsByIsbn } from '@/lib/products/upsert'
 
 export async function POST(request: Request) {
   const profile = await getProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || !isAdminRole(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

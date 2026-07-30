@@ -12,6 +12,14 @@ function parseBlogForm(formData: FormData) {
     ? String(tagsRaw).split(',').map((s) => s.trim()).filter(Boolean)
     : []
 
+  let galleryImages: unknown[] = []
+  try {
+    const galleryRaw = formData.get('gallery_images')
+    galleryImages = galleryRaw ? JSON.parse(String(galleryRaw)) : []
+  } catch {
+    galleryImages = []
+  }
+
   return blogPostSchema.safeParse({
     title: formData.get('title'),
     slug: formData.get('slug'),
@@ -20,6 +28,7 @@ function parseBlogForm(formData: FormData) {
     category: formData.get('category'),
     tags: tags.join(','),
     cover_image: formData.get('cover_image') || null,
+    gallery_images: galleryImages,
     published: formData.get('published') === 'on',
     seo_title: formData.get('seo_title'),
     seo_description: formData.get('seo_description'),

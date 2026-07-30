@@ -73,9 +73,9 @@ export default async function AdminOrdersPage() {
                 {(order.discount_amount ?? 0) > 0 && <span>Discount: -{formatPrice(order.discount_amount!)}</span>}
               </div>
 
-              {order.receipt_url && (
+              {(order.receipt_url || order.receipt_path) && (
                 <p className="mb-4">
-                  <a href={order.receipt_url} target="_blank" rel="noreferrer" className="text-[#1D4ED8] text-sm hover:underline">
+                  <a href={`/api/orders/${order.id}/receipt`} target="_blank" rel="noreferrer" className="text-[#1D4ED8] text-sm hover:underline">
                     View payment receipt
                   </a>
                 </p>

@@ -57,7 +57,7 @@ export function CatalogManager({
           return
         }
         const data = await response.json()
-        setIsAdmin(Boolean(data?.user && data?.profile?.role === 'admin'))
+        setIsAdmin(Boolean(data?.user && ['admin', 'super_admin'].includes(data?.profile?.role)))
       } catch {
         setIsAdmin(false)
       }

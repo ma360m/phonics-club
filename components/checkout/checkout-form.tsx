@@ -48,7 +48,10 @@ interface CheckoutDetails {
 interface CouponPreview {
   valid: boolean
   code?: string
+  memberId?: string | null
   discount?: number
+  couponDiscount?: number
+  memberDiscount?: number
   discountPercent?: number
   subtotalAfterDiscount?: number
   error?: string
@@ -86,6 +89,7 @@ export function CheckoutForm({
     zip: '',
   })
   const [couponCode, setCouponCode] = useState('')
+  const [memberId, setMemberId] = useState('')
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
   const [couponChecking, setCouponChecking] = useState(false)
 
@@ -105,13 +109,14 @@ export function CheckoutForm({
 
   useEffect(() => {
     const code = couponCode.trim()
-    if (!code) {
+    const member = memberId.trim()
+    if (!code && !member) {
       setCouponPreview(null)
       setCouponChecking(false)
       return
     }
 
-    if (code.length < 3) {
+    if ((code && code.length < 3) || (member && member.length < 3)) {
       setCouponPreview({ valid: false, error: 'Enter at least 3 characters.' })
       setCouponChecking(false)
       return
@@ -125,7 +130,7 @@ export function CheckoutForm({
         const response = await fetch('/api/coupons/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, subtotal }),
+          body: JSON.stringify({ code: code || undefined, memberId: member || undefined, subtotal }),
           signal: controller.signal,
         })
         const result = (await response.json()) as CouponPreview
@@ -143,13 +148,16 @@ export function CheckoutForm({
       controller.abort()
       window.clearTimeout(timeout)
     }
-  }, [couponCode, subtotal])
+  }, [couponCode, memberId, subtotal])
 
   const shipping = SHIPPING_FEE_PKR
   const grandTotal = subtotal + shipping
-  const couponDiscount = couponPreview?.valid ? couponPreview.discount ?? 0 : 0
-  const payableTotal = Math.max(0, grandTotal - couponDiscount)
+  const couponDiscount = couponPreview?.valid ? couponPreview.couponDiscount ?? couponPreview.discount ?? 0 : 0
+  const memberDiscount = couponPreview?.valid ? couponPreview.memberDiscount ?? 0 : 0
+  const totalDiscount = couponPreview?.valid ? couponPreview.discount ?? couponDiscount + memberDiscount : 0
+  const payableTotal = Math.max(0, grandTotal - totalDiscount)
   const previewCouponCode = couponPreview?.valid ? couponPreview.code ?? couponCode.trim().toUpperCase() : undefined
+  const previewMemberId = couponPreview?.valid ? couponPreview.memberId ?? memberId.trim().toUpperCase() : undefined
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
   const receiptDueNow = receiptRequired && receiptTiming === 'now'
 
@@ -269,7 +277,13 @@ export function CheckoutForm({
               className="rounded-lg"
             />
             <div>
-              <Input name="memberId" placeholder="Member ID (optional)" className="rounded-lg" />
+              <Input
+                name="memberId"
+                placeholder="Member ID (optional)"
+                value={memberId}
+                onChange={(event) => setMemberId(event.target.value)}
+                className="rounded-lg"
+              />
               <button
                 type="button"
                 className="mt-1 text-xs text-[#1D4ED8] hover:underline"
@@ -279,7 +293,7 @@ export function CheckoutForm({
               </button>
             </div>
           </div>
-          {couponCode.trim() ? (
+          {couponCode.trim() || memberId.trim() ? (
             <p
               className={`text-xs ${
                 couponChecking
@@ -290,15 +304,18 @@ export function CheckoutForm({
               }`}
             >
               {couponChecking
-                ? 'Checking coupon...'
+                ? 'Checking discount...'
                 : couponPreview?.valid
-                  ? couponDiscount > 0
-                    ? `Coupon ${previewCouponCode} applies ${format(couponDiscount)} discount. Estimated total: ${format(payableTotal)}.`
-                    : `Coupon ${previewCouponCode} is valid but does not reduce this order.`
+                  ? totalDiscount > 0
+                    ? `Discount applied: ${[
+                        couponDiscount > 0 && previewCouponCode ? `coupon ${previewCouponCode} ${format(couponDiscount)}` : null,
+                        memberDiscount > 0 && previewMemberId ? `Member ID ${previewMemberId} ${format(memberDiscount)}` : null,
+                      ].filter(Boolean).join(' + ')}. Estimated total: ${format(payableTotal)}.`
+                    : 'Discount code is valid but does not reduce this order.'
                   : couponPreview?.error ?? 'Coupon could not be checked.'}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">Enter a coupon code to preview the discount before reviewing your invoice.</p>
+            <p className="text-xs text-muted-foreground">Enter a coupon code or Member ID to preview the discount before reviewing your invoice.</p>
           )}
           {showMemberHelp && (
             <p className="rounded-lg bg-muted p-3 text-sm">
@@ -425,6 +442,9 @@ export function CheckoutForm({
             shipping={shipping}
             couponDiscount={couponDiscount}
             couponCode={previewCouponCode}
+            memberDiscount={memberDiscount}
+            memberId={previewMemberId}
+            totalDiscount={totalDiscount}
             payableTotal={payableTotal}
             paymentMethod={paymentMethod}
             receiptTiming={receiptTiming}
@@ -477,6 +497,9 @@ function InvoicePreview({
   shipping,
   couponDiscount,
   couponCode,
+  memberDiscount,
+  memberId,
+  totalDiscount,
   payableTotal,
   paymentMethod,
   receiptTiming,
@@ -487,6 +510,9 @@ function InvoicePreview({
   shipping: number
   couponDiscount: number
   couponCode?: string
+  memberDiscount: number
+  memberId?: string | null
+  totalDiscount: number
   payableTotal: number
   paymentMethod: ShopPaymentMethod
   receiptTiming: 'now' | 'later'
@@ -535,6 +561,18 @@ function InvoicePreview({
             <span>-{format(couponDiscount)}</span>
           </div>
         )}
+        {memberDiscount > 0 && (
+          <div className="flex justify-between text-[#D30000]">
+            <span>Member ID{memberId ? ` (${memberId})` : ''}</span>
+            <span>-{format(memberDiscount)}</span>
+          </div>
+        )}
+        {couponDiscount > 0 && memberDiscount > 0 && (
+          <div className="flex justify-between text-sm font-semibold text-muted-foreground">
+            <span>Total discount</span>
+            <span>-{format(totalDiscount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-lg font-bold text-[#1D4ED8]">
           <span>Total</span>
           <span className="text-right">
@@ -547,7 +585,7 @@ function InvoicePreview({
           </span>
         </div>
         <CurrencyDisplayNotice />
-        <p className="text-xs text-muted-foreground">Final coupon validation happens when the order is placed.</p>
+        <p className="text-xs text-muted-foreground">Final discount validation happens when the order is placed.</p>
       </div>
 
       <div className="rounded-lg border p-3">

@@ -19,9 +19,11 @@ import {
   CreditCard,
   DollarSign,
   Code2,
+  BookOpen,
+  Palette,
+  TableProperties,
   Menu,
   ArrowLeft,
-  ClipboardCheck,
   UserRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -34,16 +36,17 @@ const instructorLinks = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/courses', label: 'My Courses', icon: GraduationCap },
   { href: '/admin/users', label: 'Students', icon: Users },
-  { href: '/admin/lms-reports#assessments', label: 'Assessments', icon: ClipboardCheck },
-  { href: '/admin/lms-reports', label: 'Reports', icon: BarChart3 },
+  { href: '/admin/lms-reports', label: 'Reports & Reviews', icon: BarChart3 },
   { href: '/dashboard', label: 'Profile', icon: UserRound },
 ]
 
 const adminLinks = [
+  { href: '/admin/fast-update', label: 'Fast Update', icon: TableProperties },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/course-payments', label: 'Course Payments', icon: CreditCard },
   { href: '/admin/settings/payment-methods', label: 'Payment Methods', icon: CreditCard },
   { href: '/admin/settings/currency', label: 'Currency', icon: DollarSign },
+  { href: '/admin/settings/appearance', label: 'Appearance', icon: Palette },
   { href: '/admin/blog', label: 'Blog', icon: FileText },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/content', label: 'Content & Videos', icon: Megaphone },
@@ -93,6 +96,22 @@ function SidebarContent({
             <p className="text-xs text-muted-foreground">{roleLabel}</p>
           </div>
           )}
+        </Link>
+      </div>
+
+      <div className={`border-b border-slate-200 p-3 ${compact ? 'px-2' : 'px-4'}`}>
+        <Link
+          href="/admin/manual"
+          onClick={onNavigate}
+          aria-label={compact ? 'Admin manual' : undefined}
+          className={cn(
+            'flex items-center gap-3 rounded-2xl border border-[#1D4ED8]/20 bg-[#EFF6FF] px-3 py-2.5 text-sm font-semibold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2',
+            linkActive(pathname, '/admin/manual') && 'bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]',
+            compact && 'justify-center px-2',
+          )}
+        >
+          <BookOpen className="h-4 w-4" />
+          {!compact && 'Admin Manual'}
         </Link>
       </div>
 

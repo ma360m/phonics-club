@@ -24,6 +24,7 @@ interface CustomerOrder {
   created_at: string
   payment_method?: string | null
   receipt_url?: string | null
+  receipt_path?: string | null
   shipping_address?: Record<string, string> | null
   phone?: string | null
   guest_email?: string | null
@@ -44,6 +45,7 @@ export function CustomerOrderControls({
   const canUploadReceipt =
     shopPaymentNeedsReceipt(order.payment_method) &&
     !order.receipt_url &&
+    !order.receipt_path &&
     !['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'].includes(order.status)
   const address = order.shipping_address ?? {}
   const editUntil = new Date(new Date(order.created_at).getTime() + 5 * 60 * 1000)
