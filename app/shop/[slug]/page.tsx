@@ -9,6 +9,7 @@ import { buildMetadata, productJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import { Badge } from '@/components/ui/badge'
 import { PriceDisplay } from '@/components/currency/price-display'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -33,6 +34,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     .slice(0, 4)
 
   const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined)
+  const pricing = getProductPricing(product)
+  const compareAt = pricing.hasSaleDiscount ? pricing.basePrice : Number(product.compare_at_price ?? 0)
 
   return (
     <main>
@@ -44,14 +47,21 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div className="mb-16 grid gap-12 lg:grid-cols-2">
           <ProductGallery images={product.images} name={product.name} />
           <div>
-            <Badge className="mb-4">{product.category.replace(/-/g, ' ')}</Badge>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Badge>{product.category.replace(/-/g, ' ')}</Badge>
+              {pricing.hasSaleDiscount ? (
+                <Badge className="bg-gradient-to-r from-[#D30000] via-[#F59E0B] to-[#FBBF24] text-white">
+                  {pricing.saleBadgeText}
+                </Badge>
+              ) : null}
+            </div>
             {isbn ? <p className="mb-4 font-mono text-sm text-muted-foreground">ISBN: {isbn}</p> : null}
             <h1 className="mb-4 text-4xl font-bold">{product.name}</h1>
             <div className="mb-6 flex items-center gap-3">
-              <PriceDisplay amountPkr={product.price} className="text-3xl font-bold text-[#1D4ED8]" />
-              {product.compare_at_price ? (
+              <PriceDisplay amountPkr={pricing.displayPrice} className="text-3xl font-bold text-[#1D4ED8]" />
+              {compareAt > pricing.displayPrice ? (
                 <PriceDisplay
-                  amountPkr={product.compare_at_price}
+                  amountPkr={compareAt}
                   showApproxPkr={false}
                   className="text-xl text-muted-foreground line-through"
                 />

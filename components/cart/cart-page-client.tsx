@@ -11,6 +11,7 @@ import { PriceDisplay, CurrencyDisplayNotice } from '@/components/currency/price
 import { useCurrency } from '@/components/currency/currency-provider'
 import { formatCurrency } from '@/lib/currency'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 
 interface CartItem {
   id: string
@@ -21,6 +22,10 @@ interface CartItem {
     name: string
     slug: string
     price: number
+    sale_enabled?: boolean | null
+    sale_price?: number | null
+    sale_percentage?: number | null
+    sale_badge_text?: string | null
     images?: string[]
   }
 }
@@ -49,10 +54,7 @@ export function CartPageClient() {
     return () => window.removeEventListener(CART_UPDATED_EVENT, onUpdate)
   }, [])
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + Number(item.products?.price ?? 0) * item.quantity,
-    0
-  )
+  const subtotal = items.reduce((sum, item) => sum + getProductPricing(item.products).displayPrice * item.quantity, 0)
   const delivery = SHIPPING_FEE_PKR
   const total = subtotal + delivery
 
@@ -84,6 +86,7 @@ export function CartPageClient() {
       )}
       {items.map((item) => {
         const product = item.products
+        const pricing = getProductPricing(product)
         return (
           <div key={item.id} className="flex gap-4 bg-card rounded-2xl border p-4">
             <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shrink-0">
@@ -98,7 +101,10 @@ export function CartPageClient() {
                 {product.name}
               </Link>
               <p className="text-[#1D4ED8] font-bold mt-1">
-                <PriceDisplay amountPkr={product.price} showApproxPkr={false} />
+                <PriceDisplay amountPkr={pricing.displayPrice} showApproxPkr={false} />
+                {pricing.hasSaleDiscount ? (
+                  <PriceDisplay amountPkr={pricing.basePrice} showApproxPkr={false} className="ml-2 text-xs text-muted-foreground line-through" />
+                ) : null}
               </p>
               {isGuest ? (
                 <GuestCartItemControls productId={product.id} quantity={item.quantity} onChange={loadCart} />
@@ -107,7 +113,7 @@ export function CartPageClient() {
               )}
             </div>
             <p className="font-bold">
-              <PriceDisplay amountPkr={product.price * item.quantity} showApproxPkr={false} />
+              <PriceDisplay amountPkr={pricing.displayPrice * item.quantity} showApproxPkr={false} />
             </p>
           </div>
         )

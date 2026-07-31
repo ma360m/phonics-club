@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { Button } from '@/components/ui/button'
@@ -31,12 +32,27 @@ export default async function NewslettersPage() {
       <Navbar />
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         <BackButton fallbackHref="/" />
-        <div className="mb-10">
-          <Badge className="mb-4 bg-[#1D4ED8]">Newsletter Archive</Badge>
-          <h1 className="text-3xl font-bold sm:text-4xl">Past Phonics Club Newsletters</h1>
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            Browse previous newsletters by month and year.
-          </p>
+        <div className="mb-10 overflow-hidden rounded-3xl border bg-white shadow-sm">
+          <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="p-6 sm:p-8 lg:p-10">
+              <Badge className="mb-4 bg-[#1D4ED8]">Newsletter Archive</Badge>
+              <h1 className="text-3xl font-bold sm:text-4xl">Past Phonics Club Newsletters</h1>
+              <p className="mt-3 max-w-2xl text-muted-foreground">
+                Browse previous newsletters by month and year.
+              </p>
+            </div>
+            <div className="relative min-h-56 bg-slate-50 lg:min-h-full">
+              <Image
+                src="/images/gallery/pl.jpg"
+                alt="Phonics Club newsletter and learning activity"
+                fill
+                priority
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 480px"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-transparent" />
+            </div>
+          </div>
         </div>
 
         {years.length === 0 ? (

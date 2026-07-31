@@ -5,6 +5,7 @@ import { BackButton } from '@/components/layout/back-button'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY } from '@/lib/company'
 import { getTrainers } from '@/lib/site-content'
+import { getTrainerImageUrl } from '@/lib/trainer-images'
 import { slugify } from '@/utils/slug'
 import { Award, ArrowRight } from 'lucide-react'
 
@@ -28,6 +29,7 @@ export default async function CertifiedTrainersPage() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {trainers.map((trainer) => {
             const trainerSlug = (trainer.slug as string | undefined) || slugify(trainer.name)
+            const trainerImageUrl = getTrainerImageUrl(trainer)
             return (
               <Link
                 key={trainer.id}
@@ -35,8 +37,8 @@ export default async function CertifiedTrainersPage() {
                 className="group rounded-lg border bg-card p-8 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1D4ED8]/20 to-[#FBBF24]/30">
-                  {trainer.image_url ? (
-                    <Image src={trainer.image_url} alt={trainer.name} width={96} height={96} className="h-full w-full object-cover" />
+                  {trainerImageUrl ? (
+                    <Image src={trainerImageUrl} alt={trainer.name} width={96} height={96} className="h-full w-full object-cover" />
                   ) : (
                     <Award className="h-10 w-10 text-[#1D4ED8]" />
                   )}

@@ -14,14 +14,13 @@ import { BlogPreviewGrid } from '@/components/sections/blog-preview-grid'
 import { JsonLd } from '@/components/seo/json-ld'
 import { organizationJsonLd } from '@/utils/seo'
 import { getProducts, getCourses, getBlogPosts } from '@/lib/data/queries'
-import { getTestimonials, getSocialReels, getVortexLearning, getSchoolLogos, getWebsiteVideos } from '@/lib/site-content'
+import { getSocialReels, getVortexLearning, getSchoolLogos, getWebsiteVideos } from '@/lib/site-content'
 
 export default async function HomePage() {
-  const [products, courses, posts, testimonials, reels, vortex, schoolLogos, websiteVideos] = await Promise.all([
+  const [products, courses, posts, reels, vortex, schoolLogos, websiteVideos] = await Promise.all([
     getProducts({ featured: true, limit: 3 }),
     getCourses({ featured: true, limit: 3 }),
     getBlogPosts({ limit: 3 }),
-    getTestimonials(),
     getSocialReels(),
     getVortexLearning(),
     getSchoolLogos(),
@@ -38,7 +37,7 @@ export default async function HomePage() {
       <VortexLearningSection data={vortex} />
       <FeaturedProductsGrid products={products} />
       <FeaturedCoursesGrid courses={courses} />
-      <Testimonials items={testimonials} />
+      <Testimonials />
       <StatsSection />
       <BlogPreviewGrid posts={posts} />
       <Newsletter />

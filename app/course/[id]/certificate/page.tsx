@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { LmsStatusBadge } from '@/components/lms/lms-primitives'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { canManageCourseId } from '@/lib/admin/course-scope'
 import { getCertificateStatus, getCourseAccessState, getCourseById, getUserEnrollment, isCourseCertificateEnabled } from '@/lib/lms'
 import { createServiceClient } from '@/lib/supabase/server'
 import { Award, CheckCircle2, ChevronLeft, Clock, Download, ExternalLink, ShieldCheck } from 'lucide-react'
@@ -48,6 +49,7 @@ export default async function CertificateStatusPage({
   const managerPreview = previewRequested && isLmsManagerRole(profile?.role)
   const course = await getCourseById(id, { includeUnpublished: managerPreview })
   if (!course) notFound()
+  if (managerPreview && !(await canManageCourseId(profile, id))) notFound()
 
   const enrollment = managerPreview ? null : await getUserEnrollment(user.id, id)
   if (!managerPreview && !enrollment) redirect(`/courses/${course.slug}`)
@@ -81,7 +83,7 @@ export default async function CertificateStatusPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)} isLmsManager={isLmsManagerRole(profile?.role)}>
         <div className="mx-auto max-w-6xl space-y-6">
           <Button asChild variant="ghost" className="rounded-xl text-slate-600 hover:text-[#1D4ED8]">
             <Link href={managerPreview ? '/admin/courses' : '/dashboard/my-courses'}>

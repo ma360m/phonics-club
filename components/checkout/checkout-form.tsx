@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { placeOrderAction } from '@/actions/orders'
 import { setProductCartQuantityAction } from '@/actions/cart'
@@ -14,9 +14,17 @@ import { CART_UPDATED_EVENT, getGuestCart, updateGuestCartQuantity } from '@/lib
 import { CurrencyDisplayNotice } from '@/components/currency/price-display'
 import { useCurrency } from '@/components/currency/currency-provider'
 import { formatCurrency } from '@/lib/currency'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 
 const initialState: ActionResult = { success: false }
+
+const evasiveButtonTransforms = [
+  'translate(18px, -8px)',
+  'translate(-18px, -10px)',
+  'translate(16px, 10px)',
+  'translate(-14px, 8px)',
+]
 
 type PaymentOption = {
   value: ShopPaymentMethod
@@ -75,6 +83,10 @@ type ApiCartItem = {
     id: string
     name: string
     price: number
+    sale_enabled?: boolean | null
+    sale_price?: number | null
+    sale_percentage?: number | null
+    sale_badge_text?: string | null
     images?: string[]
   } | null
 }
@@ -116,12 +128,24 @@ export function CheckoutForm({
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>(cartItems)
   const [cartUpdatingId, setCartUpdatingId] = useState<string | null>(null)
   const [cartError, setCartError] = useState<string | null>(null)
+  const [showValidationErrors, setShowValidationErrors] = useState(false)
+  const [validationIssue, setValidationIssue] = useState<string | null>(null)
+  const [evadeStep, setEvadeStep] = useState(0)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
 
   useEffect(() => {
     if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
   }, [isGuest])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const syncPreference = () => setPrefersReducedMotion(media.matches)
+    syncPreference()
+    media.addEventListener('change', syncPreference)
+    return () => media.removeEventListener('change', syncPreference)
+  }, [])
 
   useEffect(() => {
     if (paymentMethod === 'cod') setReceiptTiming('later')
@@ -195,6 +219,63 @@ export function CheckoutForm({
 
   function updateDetails(field: keyof CheckoutDetails, value: string) {
     setDetails((current) => ({ ...current, [field]: value }))
+    setReviewReady(false)
+  }
+
+  function firstInvalidControl() {
+    return formRef.current?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      'input:not([type="hidden"]):invalid, select:invalid, textarea:invalid',
+    ) ?? null
+  }
+
+  function invalidFieldLabel(control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) {
+    if (!control) return 'the highlighted field'
+    if (control.id) {
+      const label = formRef.current?.querySelector<HTMLLabelElement>(`label[for="${control.id}"]`)?.textContent?.trim()
+      if (label) return label.replace(/\s*\*+$/, '')
+    }
+    return control.getAttribute('aria-label') ?? control.name ?? 'the highlighted field'
+  }
+
+  function validateCheckoutFields({ focus = false, report = false } = {}) {
+    const form = formRef.current
+    if (!form) return true
+
+    if (!checkoutItems.length) {
+      setCartError('Your cart is empty. Add an item before placing an order.')
+      return false
+    }
+
+    if (form.checkValidity()) {
+      setShowValidationErrors(false)
+      setValidationIssue(null)
+      setEvadeStep(0)
+      return true
+    }
+
+    const invalid = firstInvalidControl()
+    setShowValidationErrors(true)
+    setValidationIssue(`Please fix ${invalidFieldLabel(invalid)} before confirming your order.`)
+
+    if (focus && invalid) {
+      invalid.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' })
+      window.setTimeout(() => invalid.focus({ preventScroll: true }), 120)
+    }
+
+    if (report) form.reportValidity()
+    return false
+  }
+
+  function handleCheckoutFormChange() {
+    if (!showValidationErrors || !formRef.current?.checkValidity()) return
+    setShowValidationErrors(false)
+    setValidationIssue(null)
+    setEvadeStep(0)
+  }
+
+  function handleEvasiveConfirmHover() {
+    if (pending || validateCheckoutFields({ focus: true, report: false })) return
+    if (!prefersReducedMotion) setEvadeStep((current) => current + 1)
   }
 
   async function refreshCheckoutCart() {
@@ -206,11 +287,12 @@ export function CheckoutForm({
       const product = item.products
       const quantity = Number(item.quantity ?? 0)
       if (!product || quantity <= 0) continue
+      const pricing = getProductPricing(product)
       nextItems.push({
         id: item.id,
         product_id: item.product_id ?? product.id,
         name: product.name,
-        price: Number(product.price ?? 0),
+        price: pricing.displayPrice,
         quantity,
         image: product.images?.[0],
       })
@@ -254,25 +336,31 @@ export function CheckoutForm({
   }
 
   function showInvoicePreview() {
-    const form = formRef.current
-    if (!form) return
-    if (!checkoutItems.length) {
-      setCartError('Your cart is empty. Add an item before placing an order.')
-      return
-    }
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return
-    }
+    if (!validateCheckoutFields({ focus: true, report: true })) return
     setReviewReady(true)
   }
+
+  const confirmButtonStyle: CSSProperties | undefined =
+    showValidationErrors && validationIssue && evadeStep > 0 && !prefersReducedMotion
+      ? { transform: evasiveButtonTransforms[(evadeStep - 1) % evasiveButtonTransforms.length] }
+      : undefined
 
   return (
     <form
       ref={formRef}
       action={formAction}
       encType="multipart/form-data"
-      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]"
+      data-validation-errors={showValidationErrors ? 'true' : 'false'}
+      onChange={handleCheckoutFormChange}
+      onSubmit={(event) => {
+        if (!reviewReady) {
+          event.preventDefault()
+          showInvoicePreview()
+          return
+        }
+        if (!validateCheckoutFields({ focus: true, report: true })) event.preventDefault()
+      }}
+      className="grid gap-6 data-[validation-errors=true]:[&_input:invalid]:border-rose-500 data-[validation-errors=true]:[&_input:invalid]:bg-rose-50 data-[validation-errors=true]:[&_input:invalid]:ring-2 data-[validation-errors=true]:[&_input:invalid]:ring-rose-100 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]"
     >
       <section className="space-y-5 rounded-lg border bg-card p-6">
         {state.error && (
@@ -280,6 +368,11 @@ export function CheckoutForm({
         )}
         {cartError && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{cartError}</p>
+        )}
+        {validationIssue && (
+          <p id="checkout-validation-guidance" role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+            {validationIssue}
+          </p>
         )}
 
         <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
@@ -357,6 +450,7 @@ export function CheckoutForm({
             id="fullName"
             name="fullName"
             required
+            minLength={2}
             value={details.fullName}
             onChange={(event) => updateDetails('fullName', event.target.value)}
             className="rounded-lg"
@@ -383,6 +477,8 @@ export function CheckoutForm({
               name="phone"
               type="tel"
               required
+              pattern="(?:\+?92[\s-]?3\d{2}[\s-]?\d{7}|03\d{2}[\s-]?\d{7}|3\d{2}[\s-]?\d{7})"
+              title="Enter a valid Pakistan mobile number, for example 0300 8079480 or +92 300 8079480."
               value={details.phone}
               onChange={(event) => updateDetails('phone', event.target.value)}
               placeholder="0300 8079480 or +92 300 8079480"
@@ -396,6 +492,7 @@ export function CheckoutForm({
             id="address"
             name="address"
             required
+            minLength={5}
             value={details.address}
             onChange={(event) => updateDetails('address', event.target.value)}
             className="rounded-lg"
@@ -408,6 +505,7 @@ export function CheckoutForm({
               id="city"
               name="city"
               required
+              minLength={2}
               value={details.city}
               onChange={(event) => updateDetails('city', event.target.value)}
               className="rounded-lg"
@@ -629,7 +727,10 @@ export function CheckoutForm({
               <Button
                 type="submit"
                 disabled={pending}
-                className="w-full rounded-lg bg-[#D30000] hover:bg-[#D30000]/90"
+                onMouseEnter={handleEvasiveConfirmHover}
+                aria-describedby={validationIssue ? 'checkout-validation-guidance' : undefined}
+                style={confirmButtonStyle}
+                className="w-full rounded-lg bg-[#D30000] transition-transform duration-200 hover:bg-[#D30000]/90 motion-reduce:transform-none"
               >
                 {pending ? 'Placing order...' : 'Place Order'}
               </Button>
@@ -643,7 +744,15 @@ export function CheckoutForm({
               </Button>
             </>
           ) : (
-            <Button type="button" onClick={showInvoicePreview} disabled={!checkoutItems.length} className="w-full rounded-lg bg-[#1D4ED8]">
+            <Button
+              type="button"
+              onMouseEnter={handleEvasiveConfirmHover}
+              onClick={showInvoicePreview}
+              disabled={!checkoutItems.length}
+              aria-describedby={validationIssue ? 'checkout-validation-guidance' : undefined}
+              style={confirmButtonStyle}
+              className="w-full rounded-lg bg-[#1D4ED8] transition-transform duration-200 motion-reduce:transform-none"
+            >
               Next: Review Invoice
             </Button>
           )}

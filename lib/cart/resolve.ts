@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getGuestCartFromCookie } from '@/lib/cart/guest'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { OrderItem } from '@/types'
 
 export interface ResolvedCartItem {
@@ -27,12 +28,17 @@ export async function resolveCartForCheckout(
         id: string
         name: string
         price: number
+        sale_enabled?: boolean | null
+        sale_price?: number | null
+        sale_percentage?: number | null
+        sale_badge_text?: string | null
         images?: string[]
       }
+      const pricing = getProductPricing(product)
       return {
         product_id: product.id,
         name: product.name,
-        price: Number(product.price),
+        price: pricing.displayPrice,
         quantity: item.quantity,
         image: product.images?.[0],
       }
@@ -64,7 +70,7 @@ export async function resolveCartForCheckout(
     items.push({
       product_id: product.id,
       name: product.name,
-      price: Number(product.price),
+      price: getProductPricing(product).displayPrice,
       quantity: entry.quantity,
       image: product.images?.[0],
     })

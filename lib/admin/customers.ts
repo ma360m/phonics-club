@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export type CustomerReportRow = {
   key: string
+  username: string
+  passwordStatus: string
   name: string
   email: string
   phone: string
@@ -54,6 +56,8 @@ function customerKey(input: { userId?: string | null; email?: string | null; pho
 function createRow(key: string): MutableCustomerRow {
   return {
     key,
+    username: '',
+    passwordStatus: '',
     name: '',
     email: '',
     phone: '',
@@ -77,6 +81,7 @@ function upsertCustomer(
     key: string
     userId?: string | null
     name?: string | null
+    username?: string | null
     email?: string | null
     phone?: string | null
     address?: string | null
@@ -86,7 +91,9 @@ function upsertCustomer(
   const row = rows.get(input.key) ?? createRow(input.key)
   if (input.userId) row.userIds.add(input.userId)
   if (!row.name) row.name = clean(input.name)
+  if (!row.username) row.username = clean(input.username)
   if (!row.email) row.email = clean(input.email)
+  if (!row.username && row.email.includes('@')) row.username = row.email.split('@')[0]
   if (!row.phone) row.phone = clean(input.phone)
   if (!row.address) row.address = clean(input.address)
   if (input.activityAt && (!row.lastActivityAt || input.activityAt > row.lastActivityAt)) row.lastActivityAt = input.activityAt
@@ -99,8 +106,8 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   const supabase = await createClient()
   const [ordersResult, enrollmentsResult, paymentsResult, registrationsResult, courseInvoicesResult] = await Promise.all([
     supabase.from('orders').select('id, user_id, guest_email, phone, shipping_address, items, invoice_number, coupon_code, member_id, created_at'),
-    supabase.from('enrollments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email)'),
-    supabase.from('course_payments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email)'),
+    supabase.from('enrollments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email,username)'),
+    supabase.from('course_payments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email,username)'),
     supabase.from('training_registrations').select('id, user_id, full_name, email, phone, event_title, training_type, created_at'),
     supabase.from('course_invoices').select('id, user_id, course_id, invoice_number, issued_at, courses(title)'),
   ])
@@ -132,7 +139,7 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   }
 
   for (const enrollment of enrollmentsResult.data ?? []) {
-    const profile = enrollment.profiles as { full_name?: string | null; email?: string | null } | null
+    const profile = enrollment.profiles as { full_name?: string | null; email?: string | null; username?: string | null } | null
     const course = enrollment.courses as { title?: string | null } | null
     const key = userIdToKey.get(enrollment.user_id) ?? customerKey({
       userId: enrollment.user_id,
@@ -144,6 +151,7 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
       key,
       userId: enrollment.user_id,
       name: profile?.full_name,
+      username: profile?.username,
       email: profile?.email,
       activityAt: enrollment.created_at,
     })
@@ -151,7 +159,7 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   }
 
   for (const payment of paymentsResult.data ?? []) {
-    const profile = payment.profiles as { full_name?: string | null; email?: string | null } | null
+    const profile = payment.profiles as { full_name?: string | null; email?: string | null; username?: string | null } | null
     const course = payment.courses as { title?: string | null } | null
     const key = userIdToKey.get(payment.user_id) ?? customerKey({
       userId: payment.user_id,
@@ -163,6 +171,7 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
       key,
       userId: payment.user_id,
       name: profile?.full_name,
+      username: profile?.username,
       email: profile?.email,
       activityAt: payment.created_at,
     })
@@ -207,14 +216,41 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
     }
   }
 
+  const profileIds = [...userIdToKey.keys()].filter(Boolean)
+  if (profileIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, username')
+      .in('id', profileIds)
+
+    for (const profile of profiles ?? []) {
+      const key = userIdToKey.get(profile.id)
+      if (!key) continue
+      upsertCustomer(rows, {
+        key,
+        userId: profile.id,
+        name: profile.full_name,
+        username: profile.username,
+        email: profile.email,
+      })
+    }
+  }
+
   return [...rows.values()]
-    .map(({ userIds: _userIds, ...row }) => row)
+    .map(({ userIds, ...row }) => ({
+      ...row,
+      passwordStatus: userIds.size
+        ? 'Supabase-managed. Password is not visible or stored here.'
+        : 'Guest or external customer. No website password is stored here.',
+    }))
     .sort((a, b) => (b.lastActivityAt || '').localeCompare(a.lastActivityAt || ''))
 }
 
 export function customerRowsToCsv(rows: CustomerReportRow[]) {
   const headers = [
     'Customer Name',
+    'Username',
+    'Password Status',
     'Email',
     'Phone',
     'Address',
@@ -231,6 +267,8 @@ export function customerRowsToCsv(rows: CustomerReportRow[]) {
   const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
   const lines = rows.map((row) => [
     row.name,
+    row.username,
+    row.passwordStatus,
     row.email,
     row.phone,
     row.address,

@@ -1,4 +1,4 @@
-import { deleteTrainingEventAction, getAdminTrainingEvents, getTrainingRegistrations } from '@/actions/training'
+import { deleteTrainingEventAction, getAdminTrainingEvents, getTrainingRegistrations, updateTrainingRegistrationCertificateAction } from '@/actions/training'
 import { TrainingEventForm } from '@/components/admin/training-event-form'
 import { formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
@@ -64,7 +64,7 @@ export default async function AdminTrainingsPage() {
           <p className="text-muted-foreground">No registrations yet. Run migration 002_trainings_coupons.sql in Supabase.</p>
         ) : (
           <div className="space-y-4">
-            {registrations.map((r: Record<string, string | number | null>) => (
+            {registrations.map((r: Record<string, string | number | boolean | null>) => (
             <div key={String(r.id)} className="rounded-2xl border bg-card p-5">
               <div className="mb-2 flex flex-wrap justify-between gap-2">
                 <h3 className="font-semibold">{r.full_name}</h3>
@@ -90,6 +90,35 @@ export default async function AdminTrainingsPage() {
               </p>
               {r.organization && <p className="text-sm">{r.organization}</p>}
               {r.message && <p className="mt-2 whitespace-pre-line text-sm">{r.message}</p>}
+              <form action={updateTrainingRegistrationCertificateAction} className="mt-4 grid gap-3 rounded-xl border bg-[#F8FAFC] p-4 md:grid-cols-[minmax(0,1fr)_160px_auto] md:items-end">
+                <input type="hidden" name="id" value={String(r.id)} />
+                <label className="space-y-1.5 text-sm font-medium">
+                  Certificate URL
+                  <input
+                    name="certificate_url"
+                    type="url"
+                    defaultValue={String(r.certificate_url ?? '')}
+                    placeholder="https://..."
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm">
+                  <input type="checkbox" name="certificate_emailed" defaultChecked={Boolean(r.certificate_emailed_at)} />
+                  Emailed
+                </label>
+                <Button type="submit" className="rounded-xl bg-[#1D4ED8]">
+                  Save Certificate
+                </Button>
+                <label className="space-y-1.5 text-sm font-medium md:col-span-3">
+                  Certificate notes
+                  <input
+                    name="certificate_notes"
+                    defaultValue={String(r.certificate_notes ?? '')}
+                    placeholder="Optional internal note"
+                    className="w-full rounded-xl border bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+              </form>
               <p className="mt-2 text-xs text-muted-foreground">{formatDate(String(r.created_at))}</p>
             </div>
             ))}

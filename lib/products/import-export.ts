@@ -10,6 +10,9 @@ export const PRODUCT_EXPORT_COLUMNS = [
   'compare_at_price',
   'category',
   'stock',
+  'sale_enabled',
+  'sale_price',
+  'sale_percentage',
   'featured',
   'published',
   'images',
@@ -24,6 +27,9 @@ export type ProductImportRow = {
   compare_at_price: number | null
   category: string
   stock: number
+  sale_enabled: boolean
+  sale_price: number | null
+  sale_percentage: number | null
   featured: boolean
   published: boolean
   images: string[]
@@ -80,6 +86,8 @@ export function normalizeImportRow(raw: Record<string, unknown>): ProductImportR
     ? category
     : 'teacher-resources'
   const compareAtPrice = raw.compare_at_price ?? raw.CompareAtPrice ?? raw['compare price']
+  const salePrice = raw.sale_price ?? raw.SalePrice ?? raw['sale price']
+  const salePercentage = raw.sale_percentage ?? raw.SalePercentage ?? raw['sale percentage'] ?? raw['sale %']
 
   return {
     isbn,
@@ -93,6 +101,15 @@ export function normalizeImportRow(raw: Record<string, unknown>): ProductImportR
         : parseNumber(compareAtPrice),
     category: validCategory,
     stock: parseNumber(raw.stock ?? raw.Stock, 100),
+    sale_enabled: parseBoolean(raw.sale_enabled ?? raw.SaleEnabled ?? raw.sale ?? raw.Sale),
+    sale_price:
+      salePrice === null || salePrice === undefined || salePrice === ''
+        ? null
+        : parseNumber(salePrice),
+    sale_percentage:
+      salePercentage === null || salePercentage === undefined || salePercentage === ''
+        ? null
+        : parseNumber(salePercentage),
     featured: parseBoolean(raw.featured ?? raw.Featured),
     published: parseBoolean(raw.published ?? raw.Published ?? true),
     images: parseImages(raw.images ?? raw.Images ?? raw.image ?? raw.image_url),
@@ -110,6 +127,9 @@ export function rowToExportRecord(product: Record<string, unknown>) {
     compare_at_price: product.compare_at_price ? Number(product.compare_at_price) : '',
     category: String(product.category ?? ''),
     stock: Number(product.stock ?? 0),
+    sale_enabled: Boolean(product.sale_enabled),
+    sale_price: product.sale_price ? Number(product.sale_price) : '',
+    sale_percentage: product.sale_percentage ? Number(product.sale_percentage) : '',
     featured: Boolean(product.featured),
     published: Boolean(product.published ?? true),
     images: (images ?? []).join(', '),

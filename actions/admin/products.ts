@@ -27,6 +27,10 @@ function parseProductForm(formData: FormData) {
     category: formData.get('category'),
     images,
     stock: formData.get('stock'),
+    sale_enabled: formData.get('sale_enabled') === 'on',
+    sale_price: formData.get('sale_price') || null,
+    sale_percentage: formData.get('sale_percentage') || null,
+    sale_badge_text: formData.get('sale_badge_text') || 'saleee',
     featured: formData.get('featured') === 'on',
     published: formData.get('published') === 'on',
   })

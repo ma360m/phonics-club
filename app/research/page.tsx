@@ -21,13 +21,26 @@ export default async function ResearchPage() {
       <AnnouncementBar />
       <Navbar />
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#D30000]">Evidence and Implementation</p>
-          <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-[#111827] sm:text-5xl">
-            {content.hero.title}
-          </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-[#475569]">{content.hero.subtitle}</p>
+      <section className="relative isolate overflow-hidden bg-[#0F172A] text-white">
+        {content.hero.image ? (
+          <Image
+            src={content.hero.image.src}
+            alt={content.hero.image.alt}
+            fill
+            priority
+            className="absolute inset-0 -z-20 object-cover"
+            sizes="100vw"
+          />
+        ) : null}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0F172A]/95 via-[#0F172A]/76 to-[#1D4ED8]/24" />
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+          <div className="max-w-3xl">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#FBBF24]">Evidence and Implementation</p>
+            <h1 className="text-4xl font-bold tracking-normal text-white sm:text-5xl">
+              {content.hero.title}
+            </h1>
+            <p className="mt-6 text-lg leading-8 text-white/86">{content.hero.subtitle}</p>
+          </div>
         </div>
       </section>
 
@@ -46,11 +59,11 @@ export default async function ResearchPage() {
 
       {content.supportImages.length > 0 ? (
         <section className="bg-white">
-          <div className="mx-auto grid max-w-7xl gap-4 px-4 py-10 sm:px-6 md:grid-cols-2 lg:px-8">
+          <div className="mx-auto grid max-w-6xl gap-5 px-4 py-10 sm:px-6 md:grid-cols-2 lg:px-8">
             {content.supportImages.map((image) => (
-              <figure key={image.src} className="overflow-hidden rounded-lg border bg-card">
-                <div className="relative aspect-[16/9]">
-                  <Image src={image.src} alt={image.alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+              <figure key={image.src} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                <div className="relative aspect-[16/9] bg-slate-50">
+                  <Image src={image.src} alt={image.alt} fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
                 </div>
                 {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
               </figure>
@@ -60,10 +73,10 @@ export default async function ResearchPage() {
       ) : null}
 
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="space-y-8">
+        <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+          <div className="space-y-6">
             {content.projects.map((project, index) => (
-              <article key={project.title} className="rounded-lg border bg-card p-6 shadow-sm">
+              <article key={project.title} className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <Badge className="mb-3 bg-[#1D4ED8]">Project {index + 1}</Badge>
@@ -110,8 +123,8 @@ export default async function ResearchPage() {
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     {project.images.map((image) => (
                       <figure key={image.src} className="overflow-hidden rounded-lg border bg-white">
-                        <div className="relative aspect-[4/3]">
-                          <Image src={image.src} alt={image.alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                        <div className="relative aspect-[4/3] bg-slate-50">
+                          <Image src={image.src} alt={image.alt} fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
                         </div>
                         {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
                       </figure>

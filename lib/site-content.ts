@@ -75,6 +75,7 @@ export interface AboutPageContent {
     subtitle: string
     primaryCta: { label: string; href: string }
     secondaryCta: { label: string; href: string }
+    image?: ContentImage | null
   }
   overview: {
     title: string
@@ -98,6 +99,7 @@ export interface AboutPageContent {
   contact: { phones: string[]; emails: string[] }
   cta: { title: string; description: string; href: string; label: string }
   supportImages: ContentImage[]
+  galleryImages: ContentImage[]
 }
 
 export interface ResearchProject {
@@ -111,10 +113,17 @@ export interface ResearchProject {
 }
 
 export interface ResearchPageContent {
-  hero: { title: string; subtitle: string }
+  hero: { title: string; subtitle: string; image?: ContentImage | null }
   overview: string[]
   projects: ResearchProject[]
   supportImages: ContentImage[]
+}
+
+export interface HomepageGalleryContent {
+  enabled: boolean
+  title: string
+  subtitle: string
+  images: ContentImage[]
 }
 
 export interface PolicyContent {
@@ -224,6 +233,48 @@ export const DEFAULT_FAQS: FAQItem[] = [
     ],
   },
   {
+    q: 'Can I register for trainings or webinars online?',
+    a: [
+      'Yes. Published trainings and webinars appear on the Trainings page. Choose the event, submit your registration details, and wait for confirmation or payment instructions where required.',
+      'Your registered trainings and webinars also appear in your dashboard after they are linked to your account or email address.',
+    ],
+  },
+  {
+    q: 'Where will my training or webinar certificate appear?',
+    a: [
+      'If a certificate is issued for a training or webinar, it may be uploaded to your dashboard, emailed to you, or both depending on the event process.',
+      'If you cannot see an expected certificate, contact support with your registration name, email address, event title, and date.',
+    ],
+  },
+  {
+    q: 'How do course certificates work?',
+    a: [
+      'Course certificates are available only for courses that explicitly include a certificate pathway.',
+      'Certificate eligibility may depend on lesson completion, quiz requirements, assignment review, learning time, active enrollment, and instructor or admin approval.',
+    ],
+  },
+  {
+    q: 'Why is a course not showing as completed?',
+    a: [
+      'Some courses require more than opening a lesson. Completion can depend on required lessons, quizzes, assignments, approved offline activity, or active enrollment status.',
+      'Open your dashboard or course workspace to review the exact progress and certificate requirements for that course.',
+    ],
+  },
+  {
+    q: 'Can I update my account details or password?',
+    a: [
+      'Yes. Signed-in users can open Profile Settings from the dashboard to update their display name, username, and password.',
+      'Admins cannot see customer passwords. If you forget your password, use the secure password reset email flow.',
+    ],
+  },
+  {
+    q: 'How do member IDs and coupons work?',
+    a: [
+      'Coupons and member IDs are validated during checkout and discounts are calculated by the website, not by manually changing invoice totals.',
+      'If a member ID includes a shipping-fee benefit, the invoice preview will show the shipping discount before the order is placed.',
+    ],
+  },
+  {
     q: 'What if the AI assistant cannot answer my question?',
     a: [
       'The assistant is designed to guide you through courses, products, training, payments, orders, certificates, research, Vortex Learning, and support routes.',
@@ -233,12 +284,12 @@ export const DEFAULT_FAQS: FAQItem[] = [
 ]
 
 const DEFAULT_SOCIAL_REELS: SocialReel[] = [
-  { id: '1', thumbnail: '/images/schools/partners-strip-1.png', videoUrl: COMPANY.social.instagram, title: 'Phonics in action' },
-  { id: '2', thumbnail: '', videoUrl: COMPANY.social.youtube, title: 'Jolly Phonics training' },
-  { id: '3', thumbnail: '', videoUrl: COMPANY.social.instagram, title: 'Reading success' },
-  { id: '4', thumbnail: '', videoUrl: COMPANY.social.facebook, title: 'Teacher workshop' },
+  { id: '1', thumbnail: '/images/gallery/pilott.jpeg', videoUrl: '', title: 'Pilot project classroom' },
+  { id: '2', thumbnail: '', videoUrl: '/images/gallery/vowels.mp4', title: 'Vowel sounds practice' },
+  { id: '3', thumbnail: '/images/gallery/pilottttt.jpeg', videoUrl: '', title: 'Pilot project learning' },
+  { id: '4', thumbnail: '/images/gallery/pilottttt1.jpeg', videoUrl: '', title: 'Teacher workshop' },
   { id: '5', thumbnail: '', videoUrl: COMPANY.social.instagram, title: 'Student progress' },
-  { id: '6', thumbnail: '', videoUrl: COMPANY.social.youtube, title: 'Phonics Club community' },
+  { id: '6', thumbnail: '', videoUrl: '/images/gallery/pilothunza.mp4', title: 'Phonics Club community' },
 ]
 
 const JOLLY_NOC_IMPORTANT_NOTICE = [
@@ -458,6 +509,28 @@ export const DEFAULT_WEBSITE_VIDEOS: WebsiteVideos = {
   trainingsOnsiteVideoUrl: '/images/schools/trainingclip.mp4',
 }
 
+const DEFAULT_ABOUT_GALLERY_IMAGES: ContentImage[] = [
+  { src: '/images/gallery/banner.jpg', alt: 'Phonics Club training banner and classroom display' },
+  { src: '/images/gallery/bb.jpg', alt: 'Phonics Club literacy activity display' },
+  { src: '/images/gallery/bk.jpg', alt: 'Phonics Club books and literacy learning materials' },
+  { src: '/images/gallery/gall.jpg', alt: 'Phonics Club teacher training session' },
+  { src: '/images/gallery/gallelryry.jpg', alt: 'Phonics Club classroom training participants' },
+  { src: '/images/gallery/gallery.jpg', alt: 'Phonics Club learning workshop gallery image' },
+  { src: '/images/gallery/galleryyy.jpg', alt: 'Phonics Club literacy workshop gallery image' },
+  { src: '/images/gallery/galll.jpg', alt: 'Phonics Club professional development gallery image' },
+  { src: '/images/gallery/gallleyryy.jpg', alt: 'Phonics Club training and school support gallery image' },
+  { src: '/images/gallery/newsssgall.jpg', alt: 'Phonics Club news and teacher training gallery image' },
+  { src: '/images/gallery/pic.jpg', alt: 'Phonics Club classroom literacy support' },
+  { src: '/images/gallery/pic1.jpg', alt: 'Phonics Club school literacy activity' },
+  { src: '/images/gallery/pilot.jpg', alt: 'Phonics Club pilot project classroom moment' },
+  { src: '/images/gallery/pilott.jpeg', alt: 'Phonics Club pilot project training image' },
+  { src: '/images/gallery/pilottttt.jpeg', alt: 'Phonics Club pilot project literacy support' },
+  { src: '/images/gallery/pilottttt1.jpeg', alt: 'Phonics Club pilot project classroom support' },
+  { src: '/images/gallery/pl.jpg', alt: 'Phonics Club literacy learning gallery image' },
+  { src: '/images/gallery/pla.jpg', alt: 'Phonics Club classroom phonics activity' },
+  { src: '/images/gallery/play.jpg', alt: 'Phonics Club play based phonics learning activity' },
+]
+
 export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   hero: {
     title: 'Empowering Literacy Through Synthetic Phonics',
@@ -465,6 +538,11 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
       'Phonics Club Pvt. Ltd. helps teachers, schools, and parents build confident readers and writers through internationally recognized Synthetic Phonics methodologies, professional training, curriculum development, and educational consultancy.',
     primaryCta: { label: 'Explore Courses', href: '/courses' },
     secondaryCta: { label: 'Meet Our Trainers', href: '/certified-trainers' },
+    image: {
+      src: '/images/gallery/header.jpg',
+      alt: 'Phonics Club classroom learning and teacher training',
+      caption: 'Phonics Club literacy training and classroom support.',
+    },
   },
   overview: {
     title: 'About Phonics Club',
@@ -620,6 +698,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   supportImages: [
     { src: '/images/schools/partners-strip-1.png', alt: 'Phonics Club school and training partners', caption: 'School partnerships and national training activity' },
   ],
+  galleryImages: DEFAULT_ABOUT_GALLERY_IMAGES,
 }
 
 export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
@@ -627,6 +706,11 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
     title: 'Research and Pilot Study Projects',
     subtitle:
       'Phonics Club documents classroom evidence, pilot studies, and implementation projects that improve English literacy outcomes through Synthetic Phonics.',
+    image: {
+      src: '/images/gallery/researchinpakistan.jpg',
+      alt: 'Phonics Club research and literacy implementation in Pakistan',
+      caption: 'Research, pilots and implementation evidence from Phonics Club learning projects.',
+    },
   },
   overview: [
     'Our research activity focuses on practical classroom implementation: training teachers, observing learners, improving methodology, and using evidence to guide future literacy work.',
@@ -645,6 +729,18 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
         { label: 'Project orientation', href: 'https://web.facebook.com/punjabeducationfoundation.official/posts/887316214662770?_rdr' },
         { label: 'Project launched', href: 'http://punjabeducationfoundation.blogspot.com/2015/05/pilot-project-launched-to-develop.html' },
         { label: 'Training news', href: 'http://www.thenews.com.pk/print/42710-32-associate-professors-promoted' },
+      ],
+      images: [
+        {
+          src: '/images/gallery/1-4.jpg',
+          alt: 'Children learning with Phonics Club pilot project materials',
+          caption: 'Pilot project classroom learning support.',
+        },
+        {
+          src: '/images/gallery/language-lab.jpg',
+          alt: 'Language lab and literacy learning environment',
+          caption: 'Language lab support for literacy development.',
+        },
       ],
     },
     {
@@ -667,7 +763,40 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
     },
   ],
   supportImages: [
-    { src: '/images/schools/partners-strip-2.png', alt: 'Phonics Club research and pilot project partners', caption: 'Supporting evidence, reports, and project images can be added by admins.' },
+    { src: '/images/gallery/pilot school.jpeg', alt: 'Phonics Club pilot school evidence and project images', caption: 'Supporting evidence, reports, and project images can be added by admins.' },
+    { src: '/images/gallery/pilot.jpg', alt: 'Phonics Club pilot study classroom project', caption: 'Pilot study and classroom implementation activity.' },
+    { src: '/images/gallery/class.jpg', alt: 'Teacher-led phonics classroom session', caption: 'Training and classroom observation support.' },
+    { src: '/images/gallery/pilotttttw.jpeg', alt: 'Pilot project evaluation team 2025-2026', caption: 'Pilot project Evaluation Team 2025-2026.' },
+  ],
+}
+
+export const DEFAULT_HOMEPAGE_GALLERY: HomepageGalleryContent = {
+  enabled: true,
+  title: 'Learning Moments From Phonics Club',
+  subtitle: 'A visual look at trainings, classrooms, materials and literacy work across the Phonics Club community.',
+  images: [
+    { src: '/images/gallery/1-4.jpg', alt: 'Phonics Club learning activity' },
+    { src: '/images/gallery/banner.jpg', alt: 'Phonics Club training banner' },
+    { src: '/images/gallery/bb.jpg', alt: 'Phonics Club classroom display' },
+    { src: '/images/gallery/bk.jpg', alt: 'Jolly Phonics books and learning materials' },
+    { src: '/images/gallery/class.jpg', alt: 'Teacher-led phonics classroom session' },
+    { src: '/images/gallery/gall.jpg', alt: 'Phonics Club school learning moment' },
+    { src: '/images/gallery/gallelryry.jpg', alt: 'Children learning with phonics resources' },
+    { src: '/images/gallery/gallery.jpg', alt: 'Phonics Club training and learning gallery' },
+    { src: '/images/gallery/galleryyy.jpg', alt: 'Phonics Club classroom group activity' },
+    { src: '/images/gallery/galll.jpg', alt: 'Students using phonics materials' },
+    { src: '/images/gallery/gallleyryy.jpg', alt: 'Phonics Club workshop moment' },
+    { src: '/images/gallery/header.jpg', alt: 'Phonics Club literacy training header' },
+    { src: '/images/gallery/jp-blending-wheels.jpg', alt: 'Jolly Phonics blending wheel resources' },
+    { src: '/images/gallery/language-lab.jpg', alt: 'Language lab learning setup' },
+    { src: '/images/gallery/newsssgall.jpg', alt: 'Phonics Club training news gallery' },
+    { src: '/images/gallery/pic.jpg', alt: 'Phonics Club classroom learning' },
+    { src: '/images/gallery/pic1.jpg', alt: 'Phonics Club phonics activity' },
+    { src: '/images/gallery/pilot.jpg', alt: 'Phonics Club pilot study project' },
+    { src: '/images/gallery/pl.jpg', alt: 'Phonics Club practical learning activity' },
+    { src: '/images/gallery/pla.jpg', alt: 'Phonics Club school phonics session' },
+    { src: '/images/gallery/play.jpg', alt: 'Play-based phonics learning activity' },
+    { src: '/images/gallery/researchinpakistan.jpg', alt: 'Phonics Club research in Pakistan' },
   ],
 }
 
@@ -777,11 +906,45 @@ export async function getTestimonials(): Promise<Testimonial[]> {
 
 export async function getFaqs(): Promise<FAQItem[]> {
   const items = await getContent<FAQItem[]>('faqs', DEFAULT_FAQS)
-  return items.filter((item) => item.q?.trim() && item.a?.length)
+  return withDefaultFaqs(items)
+}
+
+function normalizeFaqQuestion(question: string) {
+  return question.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function withDefaultFaqs(items: FAQItem[]) {
+  const validItems = items.filter((item) => item.q?.trim() && item.a?.length)
+  const savedByQuestion = new Map(validItems.map((item) => [normalizeFaqQuestion(item.q), item]))
+  const defaultQuestions = new Set(DEFAULT_FAQS.map((item) => normalizeFaqQuestion(item.q)))
+  const restoredDefaults = DEFAULT_FAQS.map((item) => savedByQuestion.get(normalizeFaqQuestion(item.q)) ?? item)
+  const customItems = validItems.filter((item) => !defaultQuestions.has(normalizeFaqQuestion(item.q)))
+  return [...restoredDefaults, ...customItems]
 }
 
 export async function getSocialReels(): Promise<SocialReel[]> {
-  return getContent('social_reels', DEFAULT_SOCIAL_REELS)
+  const reels = await getContent('social_reels', DEFAULT_SOCIAL_REELS)
+  return withRequiredHomepageVideoReels(reels)
+}
+
+function withRequiredHomepageVideoReels(reels: SocialReel[]) {
+  const replacements = new Map(DEFAULT_SOCIAL_REELS.filter((reel) => reel.id !== '5').map((reel) => [reel.id, reel]))
+  const mapped = reels.map((reel) => {
+    const replacement = replacements.get(reel.id)
+    if (!replacement) return reel
+    const isStillDefaultExternal =
+      reel.videoUrl === COMPANY.social.youtube ||
+      reel.videoUrl === COMPANY.social.instagram ||
+      reel.videoUrl === COMPANY.social.facebook ||
+      !reel.videoUrl ||
+      !reel.thumbnail
+    return isStillDefaultExternal ? { ...reel, ...replacement } : reel
+  })
+  const existingIds = new Set(mapped.map((reel) => reel.id))
+  for (const replacement of replacements.values()) {
+    if (!existingIds.has(replacement.id)) mapped.push(replacement)
+  }
+  return mapped
 }
 
 export async function getSchoolLogos(): Promise<SchoolLogo[]> {
@@ -877,6 +1040,7 @@ export async function getAboutPageContent(): Promise<AboutPageContent> {
     milestones: data.milestones ?? DEFAULT_ABOUT_PAGE.milestones,
     impact: data.impact ?? DEFAULT_ABOUT_PAGE.impact,
     supportImages: data.supportImages ?? DEFAULT_ABOUT_PAGE.supportImages,
+    galleryImages: data.galleryImages ?? DEFAULT_ABOUT_PAGE.galleryImages,
   }
 }
 
@@ -887,8 +1051,40 @@ export async function getResearchPageContent(): Promise<ResearchPageContent> {
     ...data,
     hero: { ...DEFAULT_RESEARCH_PAGE.hero, ...(data.hero ?? {}) },
     overview: data.overview ?? DEFAULT_RESEARCH_PAGE.overview,
-    projects: data.projects ?? DEFAULT_RESEARCH_PAGE.projects,
-    supportImages: data.supportImages ?? DEFAULT_RESEARCH_PAGE.supportImages,
+    projects: withDefaultResearchProjectImages(data.projects ?? DEFAULT_RESEARCH_PAGE.projects),
+    supportImages: withDefaultResearchSupportImages(data.supportImages ?? DEFAULT_RESEARCH_PAGE.supportImages),
+  }
+}
+
+function withDefaultResearchProjectImages(projects: ResearchProject[]) {
+  return projects.map((project, index) => {
+    const defaultImages = DEFAULT_RESEARCH_PAGE.projects[index]?.images
+    if (project.images?.length || !defaultImages?.length) return project
+    return { ...project, images: defaultImages }
+  })
+}
+
+function withDefaultResearchSupportImages(images: ContentImage[]) {
+  const requiredImages = DEFAULT_RESEARCH_PAGE.supportImages
+  const normalizedImages = images.map((image) => {
+    if (/Supporting evidence, reports, and project images can be added by admins\./i.test(image.caption ?? '')) {
+      return requiredImages[0]
+    }
+    return image
+  })
+  const existingSources = new Set(normalizedImages.map((image) => image.src))
+  for (const image of requiredImages) {
+    if (!existingSources.has(image.src)) normalizedImages.push(image)
+  }
+  return normalizedImages
+}
+
+export async function getHomepageGallery(): Promise<HomepageGalleryContent> {
+  const data = await getContent('homepage_gallery', DEFAULT_HOMEPAGE_GALLERY)
+  return {
+    ...DEFAULT_HOMEPAGE_GALLERY,
+    ...data,
+    images: data.images ?? DEFAULT_HOMEPAGE_GALLERY.images,
   }
 }
 

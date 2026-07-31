@@ -1,12 +1,14 @@
 import {
   DEFAULT_ABOUT_PAGE,
   DEFAULT_FAQS,
+  DEFAULT_HOMEPAGE_GALLERY,
   DEFAULT_POLICIES,
   DEFAULT_RESEARCH_PAGE,
   getAboutPageContent,
   getAllSiteContent,
   getBankDetails,
   getFaqs,
+  getHomepageGallery,
   getInvoiceTemplate,
   getPolicyContent,
   getResearchPageContent,
@@ -19,6 +21,8 @@ import { SchoolLogoManager } from '@/components/admin/school-logo-manager'
 import { SocialReelsManager } from '@/components/admin/social-reels-manager'
 import { SiteMediaUpload } from '@/components/admin/site-media-upload'
 import { SiteVideosManager } from '@/components/admin/site-videos-manager'
+import { AboutGalleryManager } from '@/components/admin/about-gallery-manager'
+import { FaqsManager } from '@/components/admin/faqs-manager'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -26,8 +30,9 @@ import { Label } from '@/components/ui/label'
 const SECTIONS = [
   { key: 'announcements', label: 'Announcement Ticker / Flyers', hint: 'Array of {id, message, linkUrl, linkText, couponCode, active}' },
   { key: 'testimonials', label: 'Homepage Testimonials', hint: 'Array of {id, content, author, role, rating, imageUrl}' },
+  { key: 'homepage_gallery', label: 'Homepage Gallery', hint: 'Object with enabled, title, subtitle, and images[]. Set enabled to false to hide this section.' },
   { key: 'vortex_learning', label: 'Vortex Learning Partnership', hint: 'Object with title, description, websiteUrl, courses[]' },
-  { key: 'about_page', label: 'About Us Page', hint: 'Structured About page content. Add supporting image URLs in supportImages[].' },
+  { key: 'about_page', label: 'About Us Page', hint: 'Structured About page content. Add supporting image URLs in supportImages[] and About gallery images in galleryImages[].' },
   { key: 'research_page', label: 'Research Page', hint: 'Structured Research page content. Add project images in projects[].images[] or supportImages[].' },
   { key: 'faqs', label: 'FAQs', hint: 'Array of {q, a}. Use a for answer paragraphs, for example {"q":"Question?","a":["Answer paragraph."]}' },
   { key: 'privacy_policy', label: 'Privacy Policy', hint: 'Policy content. lastUpdated is visible here for admin reference only, not on the public page.' },
@@ -44,6 +49,7 @@ export default async function AdminContentPage() {
     schoolLogos,
     websiteVideos,
     socialReels,
+    homepageGallery,
     aboutPage,
     researchPage,
     faqs,
@@ -58,6 +64,7 @@ export default async function AdminContentPage() {
     getSchoolLogos(),
     getWebsiteVideos(),
     getSocialReels(),
+    getHomepageGallery(),
     getAboutPageContent(),
     getResearchPageContent(),
     getFaqs(),
@@ -73,6 +80,7 @@ export default async function AdminContentPage() {
   const defaults: Record<string, unknown> = {
     site_videos: websiteVideos,
     social_reels: socialReels,
+    homepage_gallery: homepageGallery ?? DEFAULT_HOMEPAGE_GALLERY,
     about_page: aboutPage ?? DEFAULT_ABOUT_PAGE,
     research_page: researchPage ?? DEFAULT_RESEARCH_PAGE,
     faqs: faqs ?? DEFAULT_FAQS,
@@ -100,6 +108,8 @@ export default async function AdminContentPage() {
         <SchoolLogoManager logos={schoolLogos} />
         <SiteVideosManager videos={websiteVideos} />
         <SocialReelsManager reels={socialReels} />
+        <AboutGalleryManager content={aboutPage} />
+        <FaqsManager faqs={faqs} />
 
         {SECTIONS.map(({ key, label, hint }) => (
           <form id={key} key={key} action={saveSiteContentFormAction} className="scroll-mt-6 space-y-3 rounded-lg border bg-card p-6">

@@ -38,39 +38,41 @@ export default async function AboutPage() {
   const impactStats = content.impact
     .filter((stat) => !/founded/i.test(stat.label))
     .map((stat) => (/schools/i.test(stat.label) ? { ...stat, value: '200+' } : stat))
+  const heroImage = content.hero.image
+  const galleryImages = content.galleryImages ?? []
 
   return (
     <main>
       <AnnouncementBar />
       <Navbar />
 
-      <section className="bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-20">
-          <div className="flex flex-col justify-center">
-            <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#D30000]">About Phonics Club</p>
-            <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-[#111827] sm:text-5xl lg:text-6xl">
+      <section className="relative isolate overflow-hidden bg-[#0F172A] text-white">
+        {heroImage ? (
+          <Image
+            src={heroImage.src}
+            alt={heroImage.alt}
+            fill
+            priority
+            className="absolute inset-0 -z-20 object-cover"
+            sizes="100vw"
+          />
+        ) : null}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0F172A]/95 via-[#0F172A]/78 to-[#1D4ED8]/30" />
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+          <div className="max-w-3xl">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#FBBF24]">About Phonics Club</p>
+            <h1 className="text-4xl font-bold tracking-normal text-white sm:text-5xl lg:text-6xl">
               {content.hero.title}
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#475569]">{heroSubtitle}</p>
+            <p className="mt-6 text-lg leading-8 text-white/86">{heroSubtitle}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild className="rounded-lg bg-[#1D4ED8]">
+              <Button asChild className="rounded-lg bg-[#1D4ED8] text-white hover:bg-[#1644C5]">
                 <Link href={content.hero.primaryCta.href}>{content.hero.primaryCta.label}</Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-lg">
+              <Button asChild variant="outline" className="rounded-lg border-white/60 bg-white/10 text-white hover:bg-white hover:text-[#0F172A]">
                 <Link href={content.hero.secondaryCta.href}>{content.hero.secondaryCta.label}</Link>
               </Button>
             </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            {content.supportImages.slice(0, 2).map((image) => (
-              <figure key={image.src} className="overflow-hidden rounded-lg border bg-muted">
-                <div className="relative aspect-[4/3]">
-                  <Image src={image.src} alt={image.alt} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 42vw" />
-                </div>
-                {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
-              </figure>
-            ))}
           </div>
         </div>
       </section>
@@ -188,6 +190,40 @@ export default async function AboutPage() {
               )
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="border-y bg-[#F8FAFC]">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <details className="group rounded-2xl border bg-white p-5 shadow-sm">
+            <summary className="flex cursor-pointer list-none flex-col gap-4 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#1D4ED8]/40 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">Gallery</p>
+                <h2 className="mt-3 text-3xl font-bold">Phonics Club in Action</h2>
+                <p className="mt-3 text-muted-foreground">
+                  A visual record of classroom learning, teacher training, pilot projects, and school support.
+                </p>
+              </div>
+              <span className="inline-flex w-fit items-center rounded-full border px-4 py-2 text-sm font-semibold text-[#1D4ED8] transition-colors group-open:bg-[#1D4ED8] group-open:text-white">
+                <span className="group-open:hidden">Show gallery ({galleryImages.length})</span>
+                <span className="hidden group-open:inline">Hide gallery</span>
+              </span>
+            </summary>
+            {galleryImages.length ? (
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {galleryImages.map((image) => (
+                  <figure key={image.src} className="overflow-hidden rounded-xl border bg-white shadow-sm">
+                    <div className="relative aspect-[4/3] bg-slate-50">
+                      <Image src={image.src} alt={image.alt} fill className="object-contain p-2" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+                    </div>
+                    {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
+                  </figure>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-6 rounded-xl border bg-[#F8FAFC] p-4 text-sm text-muted-foreground">No gallery images are currently published.</p>
+            )}
+          </details>
         </div>
       </section>
 

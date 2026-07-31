@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, requireAdminOrInstructor } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth'
+import { canManageCourseId, requireManagedCourse } from '@/lib/admin/course-scope'
 import { LMS_ALLOWED_MIME_TYPES, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { approveCoursePaymentAction, rejectCoursePaymentAction } from '@/actions/lms'
 import { toError } from '@/lib/friendly-error'
@@ -63,9 +64,31 @@ function parseQuizQuestionForm(formData: FormData) {
   }
 }
 
+async function assertQuizQuestionBelongsToCourse(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  questionId: string,
+  courseId: string,
+) {
+  const { data: quizzes } = await supabase.from('course_quizzes').select('id').eq('course_id', courseId)
+  const quizIds = (quizzes ?? []).map((quiz: { id?: string | null }) => quiz.id).filter(Boolean) as string[]
+  if (!quizIds.length) throw toError('Question not found for this course', 'Question could not be updated.')
+
+  const { data: question } = await supabase
+    .from('quiz_questions')
+    .select('id')
+    .eq('id', questionId)
+    .in('quiz_id', quizIds)
+    .maybeSingle()
+
+  if (!question) throw toError('Question not found for this course', 'Question could not be updated.')
+}
+
 export async function getAdminCourseLms(courseId: string) {
-  await requireAdminOrInstructor()
+  const actor = await requireManagedCourse(courseId)
   const supabase = await createClient()
+  if (!(await canManageCourseId(actor, courseId, supabase))) {
+    return { course: null, modules: [], resources: [], quizzes: [], questions: [], assignments: [] }
+  }
   const [course, modules, resources, quizzes, assignments] = await Promise.all([
     supabase.from('courses').select('*').eq('id', courseId).maybeSingle(),
     supabase.from('course_modules').select('*, course_lessons(*)').eq('course_id', courseId).order('sort_order', { ascending: true }),
@@ -94,7 +117,7 @@ export async function getAdminCourseLms(courseId: string) {
 }
 
 export async function createCourseModuleFormAction(courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
   const { error } = await supabase.from('course_modules').insert({
     course_id: courseId,
@@ -110,7 +133,7 @@ export async function createCourseModuleFormAction(courseId: string, formData: F
 }
 
 export async function updateCourseModuleFormAction(moduleId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
   const { error } = await supabase
     .from('course_modules')
@@ -123,20 +146,21 @@ export async function updateCourseModuleFormAction(moduleId: string, courseId: s
       sort_order: num(formData, 'sort_order', 0),
     } as never)
     .eq('id', moduleId)
+    .eq('course_id', courseId)
   if (error) throw toError(error, 'Module could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function deleteCourseModuleAction(moduleId: string, courseId: string): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
-  const { error } = await supabase.from('course_modules').delete().eq('id', moduleId)
+  const { error } = await supabase.from('course_modules').delete().eq('id', moduleId).eq('course_id', courseId)
   if (error) throw toError(error, 'Module could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function createCourseLessonFormAction(courseId: string, moduleId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
   const { error } = await supabase.from('course_lessons').insert({
     course_id: courseId,
@@ -180,7 +204,7 @@ export async function createCourseLessonFormAction(courseId: string, moduleId: s
 }
 
 export async function updateCourseLessonFormAction(lessonId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
   const { error } = await supabase
     .from('course_lessons')
@@ -220,20 +244,21 @@ export async function updateCourseLessonFormAction(lessonId: string, courseId: s
       published: formData.get('published') === 'on',
     } as never)
     .eq('id', lessonId)
+    .eq('course_id', courseId)
   if (error) throw toError(error, 'Lesson could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function deleteCourseLessonAction(lessonId: string, courseId: string): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
-  const { error } = await supabase.from('course_lessons').delete().eq('id', lessonId)
+  const { error } = await supabase.from('course_lessons').delete().eq('id', lessonId).eq('course_id', courseId)
   if (error) throw toError(error, 'Lesson could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function uploadCourseResourceFormAction(courseId: string, formData: FormData): Promise<void> {
-  const actor = await requireAdminOrInstructor()
+  const actor = await requireManagedCourse(courseId)
   const file = formData.get('file') as File | null
   const externalUrl = text(formData, 'external_url')
   const supabase = await createServiceClient()
@@ -273,19 +298,19 @@ export async function uploadCourseResourceFormAction(courseId: string, formData:
 }
 
 export async function deleteCourseResourceAction(resourceId: string, courseId: string): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createServiceClient()
-  const { data: resource } = await supabase.from('course_resources').select('*').eq('id', resourceId).maybeSingle()
+  const { data: resource } = await supabase.from('course_resources').select('*').eq('id', resourceId).eq('course_id', courseId).maybeSingle()
   if (resource?.storage_bucket && resource?.storage_path) {
     await supabase.storage.from(resource.storage_bucket).remove([resource.storage_path])
   }
-  const { error } = await supabase.from('course_resources').delete().eq('id', resourceId)
+  const { error } = await supabase.from('course_resources').delete().eq('id', resourceId).eq('course_id', courseId)
   if (error) throw toError(error, 'Course resource could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function createCourseQuizFormAction(courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
   const { error } = await supabase.from('course_quizzes').insert({
     course_id: courseId,
@@ -307,18 +332,20 @@ export async function createCourseQuizFormAction(courseId: string, formData: For
 }
 
 export async function deleteCourseQuizAction(quizId: string, courseId: string): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
-  const { error } = await supabase.from('course_quizzes').delete().eq('id', quizId)
+  const { error } = await supabase.from('course_quizzes').delete().eq('id', quizId).eq('course_id', courseId)
   if (error) throw toError(error, 'Quiz could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function createQuizQuestionFormAction(quizId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const values = parseQuizQuestionForm(formData)
   if (!values.question) throw toError('Question text is required', 'Question could not be added.')
   const supabase = await createClient()
+  const { data: quiz } = await supabase.from('course_quizzes').select('id').eq('id', quizId).eq('course_id', courseId).maybeSingle()
+  if (!quiz) throw toError('Quiz not found', 'Question could not be added.')
   const { error } = await supabase.from('quiz_questions').insert({
     quiz_id: quizId,
     ...values,
@@ -328,18 +355,20 @@ export async function createQuizQuestionFormAction(quizId: string, courseId: str
 }
 
 export async function updateQuizQuestionFormAction(questionId: string, courseId: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const values = parseQuizQuestionForm(formData)
   if (!values.question) throw toError('Question text is required', 'Question could not be updated.')
   const supabase = await createClient()
+  await assertQuizQuestionBelongsToCourse(supabase, questionId, courseId)
   const { error } = await supabase.from('quiz_questions').update(values as never).eq('id', questionId)
   if (error) throw toError(error, 'Question could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
 export async function deleteQuizQuestionAction(questionId: string, courseId: string): Promise<void> {
-  await requireAdminOrInstructor()
+  await requireManagedCourse(courseId)
   const supabase = await createClient()
+  await assertQuizQuestionBelongsToCourse(supabase, questionId, courseId)
   const { error } = await supabase.from('quiz_questions').delete().eq('id', questionId)
   if (error) throw toError(error, 'Question could not be deleted.')
   revalidatePath(`/admin/courses/${courseId}/builder`)

@@ -29,7 +29,7 @@ const standardActivityTypes = [
 export const CHILDREN_PHONICS_COURSES: Course[] = [
   {
     id: 'course-jp-sounds-groups-1-3',
-    title: "Children's Phonics Course - Sound Groups 1-3",
+    title: 'Blending and Segmenting Group 1-3',
     slug: 'jolly-phonics-sounds-groups-1-3',
     subtitle: 'Learn the first 18 letter sounds through songs, actions, flashcards, formation and interactive activities.',
     description:
@@ -41,9 +41,9 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     duration: 'Self-paced',
     instructor: 'Phonics Club',
     instructor_bio: 'Phonics Club supports young learners with structured, joyful synthetic phonics practice.',
-    image_url: '/images/resources/My-First-Letter-Sounds.jpg',
-    thumbnail_url: '/images/resources/My-First-Letter-Sounds.jpg',
-    banner_url: '/images/resources/My-First-Letter-Sounds.jpg',
+    image_url: '/images/courses/Blending_Segmenting_Group_1-3.png',
+    thumbnail_url: '/images/courses/Blending_Segmenting_Group_1-3.png',
+    banner_url: '/images/courses/Blending_Segmenting_Group_1-3.png',
     curriculum: [
       module('Welcome to the Sound Adventure', 'Children are introduced to the course, activity types, navigation and learning routines.'),
       module('Sound Group 1 - s, a, t, i, p, n', 'Learn the first six sounds through pronunciation, songs, stories, actions, flashcards, tracing, listening, blending and review games.'),
@@ -73,7 +73,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
       'A computer, tablet, or touchscreen device is recommended for tracing activities.',
       'Internet connection required for videos and interactive exercises.',
     ],
-    seo_title: 'Jolly Phonics Sounds Groups 1-3 Children Course',
+    seo_title: 'Blending and Segmenting Group 1-3',
     seo_description: 'Beginner children\'s phonics course covering the first 18 Jolly Phonics sounds with flashcards, songs, tracing, blending and segmenting.',
     rating: 4.9,
     students_count: 0,
@@ -122,7 +122,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
   },
   {
     id: 'course-jp-sounds-groups-4-7',
-    title: "Children's Phonics Course - Sound Groups 4-7",
+    title: 'Blending and Segmenting Group 4-7',
     slug: 'jolly-phonics-sounds-groups-4-7',
     subtitle: 'Continue the phonics journey with digraphs, alternative sounds, formation, songs, blending and interactive practice.',
     description:
@@ -134,9 +134,9 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     duration: 'Self-paced',
     instructor: 'Phonics Club',
     instructor_bio: 'Phonics Club supports young learners with structured, joyful synthetic phonics practice.',
-    image_url: '/images/resources/Jolly-Phonics-Picture-Flashcards.jpg',
-    thumbnail_url: '/images/resources/Jolly-Phonics-Picture-Flashcards.jpg',
-    banner_url: '/images/resources/Jolly-Phonics-Picture-Flashcards.jpg',
+    image_url: '/images/courses/Blending_Segmenting_Group_4-7.png',
+    thumbnail_url: '/images/courses/Blending_Segmenting_Group_4-7.png',
+    banner_url: '/images/courses/Blending_Segmenting_Group_4-7.png',
     curriculum: [
       module('Welcome Back', 'A quick review of previous learning before introducing the remaining Jolly Phonics sounds.'),
       module('Sound Group 4 - ai, j, oa, ie, ee, or', 'Children explore vowel digraphs through songs, stories, tracing and interactive practice.'),
@@ -169,7 +169,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
       'Adult supervision may be helpful for younger learners.',
       'Internet connection required for interactive activities and videos.',
     ],
-    seo_title: 'Jolly Phonics Sounds Groups 4-7 Children Course',
+    seo_title: 'Blending and Segmenting Group 4-7',
     seo_description: 'Children continue Jolly Phonics with sound groups 4-7, digraphs, tracing, songs, blending, segmenting and complete 42-sound review.',
     rating: 4.9,
     students_count: 0,
@@ -224,13 +224,33 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
 ]
 
 export const CHILDREN_PHONICS_COURSE_SLUGS = CHILDREN_PHONICS_COURSES.map((course) => course.slug)
+const CHILDREN_PHONICS_COURSE_BY_SLUG = new Map(CHILDREN_PHONICS_COURSES.map((course) => [course.slug, course]))
 
 export function isChildrenPhonicsCourseSlug(slug: string) {
   return CHILDREN_PHONICS_COURSE_SLUGS.includes(slug)
 }
 
+export function withChildrenPhonicsCourseUpdates(course: Course): Course {
+  const update = CHILDREN_PHONICS_COURSE_BY_SLUG.get(course.slug)
+  if (!update) return course
+
+  return {
+    ...course,
+    title: update.title,
+    seo_title: update.seo_title,
+    image_url: update.image_url,
+    thumbnail_url: update.thumbnail_url,
+    banner_url: update.banner_url,
+    metadata: {
+      ...(course.metadata ?? {}),
+      ...(update.metadata ?? {}),
+    },
+  }
+}
+
 export function mergeMissingChildrenPhonicsCourses(courses: Course[]) {
-  const existingSlugs = new Set(courses.map((course) => course.slug))
+  const patchedCourses = courses.map(withChildrenPhonicsCourseUpdates)
+  const existingSlugs = new Set(patchedCourses.map((course) => course.slug))
   const missing = CHILDREN_PHONICS_COURSES.filter((course) => !existingSlugs.has(course.slug))
-  return missing.length ? [...courses, ...missing] : courses
+  return missing.length ? [...patchedCourses, ...missing] : patchedCourses
 }

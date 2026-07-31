@@ -10,13 +10,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { PriceDisplay } from '@/components/currency/price-display'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 
 export function ProductCard({ product }: { product: Product }) {
   const [isZoomOpen, setIsZoomOpen] = useState(false)
   const image = product.images[0]
   const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined)
   const compareAtPrice = Number(product.compare_at_price ?? 0)
-  const hasDiscount = compareAtPrice > Number(product.price)
+  const pricing = getProductPricing(product)
+  const hasDiscount = pricing.hasSaleDiscount || compareAtPrice > pricing.displayPrice
+  const crossedOutPrice = pricing.hasSaleDiscount ? pricing.basePrice : compareAtPrice
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-xl">
@@ -33,7 +36,7 @@ export function ProductCard({ product }: { product: Product }) {
             type="button"
             variant="secondary"
             size="icon"
-            className="absolute right-3 top-3 z-10 h-9 w-9 rounded-full bg-background/90 shadow-md backdrop-blur"
+            className="absolute right-3 top-3 z-30 h-9 w-9 rounded-full bg-background/90 shadow-md backdrop-blur"
             onClick={(event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -44,8 +47,15 @@ export function ProductCard({ product }: { product: Product }) {
             <ZoomIn className="h-4 w-4" />
           </Button>
         )}
+        {pricing.hasSaleDiscount && (
+          <div className="pointer-events-none absolute left-0 top-0 z-20 h-24 w-24 overflow-hidden">
+            <div className="absolute left-[-34px] top-[18px] w-32 -rotate-45 bg-gradient-to-r from-[#D30000] via-[#F59E0B] to-[#FBBF24] py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-md">
+              {pricing.saleBadgeText}
+            </div>
+          </div>
+        )}
         {product.featured && (
-          <Badge className="absolute left-3 top-3 bg-[#FBBF24] text-foreground">Featured</Badge>
+          <Badge className="absolute bottom-3 left-3 z-20 bg-[#FBBF24] text-foreground">Featured</Badge>
         )}
       </div>
 
@@ -59,10 +69,10 @@ export function ProductCard({ product }: { product: Product }) {
             {product.name}
           </h3>
           <div className="mt-3 flex items-center gap-2">
-            <PriceDisplay amountPkr={product.price} className="text-lg font-bold text-[#1D4ED8]" />
+            <PriceDisplay amountPkr={pricing.displayPrice} className="text-lg font-bold text-[#1D4ED8]" />
             {hasDiscount && (
               <PriceDisplay
-                amountPkr={compareAtPrice}
+                amountPkr={crossedOutPrice}
                 showApproxPkr={false}
                 className="text-sm text-muted-foreground line-through"
               />

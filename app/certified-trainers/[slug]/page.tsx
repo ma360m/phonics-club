@@ -6,18 +6,20 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { buildMetadata } from '@/utils/seo'
 import { getTrainerBySlug } from '@/lib/site-content'
+import { getTrainerImageUrl } from '@/lib/trainer-images'
 import { Award, CheckCircle2, GraduationCap, Star } from 'lucide-react'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const trainer = await getTrainerBySlug(slug)
   if (!trainer) return {}
+  const trainerImageUrl = getTrainerImageUrl(trainer)
 
   return buildMetadata({
     title: trainer.name,
     description: trainer.bio ?? `${trainer.name} profile at Phonics Club`,
     path: `/certified-trainers/${slug}`,
-    image: trainer.image_url ?? undefined,
+    image: trainerImageUrl ?? undefined,
   })
 }
 
@@ -54,6 +56,7 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
   const { slug } = await params
   const trainer = await getTrainerBySlug(slug)
   if (!trainer) notFound()
+  const trainerImageUrl = getTrainerImageUrl(trainer)
 
   return (
     <main>
@@ -64,8 +67,8 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
 
         <section className="grid gap-8 rounded-lg border bg-white p-6 shadow-sm md:grid-cols-[220px_1fr] md:p-8">
           <div className="mx-auto flex h-44 w-44 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1D4ED8]/20 to-[#FBBF24]/30 md:mx-0">
-            {trainer.image_url ? (
-              <Image src={trainer.image_url} alt={trainer.name} width={176} height={176} className="h-full w-full object-cover" />
+            {trainerImageUrl ? (
+              <Image src={trainerImageUrl} alt={trainer.name} width={176} height={176} className="h-full w-full object-cover" />
             ) : (
               <Award className="h-20 w-20 text-[#1D4ED8]" />
             )}

@@ -1,14 +1,20 @@
 import { getAdminCustomerRows } from '@/lib/admin/customers'
+import { sendCustomerPasswordResetAction } from '@/actions/admin/customers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download } from 'lucide-react'
+import { Download, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 
 function listText(items: string[]) {
   return items.length ? items.join(', ') : '-'
 }
 
-export default async function AdminCustomersPage() {
+export default async function AdminCustomersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ message?: string; error?: string }>
+}) {
+  const notice = await searchParams
   const customers = await getAdminCustomerRows()
 
   return (
@@ -28,12 +34,25 @@ export default async function AdminCustomersPage() {
         </Button>
       </header>
 
+      {notice?.message ? (
+        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          {notice.message}
+        </p>
+      ) : null}
+      {notice?.error ? (
+        <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          {notice.error}
+        </p>
+      ) : null}
+
       <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-[1180px] w-full text-left text-sm">
+          <table className="min-w-[1380px] w-full text-left text-sm">
             <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Username</th>
+                <th className="px-4 py-3">Password</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Address</th>
                 <th className="px-4 py-3">Discounts</th>
@@ -48,6 +67,18 @@ export default async function AdminCustomersPage() {
                   <td className="px-4 py-4">
                     <p className="font-semibold text-[#0F172A]">{customer.name || 'Unnamed customer'}</p>
                     <p className="mt-1 text-xs text-slate-500">{customer.email || '-'}</p>
+                  </td>
+                  <td className="px-4 py-4 text-slate-600">{customer.username || '-'}</td>
+                  <td className="max-w-[240px] px-4 py-4 text-xs text-slate-500">
+                    <p>{customer.passwordStatus}</p>
+                    {customer.email ? (
+                      <form action={sendCustomerPasswordResetAction.bind(null, customer.email)} className="mt-3">
+                        <Button type="submit" size="sm" variant="outline" className="h-8 rounded-lg border-slate-200 bg-white text-xs">
+                          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                          Send reset email
+                        </Button>
+                      </form>
+                    ) : null}
                   </td>
                   <td className="px-4 py-4 text-slate-600">{customer.phone || '-'}</td>
                   <td className="max-w-[240px] px-4 py-4 text-slate-600">{customer.address || '-'}</td>
@@ -81,7 +112,7 @@ export default async function AdminCustomersPage() {
               ))}
               {customers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     No customer activity found yet.
                   </td>
                 </tr>

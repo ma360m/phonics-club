@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { AnnouncementBar, Footer, Navbar } from '@/components/layout'
 import { CourseCard } from '@/components/courses/course-card'
 import { CourseFilters } from '@/components/courses/course-filters'
+import { CourseOrbitIllustration } from '@/components/courses/course-orbit-illustration'
 import { Button } from '@/components/ui/button'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { getCourseCatalog, type CourseCatalogFilters } from '@/lib/lms'
@@ -46,35 +48,47 @@ export default async function CoursesPage({
       <AnnouncementBar />
       <Navbar />
 
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="max-w-4xl">
+      <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_82%_20%,rgba(96,165,250,0.22),transparent_34%),linear-gradient(135deg,#FFFFFF_0%,#F8FBFF_58%,#EFF6FF_100%)]">
+        <Image
+          src="/images/gallery/play.jpg"
+          alt="Play-based phonics learning"
+          fill
+          priority
+          className="absolute inset-0 -z-20 object-cover opacity-70"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-white/88 via-white/58 to-[#EFF6FF]/34" />
+        <div className="absolute inset-y-0 left-0 -z-10 w-full bg-gradient-to-r from-white/82 via-white/38 to-transparent lg:w-[62%]" />
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8 lg:py-14 xl:grid-cols-[minmax(0,1fr)_480px]">
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">Explore Learning</p>
-            <h1 className="mt-3 text-4xl font-bold tracking-normal text-[#0F172A] sm:text-5xl">
-              Find the right course for your learning journey
+            <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-normal text-[#0F172A] sm:text-5xl">
+              Find the Right Course for Your Journey
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-              Browse Phonics Club courses for teachers, children and families with clear lessons, guided progress and certificate pathways.
+              Explore expert-led courses for teachers, children and families with interactive lessons, guided progress and certificates.
             </p>
+
+            <form action="/courses" className="mt-7 max-w-3xl">
+              {catalog.filters.category !== 'all' && <input type="hidden" name="category" value={catalog.filters.category} />}
+              {catalog.filters.price !== 'all' && <input type="hidden" name="price" value={catalog.filters.price} />}
+              {catalog.filters.level !== 'all' && <input type="hidden" name="level" value={catalog.filters.level} />}
+              {catalog.filters.sort !== 'newest' && <input type="hidden" name="sort" value={catalog.filters.sort} />}
+              <label htmlFor="course-catalog-search" className="sr-only">Search courses</label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="course-catalog-search"
+                  name="q"
+                  defaultValue={catalog.filters.q}
+                  placeholder="Search by course, topic or instructor"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white/85 pl-12 pr-4 text-base text-[#0F172A] shadow-sm outline-none backdrop-blur transition-colors focus:border-[#60A5FA] focus:bg-white focus:ring-2 focus:ring-[#60A5FA]/30"
+                />
+              </div>
+            </form>
           </div>
 
-          <form action="/courses" className="mt-7 max-w-4xl">
-            {catalog.filters.category !== 'all' && <input type="hidden" name="category" value={catalog.filters.category} />}
-            {catalog.filters.price !== 'all' && <input type="hidden" name="price" value={catalog.filters.price} />}
-            {catalog.filters.level !== 'all' && <input type="hidden" name="level" value={catalog.filters.level} />}
-            {catalog.filters.sort !== 'newest' && <input type="hidden" name="sort" value={catalog.filters.sort} />}
-            <label htmlFor="course-catalog-search" className="sr-only">Search courses</label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-              <input
-                id="course-catalog-search"
-                name="q"
-                defaultValue={catalog.filters.q}
-                placeholder="Search by course, topic or instructor"
-                className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F8FAFC] pl-12 pr-4 text-base text-[#0F172A] outline-none transition-colors focus:border-[#60A5FA] focus:bg-white focus:ring-2 focus:ring-[#60A5FA]/30"
-              />
-            </div>
-          </form>
+          <CourseOrbitIllustration />
         </div>
       </section>
 

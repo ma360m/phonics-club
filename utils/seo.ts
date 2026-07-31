@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { APP_NAME, APP_URL, APP_DESCRIPTION } from '@/lib/constants'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { Product, Course, BlogPost } from '@/types/database'
 
 export function buildMetadata({
@@ -58,6 +59,7 @@ export function organizationJsonLd() {
 }
 
 export function productJsonLd(product: Product) {
+  const pricing = getProductPricing(product)
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -67,8 +69,8 @@ export function productJsonLd(product: Product) {
     sku: product.id,
     offers: {
       '@type': 'Offer',
-      price: product.price,
-      priceCurrency: 'USD',
+      price: pricing.displayPrice,
+      priceCurrency: 'PKR',
       availability:
         product.stock > 0
           ? 'https://schema.org/InStock'

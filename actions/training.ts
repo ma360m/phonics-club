@@ -46,6 +46,13 @@ const trainingEventSchema = z.object({
   published: z.coerce.boolean().default(true),
 })
 
+const trainingCertificateSchema = z.object({
+  id: z.string().uuid(),
+  certificate_url: z.string().trim().url('Enter a valid certificate URL.').optional().or(z.literal('')),
+  certificate_emailed: z.boolean().default(false),
+  certificate_notes: z.string().trim().max(1000).optional(),
+})
+
 function trainingEventsTableMissing(error: { code?: string; message?: string } | null | undefined) {
   return Boolean(error?.code === '42P01' || /training_events|schema cache/i.test(error?.message ?? ''))
 }
@@ -126,12 +133,45 @@ export async function submitTrainingRegistrationAction(
 }
 
 export async function getTrainingRegistrations() {
+  await requireAdmin()
   const supabase = await createClient()
   const { data } = await supabase
     .from('training_registrations')
     .select('*')
     .order('created_at', { ascending: false })
   return data ?? []
+}
+
+export async function updateTrainingRegistrationCertificateAction(formData: FormData): Promise<void> {
+  await requireAdmin()
+  const parsed = trainingCertificateSchema.safeParse({
+    id: formData.get('id'),
+    certificate_url: formData.get('certificate_url') || '',
+    certificate_emailed: formData.get('certificate_emailed') === 'on',
+    certificate_notes: formData.get('certificate_notes') || undefined,
+  })
+  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Certificate details are invalid.')
+
+  const certificateUrl = parsed.data.certificate_url || null
+  const now = new Date().toISOString()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('training_registrations')
+    .update({
+      certificate_url: certificateUrl,
+      certificate_uploaded_at: certificateUrl ? now : null,
+      certificate_emailed_at: parsed.data.certificate_emailed ? now : null,
+      certificate_notes: parsed.data.certificate_notes ?? null,
+    } as never)
+    .eq('id', parsed.data.id)
+
+  if (error) {
+    if (error.code === '42703') throw new Error('Apply migration 031 before saving training certificate details.')
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/trainings')
+  revalidatePath('/dashboard')
 }
 
 export async function getPublishedTrainingEvents(): Promise<TrainingEvent[]> {

@@ -37,7 +37,7 @@ const instructorLinks = [
   { href: '/admin/courses', label: 'My Courses', icon: GraduationCap },
   { href: '/admin/users', label: 'Students', icon: Users },
   { href: '/admin/lms-reports', label: 'Reports & Reviews', icon: BarChart3 },
-  { href: '/dashboard', label: 'Profile', icon: UserRound },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
 ]
 
 const adminLinks = [

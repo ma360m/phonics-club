@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import Image from 'next/image'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { ProductCard } from '@/components/shop/product-card'
@@ -37,31 +38,48 @@ export default async function ShopPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <BackButton fallbackHref="/" />
-        <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Shop</h1>
-        <p className="mb-2 text-sm text-muted-foreground sm:text-base">
-          Official Jolly Learning and Phonics Club products. Prices in PKR.
-        </p>
-        <p className="mb-8 text-sm text-[#D30000]">
-          Buy only from authorized Phonics Club dealers. PCTB approved materials.
-        </p>
+      <section className="relative isolate overflow-hidden bg-[#0F172A] text-white">
+        <Image
+          src="/images/gallery/pic.jpg"
+          alt="Phonics Club classroom literacy resources"
+          fill
+          priority
+          className="absolute inset-0 -z-20 object-cover"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0F172A]/95 via-[#0F172A]/76 to-[#1D4ED8]/28" />
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+          <BackButton fallbackHref="/" />
+          <div className="mt-8 max-w-3xl">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#FBBF24]">Authorized Phonics Club Shop</p>
+            <h1 className="text-4xl font-bold tracking-normal text-white sm:text-5xl">Shop</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/86 sm:text-lg">
+              Official Jolly Learning and Phonics Club products. Prices in PKR.
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              Buy only from authorized Phonics Club dealers. PCTB approved materials.
+            </p>
 
-        <form action="/shop" className="mb-6">
-          {activeCollection ? <input type="hidden" name="collection" value={activeCollection} /> : null}
-          {category ? <input type="hidden" name="category" value={category} /> : null}
-          <label htmlFor="shop-search" className="sr-only">Search products</label>
-          <div className="relative max-w-3xl">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-            <input
-              id="shop-search"
-              name="q"
-              defaultValue={searchQuery}
-              placeholder="Search books, readers, workbooks, kits, ISBN or product name"
-              className="h-13 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-sm outline-none transition-colors focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
-            />
+            <form action="/shop" className="mt-7">
+              {activeCollection ? <input type="hidden" name="collection" value={activeCollection} /> : null}
+              {category ? <input type="hidden" name="category" value={category} /> : null}
+              <label htmlFor="shop-search" className="sr-only">Search products</label>
+              <div className="relative max-w-3xl">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="shop-search"
+                  name="q"
+                  defaultValue={searchQuery}
+                  placeholder="Search books, readers, workbooks, kits, ISBN or product name"
+                  className="h-13 w-full rounded-2xl border border-white/60 bg-white/95 pl-12 pr-4 text-sm text-[#111827] shadow-xl outline-none backdrop-blur transition-colors placeholder:text-slate-500 focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/40"
+                />
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
 
         <div className="mb-8 overflow-x-auto pb-2">
           <div className="flex min-w-max gap-3">

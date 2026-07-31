@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Award,
   BookOpen,
+  CalendarDays,
   ChevronLeft,
   GraduationCap,
   Home,
@@ -16,6 +17,7 @@ import {
   PanelLeftOpen,
   Settings,
   ShoppingBag,
+  UserRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
@@ -26,6 +28,7 @@ interface LmsShellProps {
   userName?: string | null
   userEmail?: string | null
   isAdmin?: boolean
+  isLmsManager?: boolean
 }
 
 const learnerLinks = [
@@ -34,6 +37,8 @@ const learnerLinks = [
   { href: '/courses', label: 'Browse Courses', icon: BookOpen },
   { href: '/dashboard/my-courses#certificates', label: 'Certificates', icon: Award },
   { href: '/dashboard#orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/dashboard#trainings', label: 'Trainings', icon: CalendarDays },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
 ]
 
 function isActive(pathname: string, href: string, match?: string[]) {
@@ -48,6 +53,7 @@ function SidebarContent({
   userName,
   userEmail,
   isAdmin,
+  isLmsManager,
   compact = false,
   onToggleCompact,
 }: {
@@ -56,6 +62,7 @@ function SidebarContent({
   userName?: string | null
   userEmail?: string | null
   isAdmin?: boolean
+  isLmsManager?: boolean
   compact?: boolean
   onToggleCompact?: () => void
 }) {
@@ -121,18 +128,18 @@ function SidebarContent({
       </nav>
 
       <div className={cn('border-t border-slate-200 p-3', compact && 'px-2')}>
-        {isAdmin && (
+        {(isAdmin || isLmsManager) && (
           <Link
-            href="/admin"
+            href={isAdmin ? '/admin' : '/admin/courses'}
             onClick={onNavigate}
-            aria-label={compact ? 'Admin panel' : undefined}
+            aria-label={compact ? (isAdmin ? 'Admin panel' : 'Instructor dashboard') : undefined}
             className={cn(
               'mb-2 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-[#7A1D1D] transition-colors hover:bg-[#D30000]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2',
               compact && 'justify-center px-2',
             )}
           >
             <Settings className="h-4 w-4" />
-            {!compact && <span>Admin Panel</span>}
+            {!compact && <span>{isAdmin ? 'Admin Panel' : 'Instructor Dashboard'}</span>}
           </Link>
         )}
         <Link
@@ -147,7 +154,15 @@ function SidebarContent({
           <ChevronLeft className="h-4 w-4" />
           {!compact && <span>Back to Website</span>}
         </Link>
-        <div className={cn('mt-3 rounded-2xl bg-[#F8FAFC] p-3', compact && 'flex justify-center p-2')}>
+        <Link
+          href="/dashboard/profile"
+          onClick={onNavigate}
+          aria-label={compact ? 'Profile settings' : undefined}
+          className={cn(
+            'mt-3 block rounded-2xl bg-[#F8FAFC] p-3 transition-colors hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2',
+            compact && 'flex justify-center p-2',
+          )}
+        >
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBBF24]/25 text-xs font-bold text-[#7A1D1D]">
               {initials}
@@ -159,13 +174,13 @@ function SidebarContent({
               </span>
             )}
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   )
 }
 
-export function LmsShell({ children, userName, userEmail, isAdmin }: LmsShellProps) {
+export function LmsShell({ children, userName, userEmail, isAdmin, isLmsManager }: LmsShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -202,6 +217,7 @@ export function LmsShell({ children, userName, userEmail, isAdmin }: LmsShellPro
               userName={userName}
               userEmail={userEmail}
               isAdmin={isAdmin}
+              isLmsManager={isLmsManager}
               compact={sidebarCollapsed}
               onToggleCompact={toggleSidebarCollapsed}
             />
@@ -243,6 +259,7 @@ export function LmsShell({ children, userName, userEmail, isAdmin }: LmsShellPro
             userName={userName}
             userEmail={userEmail}
             isAdmin={isAdmin}
+            isLmsManager={isLmsManager}
           />
           <div className="mx-4 mb-4 rounded-2xl border border-[#1D4ED8]/15 bg-[#EFF6FF] p-4 text-sm text-slate-600">
             <div className="mb-2 flex items-center gap-2 font-semibold text-[#1D4ED8]">

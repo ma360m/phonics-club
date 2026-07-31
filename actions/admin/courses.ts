@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin, requireAdminOrInstructor } from '@/lib/auth'
+import { assignInstructorCourseOwner, canManageCourseId, getManagedCourseIds } from '@/lib/admin/course-scope'
 import { courseSchema } from '@/lib/validations/course'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { normalizeMediaUrl } from '@/lib/media-url'
@@ -116,13 +117,20 @@ export async function createCourseAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const parsed = parseCourseForm(formData)
   if (!parsed.ok) return { success: false, error: parsed.error }
 
   const supabase = await createClient()
-  const { error } = await supabase.from('courses').insert(parsed.data as never)
+  const { data: course, error } = await supabase.from('courses').insert(parsed.data as never).select('id').single()
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Course could not be created.') }
+  if (course?.id) {
+    try {
+      await assignInstructorCourseOwner(course.id, actor)
+    } catch (ownershipError) {
+      return { success: false, error: friendlyErrorMessage(ownershipError, 'Course ownership could not be saved.') }
+    }
+  }
 
   revalidatePath('/admin/courses')
   revalidatePath('/courses')
@@ -134,11 +142,14 @@ export async function updateCourseAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const parsed = parseCourseForm(formData)
   if (!parsed.ok) return { success: false, error: parsed.error }
 
   const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    return { success: false, error: 'You can only update courses assigned to your instructor account.' }
+  }
   const { error } = await supabase.from('courses').update(parsed.data as never).eq('id', id)
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Course could not be updated.') }
 
@@ -183,8 +194,11 @@ export async function deleteCourseWithOptionsFormAction(formData: FormData): Pro
 }
 
 export async function updateCoursePublishStatusAction(id: string, published: boolean): Promise<void> {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    throw new Error('You can only publish courses assigned to your instructor account.')
+  }
   const { error } = await supabase.from('courses').update({ published } as never).eq('id', id)
   if (error) throw toError(error, published ? 'Course could not be published.' : 'Course could not be saved as draft.')
 
@@ -194,8 +208,11 @@ export async function updateCoursePublishStatusAction(id: string, published: boo
 }
 
 export async function updateCourseMediaAction(id: string, formData: FormData): Promise<void> {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    throw new Error('You can only update media for courses assigned to your instructor account.')
+  }
   const imageUrl = normalizeMediaUrl(String(formData.get('image_url') ?? ''))
   const { error } = await supabase
     .from('courses')
@@ -220,22 +237,42 @@ export async function installChildrenPhonicsCoursesAction(): Promise<void> {
 }
 
 export async function getAdminCourses() {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
-  const { data } = await supabase.from('courses').select('*').order('created_at', { ascending: false })
+  const managedCourseIds = await getManagedCourseIds(actor, supabase)
+  if (managedCourseIds && managedCourseIds.length === 0) return []
+  let query = supabase.from('courses').select('*').order('created_at', { ascending: false })
+  if (managedCourseIds) query = query.in('id', managedCourseIds)
+  const { data } = await query
   return data ?? []
 }
 
 export async function getAdminCourse(id: string) {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) return null
   const { data } = await supabase.from('courses').select('*').eq('id', id).single()
   return data
 }
 
 export async function getInstructorDashboardData() {
-  await requireAdminOrInstructor()
+  const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
+  const managedCourseIds = await getManagedCourseIds(actor, supabase)
+  if (managedCourseIds && managedCourseIds.length === 0) {
+    return {
+      summary: {
+        publishedCourses: 0,
+        draftCourses: 0,
+        totalStudents: 0,
+        averageCompletion: 0,
+      },
+      courses: [],
+      missingChildrenCourses: [],
+      recentActivity: [],
+      attentionItems: [],
+    }
+  }
   const [
     coursesResult,
     enrollmentsResult,
@@ -255,13 +292,15 @@ export async function getInstructorDashboardData() {
   ])
 
   const dbCourses = (coursesResult.data ?? []) as Course[]
-  const courses = mergeMissingChildrenPhonicsCourses(dbCourses)
-  const enrollments = enrollmentsResult.data ?? []
-  const modules = modulesResult.data ?? []
-  const lessons = lessonsResult.data ?? []
-  const quizzes = quizzesResult.data ?? []
+  const allowedCourseIdSet = managedCourseIds ? new Set(managedCourseIds) : null
+  const scopedDbCourses = allowedCourseIdSet ? dbCourses.filter((course) => allowedCourseIdSet.has(course.id)) : dbCourses
+  const courses = managedCourseIds ? scopedDbCourses : mergeMissingChildrenPhonicsCourses(scopedDbCourses)
+  const enrollments = allowedCourseIdSet ? (enrollmentsResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : enrollmentsResult.data ?? []
+  const modules = allowedCourseIdSet ? (modulesResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : modulesResult.data ?? []
+  const lessons = allowedCourseIdSet ? (lessonsResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : lessonsResult.data ?? []
+  const quizzes = allowedCourseIdSet ? (quizzesResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : quizzesResult.data ?? []
   const questions = questionsResult.data ?? []
-  const progress = progressResult.data ?? []
+  const progress = allowedCourseIdSet ? (progressResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : progressResult.data ?? []
 
   const questionsByQuiz = new Map<string, number>()
   questions.forEach((question: any) => {
@@ -310,7 +349,7 @@ export async function getInstructorDashboardData() {
       averageCompletion,
     },
     courses: courseRows,
-    missingChildrenCourses: CHILDREN_PHONICS_COURSES.filter(
+    missingChildrenCourses: managedCourseIds ? [] : CHILDREN_PHONICS_COURSES.filter(
       (course) => !dbCourses.some((existing) => existing.slug === course.slug),
     ),
     recentActivity: progress.map((item: any) => {

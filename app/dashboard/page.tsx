@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { getProfile, isAdminRole, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { createClient } from '@/lib/supabase/server'
 import { signOutAction } from '@/actions/auth'
@@ -9,13 +9,45 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatusBadge } from '@/components/lms/lms-primitives'
-import { BookOpen, CalendarDays, Download, FileText, GraduationCap, Heart, Play, Shield, ShoppingBag } from 'lucide-react'
+import { BookOpen, CalendarDays, Download, FileText, GraduationCap, Heart, Shield, ShoppingBag, UserRound, Wrench } from 'lucide-react'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { getCourseAccessState } from '@/lib/lms'
-import { getPublishedTrainingEvents } from '@/actions/training'
 import { formatPrice, formatDate } from '@/utils/format'
+
+type TrainingRegistrationDashboardRow = {
+  id: string
+  training_type?: string | null
+  event_title?: string | null
+  event_date?: string | null
+  preferred_month?: string | null
+  status?: string | null
+  created_at?: string | null
+  certificate_url?: string | null
+  certificate_download_url?: string | null
+  certificate_file_url?: string | null
+  certificate_uploaded_at?: string | null
+  certificate_emailed_at?: string | null
+}
+
+function trainingTypeLabel(value?: string | null) {
+  return value === 'online_webinar' ? 'Webinar' : 'Training'
+}
+
+function certificateState(registration: TrainingRegistrationDashboardRow) {
+  const certificateUrl = registration.certificate_url || registration.certificate_download_url || registration.certificate_file_url || ''
+  if (certificateUrl) {
+    return {
+      label: registration.certificate_uploaded_at ? `Uploaded ${formatDate(registration.certificate_uploaded_at)}` : 'Certificate uploaded',
+      href: certificateUrl,
+    }
+  }
+  if (registration.certificate_emailed_at) {
+    return { label: `Emailed ${formatDate(registration.certificate_emailed_at)}`, href: '' }
+  }
+  return { label: 'Certificate not uploaded yet', href: '' }
+}
 
 export default async function DashboardPage() {
   const user = await requireAuth()
@@ -35,30 +67,52 @@ export default async function DashboardPage() {
     guest_email?: string | null
   }[] = []
   const supabase = await createClient()
-  const [ordersResult, trainingEvents] = await Promise.all([
+  const [ordersResult, userTrainingResult, emailTrainingResult] = await Promise.all([
     supabase
       .from('orders')
       .select('id, total, status, created_at, payment_method, receipt_url, receipt_path, shipping_address, phone, guest_email')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(5),
-    getPublishedTrainingEvents(),
+    supabase
+      .from('training_registrations')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
+    profile?.email
+      ? supabase
+          .from('training_registrations')
+          .select('*')
+          .eq('email', profile.email)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
   ])
   const { data } = ordersResult
   orders = data ?? []
-  const upcomingTrainingEvents = trainingEvents.slice(0, 5)
+  const trainingRegistrationMap = new Map<string, TrainingRegistrationDashboardRow>()
+  ;[
+    ...((userTrainingResult.data ?? []) as TrainingRegistrationDashboardRow[]),
+    ...((emailTrainingResult.data ?? []) as TrainingRegistrationDashboardRow[]),
+  ].forEach((registration) => {
+    if (registration.id) trainingRegistrationMap.set(registration.id, registration)
+  })
+  const trainingRegistrations = [...trainingRegistrationMap.values()]
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+    .slice(0, 6)
 
   const inProgress = enrollments.filter((e) => e.progress > 0 && e.progress < 100)
   const completed = enrollments.filter((e) => e.progress >= 100)
   const active = enrollments.filter((e) => getCourseAccessState(e as never).active)
   const pending = enrollments.filter((e) => getCourseAccessState(e as never).pendingPayment)
   const isAdmin = isAdminRole(profile?.role)
+  const isLmsManager = isLmsManagerRole(profile?.role)
+  const isInstructor = profile?.role === 'instructor'
 
   return (
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdmin}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdmin} isLmsManager={isLmsManager}>
         <LmsPageHeader
           eyebrow="Student Dashboard"
           title={`Welcome, ${profile?.full_name ?? 'Learner'}`}
@@ -134,7 +188,13 @@ export default async function DashboardPage() {
                 { href: '/cart', label: 'Cart', icon: ShoppingBag, detail: 'Open checkout items' },
                 { href: '/wishlist', label: 'Wishlist', icon: Heart, detail: 'Saved books and courses' },
                 { href: '/courses', label: 'Browse Courses', icon: BookOpen, detail: 'Find another course' },
-                { href: '/trainings', label: 'Trainings', icon: CalendarDays, detail: 'Upcoming trainings and webinars' },
+                { href: '/dashboard#trainings', label: 'Trainings', icon: CalendarDays, detail: 'Your registrations' },
+                ...(isInstructor
+                  ? [
+                      { href: '/admin/courses', label: 'Course Builder', icon: Wrench, detail: 'Manage your courses' },
+                      { href: '/dashboard/profile', label: 'Instructor Profile', icon: UserRound, detail: 'Profile and account' },
+                    ]
+                  : []),
               ].map(({ href, label, icon: Icon, detail }) => (
                 <Link
                   key={href}
@@ -193,50 +253,6 @@ export default async function DashboardPage() {
                   })}
                 </ul>
 
-                <details className="group mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC]">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2">
-                    <span>
-                      <span className="flex items-center gap-2 text-sm font-bold text-[#0F172A]">
-                        <Play className="h-4 w-4 text-[#1D4ED8]" />
-                        Progress and Continue Learning
-                      </span>
-                      <span className="mt-0.5 block text-xs text-slate-500">
-                        {inProgress.length} in progress, {completed.length} completed
-                      </span>
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 group-open:text-[#1D4ED8]">
-                      Toggle
-                    </span>
-                  </summary>
-                  <div className="border-t border-slate-200 px-4 py-4">
-                    {inProgress.length === 0 ? (
-                      <p className="text-sm text-slate-500">Start a course lesson and your progress tasks will appear here.</p>
-                    ) : (
-                      <div className="grid gap-3">
-                        {inProgress.map((e) => {
-                          const course = e.courses as { id: string; title: string; slug: string }
-                          const progress = Number(e.progress ?? 0)
-                          return (
-                            <Link
-                              key={e.id}
-                              href={`/course/${course?.id}/learn`}
-                              className="rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <p className="font-semibold text-[#0F172A]">{course?.title}</p>
-                                  <p className="mt-1 text-xs text-[#1D4ED8]">{progress}% complete</p>
-                                </div>
-                                <Play className="h-4 w-4 text-[#D30000]" />
-                              </div>
-                              <Progress value={progress} className="mt-3 h-2" />
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </details>
               </>
             )}
           </LmsSectionCard>
@@ -277,16 +293,16 @@ export default async function DashboardPage() {
           </LmsSectionCard>
         </div>
 
-        <details className="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <details id="trainings" className="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="flex cursor-pointer list-none flex-col gap-3 rounded-2xl px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#1D4ED8]">
                 <CalendarDays className="h-5 w-5" />
               </span>
               <span>
-                <span className="block text-base font-bold text-[#0F172A]">Trainings & Webinars</span>
+                <span className="block text-base font-bold text-[#0F172A]">Your Trainings & Webinars</span>
                 <span className="mt-0.5 block text-sm text-slate-500">
-                  {upcomingTrainingEvents.length} upcoming option{upcomingTrainingEvents.length === 1 ? '' : 's'}
+                  {trainingRegistrations.length} registration{trainingRegistrations.length === 1 ? '' : 's'} linked to your account
                 </span>
               </span>
             </span>
@@ -295,29 +311,37 @@ export default async function DashboardPage() {
             </span>
           </summary>
           <div className="border-t border-slate-200 p-4">
-            {upcomingTrainingEvents.length ? (
+            {trainingRegistrations.length ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {upcomingTrainingEvents.map((event) => (
-                  <Link
-                    key={event.id}
-                    href="/trainings"
-                    className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2"
-                  >
+                {trainingRegistrations.map((registration) => {
+                  const certificate = certificateState(registration)
+                  return (
+                  <article key={registration.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#1D4ED8]">
-                      {event.event_type === 'online_webinar' ? 'Webinar' : 'Training'}
+                      {trainingTypeLabel(registration.training_type)}
                     </p>
-                    <p className="mt-1 font-semibold text-[#0F172A]">{event.title}</p>
+                    <p className="mt-1 font-semibold text-[#0F172A]">{registration.event_title ?? 'Training registration'}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {event.event_date ? formatDate(event.event_date) : 'Date to be announced'} - {event.status}
+                      {registration.event_date ? formatDate(registration.event_date) : registration.preferred_month ?? 'Date to be announced'}
+                      {registration.status ? ` - ${registration.status}` : ''}
                     </p>
-                  </Link>
-                ))}
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
+                      <p className="font-semibold text-[#0F172A]">Certificate</p>
+                      <p className="mt-1">{certificate.label}</p>
+                      {certificate.href && (
+                        <Button asChild size="sm" variant="outline" className="mt-2 h-8 rounded-lg border-slate-200 bg-white text-xs">
+                          <Link href={certificate.href} target="_blank">Open certificate</Link>
+                        </Button>
+                      )}
+                    </div>
+                  </article>
+                )})}
               </div>
             ) : (
               <LmsEmptyState
                 icon={CalendarDays}
-                title="No upcoming trainings yet"
-                description="New training and webinar dates will appear here after the admin publishes them."
+                title="No registered trainings yet"
+                description="Trainings and webinars you register for will appear here with certificate upload or email status."
                 action={<Button asChild className="rounded-xl bg-[#1D4ED8]"><Link href="/trainings">Open Trainings</Link></Button>}
               />
             )}

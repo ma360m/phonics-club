@@ -9,6 +9,10 @@ import { BLOG_CATEGORIES } from '@/lib/constants'
 const BLOG_DESCRIPTION =
   "Discover practical tips, educational news, professional development articles, and evidence-based literacy practices to support every child's reading journey."
 
+function shouldUseColorBlogThumbnail(slug: string) {
+  return slug === 'jolly-phonics-2017-training-video'
+}
+
 export const metadata = buildMetadata({
   title: 'Blog',
   description: BLOG_DESCRIPTION,
@@ -72,11 +76,11 @@ export default async function BlogPage({
               href={`/blog/${post.slug}`}
               className="group bg-card rounded-2xl border overflow-hidden shadow-sm hover:shadow-xl transition-all"
             >
-              {post.cover_image ? (
+              {post.cover_image && !shouldUseColorBlogThumbnail(post.slug) ? (
                 <img src={post.cover_image} alt="" className="aspect-video w-full object-cover" />
               ) : (
                 <div className="aspect-video bg-gradient-to-br from-[#1D4ED8]/10 to-[#FBBF24]/20 flex items-center justify-center text-sm font-semibold text-[#1D4ED8]">
-                  Article
+                  Phonics Club Article
                 </div>
               )}
               <div className="p-6">

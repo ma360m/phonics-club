@@ -101,6 +101,28 @@ export function ProductForm({ product }: { product?: Product }) {
           <Input name="stock" type="number" defaultValue={product?.stock ?? 100} className="rounded-xl" />
         </div>
       </div>
+      <div className="rounded-2xl border bg-muted/30 p-4">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" name="sale_enabled" defaultChecked={product?.sale_enabled ?? false} /> Mark product as sale item
+        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Sale Price (PKR)</Label>
+            <Input name="sale_price" type="number" min={0} step="1" defaultValue={product?.sale_price ?? ''} placeholder="Optional" className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Sale Discount %</Label>
+            <Input name="sale_percentage" type="number" min={0} max={100} step="1" defaultValue={product?.sale_percentage ?? ''} placeholder="Optional" className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Sale Banner Text</Label>
+            <Input name="sale_badge_text" defaultValue={product?.sale_badge_text ?? 'saleee'} maxLength={32} className="rounded-xl" />
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Use either a fixed sale price or a percentage. Checkout calculates from the saved product values, not customer input.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label>Image paths or URLs (comma-separated)</Label>
         <Input

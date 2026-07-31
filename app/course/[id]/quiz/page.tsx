@@ -5,6 +5,7 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { CourseQuiz } from '@/components/courses/course-quiz'
 import { Button } from '@/components/ui/button'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { canManageCourseId } from '@/lib/admin/course-scope'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { getCourseById, getQuizForCourse, getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
 import { ChevronLeft, CircleAlert } from 'lucide-react'
@@ -28,6 +29,7 @@ export default async function QuizPage({
   const managerPreview = previewRequested && isLmsManagerRole(profile?.role)
   const course = await getCourseById(id, { includeUnpublished: managerPreview })
   if (!course) notFound()
+  if (managerPreview && !(await canManageCourseId(profile, id))) notFound()
 
   const enrollment = managerPreview ? null : await getUserEnrollment(user.id, id)
   if (!managerPreview && !enrollment) redirect(`/courses/${course.slug}`)
@@ -43,7 +45,7 @@ export default async function QuizPage({
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)} isLmsManager={isLmsManagerRole(profile?.role)}>
         <Button asChild variant="ghost" className="mb-4 rounded-xl text-slate-600 hover:text-[#1D4ED8]">
           <Link href={learnHref}>
             <ChevronLeft className="mr-1 h-4 w-4" />

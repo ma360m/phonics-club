@@ -1,3 +1,5 @@
+import fs from 'fs/promises'
+import path from 'path'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
   buildCatalogObjectName,
@@ -11,6 +13,20 @@ import {
 export type { ShopCatalog } from '@/lib/shop-catalog-shared'
 
 export async function listShopCatalogs(): Promise<ShopCatalog[]> {
+  const [remoteCatalogs, localCatalogs] = await Promise.all([
+    listRemoteShopCatalogs(),
+    listLocalShopCatalogs(),
+  ])
+  const seen = new Set<string>()
+  return [...localCatalogs, ...remoteCatalogs].filter((catalog) => {
+    const key = `${catalog.label}:${catalog.name}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function listRemoteShopCatalogs(): Promise<ShopCatalog[]> {
   try {
     const supabase = await createServiceClient()
     const { data, error } = await supabase.storage.from(CATALOGS_BUCKET).list('', {
@@ -28,7 +44,32 @@ export async function listShopCatalogs(): Promise<ShopCatalog[]> {
         url: toCatalogPublicUrl(item.name),
         size: item.metadata?.size ?? 0,
         uploadedAt: item.created_at ?? new Date().toISOString(),
+        source: 'supabase',
       }))
+  } catch {
+    return []
+  }
+}
+
+async function listLocalShopCatalogs(): Promise<ShopCatalog[]> {
+  try {
+    const dir = path.join(process.cwd(), 'public', 'catalogs')
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+    const catalogs = await Promise.all(entries
+      .filter((entry) => entry.isFile() && /\.pdf$/i.test(entry.name))
+      .map(async (entry) => {
+        const filePath = path.join(dir, entry.name)
+        const stat = await fs.stat(filePath)
+        return {
+          name: entry.name,
+          label: parseCatalogLabel(entry.name),
+          url: `/catalogs/${encodeURIComponent(entry.name)}`,
+          size: stat.size,
+          uploadedAt: stat.mtime.toISOString(),
+          source: 'local',
+        } satisfies ShopCatalog
+      }))
+    return catalogs.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
   } catch {
     return []
   }

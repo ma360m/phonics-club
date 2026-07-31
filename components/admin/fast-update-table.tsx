@@ -23,6 +23,9 @@ function toRow(product: Product): Row {
     category: product.category,
     price: Number(product.price ?? 0),
     stock: Number(product.stock ?? 0),
+    sale_enabled: Boolean(product.sale_enabled),
+    sale_price: product.sale_price == null ? null : Number(product.sale_price),
+    sale_percentage: product.sale_percentage == null ? null : Number(product.sale_percentage),
     published: product.published,
     featured: product.featured,
   }
@@ -71,10 +74,13 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
   function saveSelected() {
     const updates = rows
       .filter((row) => selectedIds.has(row.id))
-      .map(({ id, price, stock, published, featured }) => ({
+      .map(({ id, price, stock, sale_enabled, sale_price, sale_percentage, published, featured }) => ({
         id,
         price,
         stock,
+        sale_enabled,
+        sale_price,
+        sale_percentage,
         published,
         featured,
       }))
@@ -116,7 +122,7 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-[760px] w-full text-sm">
+          <table className="min-w-[1080px] w-full text-sm">
             <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-12 px-4 py-3">
@@ -130,6 +136,9 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Stock</th>
+                <th className="px-4 py-3">Sale</th>
+                <th className="px-4 py-3">Sale Price</th>
+                <th className="px-4 py-3">Sale %</th>
                 <th className="px-4 py-3">Published</th>
                 <th className="px-4 py-3">Featured</th>
               </tr>
@@ -167,6 +176,35 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                       value={row.stock}
                       onChange={(event) => updateRow(row.id, { stock: Number(event.target.value) })}
                       className="h-9 w-24 rounded-lg"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={row.sale_enabled}
+                      onChange={(event) => updateRow(row.id, { sale_enabled: event.target.checked })}
+                      aria-label={`Sale status for ${row.name}`}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={row.sale_price ?? ''}
+                      onChange={(event) => updateRow(row.id, { sale_price: event.target.value === '' ? null : Number(event.target.value) })}
+                      className="h-9 w-28 rounded-lg"
+                      placeholder="Optional"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={row.sale_percentage ?? ''}
+                      onChange={(event) => updateRow(row.id, { sale_percentage: event.target.value === '' ? null : Number(event.target.value) })}
+                      className="h-9 w-24 rounded-lg"
+                      placeholder="Optional"
                     />
                   </td>
                   <td className="px-4 py-3">

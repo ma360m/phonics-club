@@ -6,6 +6,7 @@ export interface ShopCatalog {
   url: string
   size: number
   uploadedAt: string
+  source?: 'local' | 'supabase'
 }
 
 export const CATALOGS_BUCKET = 'shop-catalogs'
@@ -44,7 +45,7 @@ export function buildCatalogObjectName(
 
 export function parseCatalogLabel(name: string): CatalogLabel {
   const normalized = name.toLowerCase()
-  if (normalized.startsWith('phonics-club-') || normalized.startsWith('local-')) {
+  if (normalized.startsWith('phonics-club-') || normalized.startsWith('local-') || normalized.includes('phonics club')) {
     return 'phonics-club'
   }
   return 'jolly-learning'

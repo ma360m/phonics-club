@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { getProfile, isAdminRole, isSupabaseConfigured, requireAuth } from '@/lib/auth'
+import { getProfile, isAdminRole, isLmsManagerRole, isSupabaseConfigured, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@/actions/lms'
 import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments, isCourseCertificateEnabled } from '@/lib/lms'
@@ -53,6 +53,7 @@ export default async function MyCoursesPage() {
     .reduce((sum, entry) => sum + Number(entry.claimed_minutes ?? 0), 0)
   const hasOpenPayments = payments.some((payment) => ['pending', 'processing', 'submitted', 'rejected'].includes(payment.status))
   const isAdmin = isAdminRole(profile?.role)
+  const isLmsManager = isLmsManagerRole(profile?.role)
 
   async function submitOfflineActivityFormAction(formData: FormData) {
     'use server'
@@ -71,7 +72,7 @@ export default async function MyCoursesPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdmin}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdmin} isLmsManager={isLmsManager}>
         <LmsPageHeader
           eyebrow="My Courses"
           title="Your learning path"

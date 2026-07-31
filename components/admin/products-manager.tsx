@@ -34,6 +34,7 @@ import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { toast } from 'sonner'
 import type { Product } from '@/types/database'
 import { PriceDisplay } from '@/components/currency/price-display'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 
 interface Props {
   products: Product[]
@@ -278,12 +279,12 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
       )}
 
       <p className="text-sm text-muted-foreground mb-4">
-        Imports upsert by <strong>ISBN</strong> — existing ISBN updates, new ISBN creates. Columns: isbn, name, slug, description, price, compare_at_price, category, stock, featured, published, images
+        Imports upsert by <strong>ISBN</strong> — existing ISBN updates, new ISBN creates. Columns: isbn, name, slug, description, price, compare_at_price, category, stock, sale_enabled, sale_price, sale_percentage, featured, published, images
       </p>
 
       {/* Table */}
       <div className="bg-card rounded-2xl border overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
+        <table className="w-full text-sm min-w-[1000px]">
           <thead className="bg-muted/50">
             <tr>
               <th className="p-3 w-10">
@@ -294,6 +295,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
               <th className="text-left p-3">Product #</th>
               <th className="text-left p-3">ISBN / SKU</th>
               <th className="text-left p-3">Category</th>
+              <th className="text-left p-3">Sale</th>
               <th className="text-left p-3">Price</th>
               <th className="text-left p-3">Stock</th>
               <th className="text-right p-3">Actions</th>
@@ -302,7 +304,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
           <tbody>
             {initialProducts.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-12 text-center text-muted-foreground">
+                <td colSpan={10} className="p-12 text-center text-muted-foreground">
                   No products in database. Click &quot;Import Catalog&quot; or import a CSV/Excel file.
                 </td>
               </tr>
@@ -310,6 +312,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
               initialProducts.map((p) => {
                 const isbn = p.isbn ?? (p.metadata?.isbn as string) ?? '—'
                 const img = p.images?.[0]
+                const pricing = getProductPricing(p)
                 return (
                   <tr key={p.id} className={`border-t ${selected.has(p.id) ? 'bg-[#1D4ED8]/5' : ''}`}>
                     <td className="p-3">
@@ -332,7 +335,19 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                     </td>
                     <td className="p-3 text-xs">{PRODUCT_CATEGORY_LABELS[p.category] ?? p.category}</td>
                     <td className="p-3">
-                      <PriceDisplay amountPkr={p.price} />
+                      {pricing.saleEnabled ? (
+                        <span className="rounded-full bg-[#FBBF24]/25 px-2.5 py-1 text-xs font-semibold text-[#7A3E00]">
+                          {pricing.hasSaleDiscount ? 'Sale price active' : 'Sale banner'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <PriceDisplay amountPkr={pricing.displayPrice} />
+                      {pricing.hasSaleDiscount ? (
+                        <PriceDisplay amountPkr={pricing.basePrice} showApproxPkr={false} className="mt-1 block text-xs text-muted-foreground line-through" />
+                      ) : null}
                     </td>
                     <td className="p-3">{p.stock}</td>
                     <td className="p-3 text-right">

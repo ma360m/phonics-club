@@ -25,6 +25,13 @@ export type SignupInput = z.infer<typeof signupSchema>
 
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().email('Enter a valid email address.'),
+  phone: z.string().trim().max(30).optional(),
+  city: z.string().trim().max(80).optional(),
+  lastOrderItem: z.string().trim().max(120).optional(),
+  lastOrderQuantity: z.coerce.number().int().positive().optional().nullable(),
+}).refine((data) => Boolean(data.phone || data.city || data.lastOrderItem || data.lastOrderQuantity), {
+  message: 'Enter at least one verification detail.',
+  path: ['phone'],
 })
 
 export const resetPasswordSchema = z.object({

@@ -288,6 +288,22 @@ export async function ensureChildrenPhonicsCoursesInstalled(options?: {
 
       if (error) throw new Error(error.message)
       dbCourse = inserted as Course
+    } else if (
+      dbCourse.title !== course.title ||
+      dbCourse.image_url !== course.image_url ||
+      dbCourse.thumbnail_url !== course.thumbnail_url ||
+      dbCourse.banner_url !== course.banner_url ||
+      dbCourse.seo_title !== (course.seo_title ?? course.title)
+    ) {
+      const coursePatch = {
+        title: course.title,
+        seo_title: course.seo_title ?? course.title,
+        image_url: course.image_url,
+        thumbnail_url: course.thumbnail_url ?? course.image_url,
+        banner_url: course.banner_url ?? course.thumbnail_url ?? course.image_url,
+      }
+      await supabase.from('courses').update(coursePatch as never).eq('id', dbCourse.id)
+      dbCourse = { ...dbCourse, ...coursePatch }
     }
 
     const modules = await ensureModules(supabase, dbCourse.id, course.curriculum)

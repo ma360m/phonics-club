@@ -8,6 +8,7 @@ import { getCurrencySettings } from '@/lib/currency-settings'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail, type LowStockEmailAlert } from '@/lib/email/send-order-email'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import { normalizePhone } from '@/lib/validations/checkout'
 import type { MobileAuthContext } from './auth'
 import type { z } from 'zod'
@@ -24,18 +25,17 @@ interface CouponValidation {
 }
 
 function currentProductPrice(product: Product) {
-  const salePrice = product.sale_price === null || product.sale_price === undefined ? null : Number(product.sale_price)
+  const pricing = getProductPricing(product)
   const now = Date.now()
   const startsAt = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null
   const endsAt = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null
   const saleActive =
     product.sale_enabled &&
-    salePrice !== null &&
-    salePrice >= 0 &&
+    pricing.salePrice !== null &&
     (!startsAt || startsAt <= now) &&
     (!endsAt || endsAt >= now)
 
-  return saleActive ? salePrice : Number(product.price ?? 0)
+  return saleActive ? pricing.displayPrice : Number(product.price ?? 0)
 }
 
 function productImage(product: Product) {

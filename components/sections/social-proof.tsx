@@ -58,14 +58,15 @@ export function SocialProof({
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           {reels.map((reel, index) => {
+            const studentTile = isStudentProgressTile(reel.title)
             const videoUrl = isStudentProgressTile(reel.title) && studentSuccessVideoUrl
               ? studentSuccessVideoUrl
               : reel.videoUrl
             const directVideo = isDirectVideo(videoUrl)
             const showFloatingVideo = directVideo && (activeId === reel.id || hoveredId === reel.id)
             const hasExternalVideo = Boolean(reel.videoUrl) && !directVideo
-            const gradient = GRADIENTS[index % GRADIENTS.length]
-            const Icon = index % 2 === 0 ? BookOpen : GraduationCap
+            const gradient = studentTile ? 'from-[#1D4ED8] to-[#FBBF24]' : GRADIENTS[index % GRADIENTS.length]
+            const Icon = studentTile ? BookOpen : index % 2 === 0 ? BookOpen : GraduationCap
 
             return (
               <motion.div
@@ -124,7 +125,7 @@ export function SocialProof({
                 >
                   {reel.thumbnail ? (
                     <Image src={reel.thumbnail} alt={reel.title} fill className="object-cover" unoptimized />
-                  ) : directVideo ? (
+                  ) : directVideo && !studentTile ? (
                     <video src={videoUrl} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                   ) : (
                     <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`}>

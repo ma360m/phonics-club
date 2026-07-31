@@ -10,6 +10,9 @@ const fastUpdateRowSchema = z.object({
   id: z.string().uuid(),
   price: z.coerce.number().min(0),
   stock: z.coerce.number().int().min(0),
+  sale_enabled: z.boolean(),
+  sale_price: z.coerce.number().min(0).nullable(),
+  sale_percentage: z.coerce.number().min(0).max(100).nullable(),
   published: z.boolean(),
   featured: z.boolean(),
 })
@@ -35,6 +38,9 @@ export async function fastUpdateProductsAction(
       .update({
         price: row.price,
         stock: row.stock,
+        sale_enabled: row.sale_enabled,
+        sale_price: row.sale_price,
+        sale_percentage: row.sale_percentage,
         published: row.published,
         featured: row.featured,
       } as never)

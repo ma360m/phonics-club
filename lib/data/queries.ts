@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
-import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses } from './children-phonics-courses'
+import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses, withChildrenPhonicsCourseUpdates } from './children-phonics-courses'
 import { filterProductsByCollection } from '@/lib/product-collections'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
@@ -145,7 +145,7 @@ export async function getCourseBySlug(slug: string): Promise<Course | null> {
   }
 
   const fallback = CHILDREN_PHONICS_COURSES.find((c) => c.slug === slug) ?? SEED_COURSES.find((c) => c.slug === slug) ?? null
-  return data ? normalizeCourse(data as Course) : (fallback ? normalizeCourse(fallback) : null)
+  return data ? withChildrenPhonicsCourseUpdates(normalizeCourse(data as Course)) : (fallback ? normalizeCourse(fallback) : null)
 }
 
 export async function getBlogPosts(options?: {

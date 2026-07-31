@@ -176,7 +176,7 @@ export function CatalogManager({
                     View / Download
                   </a>
                 </Button>
-                {isAdmin && (
+                {isAdmin && catalog.source !== 'local' && (
                   <Button size="sm" variant="destructive" onClick={() => handleDelete(catalog.name)}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Remove

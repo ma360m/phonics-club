@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { canManageCourseId } from '@/lib/admin/course-scope'
 import { CourseLearnPlayer } from '@/components/courses/course-learn-player'
 import { LmsShell } from '@/components/lms/lms-shell'
 import {
@@ -32,6 +33,7 @@ export default async function CourseLearnPage({
   const managerPreview = previewRequested && isLmsManagerRole(profile?.role)
   const course = await getCourseById(id, { includeUnpublished: managerPreview })
   if (!course) notFound()
+  if (managerPreview && !(await canManageCourseId(profile, id))) notFound()
 
   const enrollment = managerPreview ? null : await getUserEnrollment(user.id, id)
   if (!managerPreview && !enrollment) redirect(`/courses/${course.slug}`)
@@ -45,7 +47,7 @@ export default async function CourseLearnPage({
 
   return (
     <main className="min-h-screen bg-[#F4F8FF]">
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)}>
+      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)} isLmsManager={isLmsManagerRole(profile?.role)}>
         <CourseLearnPlayer
           course={course}
           modules={modules}
