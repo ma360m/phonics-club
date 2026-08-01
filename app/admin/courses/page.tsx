@@ -13,6 +13,7 @@ import {
   Pencil,
   Plus,
   PlayCircle,
+  Search,
   Settings,
   Users,
 } from 'lucide-react'
@@ -47,11 +48,38 @@ function AttentionIcon({ issue }: { issue: string }) {
   return <AlertTriangle className="h-4 w-4 text-[#8B1E2D]" />
 }
 
-export default async function AdminCoursesPage() {
+export default async function AdminCoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; pageSize?: string }>
+}) {
+  const params = await searchParams
+  const searchQuery = (params.q ?? '').trim()
+  const statusFilter = params.status ?? 'all'
+  const pageSize = [10, 20, 50].includes(Number(params.pageSize)) ? Number(params.pageSize) : 20
   const [dashboard, profile] = await Promise.all([
     getInstructorDashboardData(),
     getProfile(),
   ])
+  const filteredCourseRows = dashboard.courses
+    .filter(({ course }) => {
+      if (statusFilter === 'published' && !course.published) return false
+      if (statusFilter === 'draft' && course.published) return false
+      if (statusFilter === 'featured' && !course.featured) return false
+      return true
+    })
+    .filter(({ course }) => {
+      if (!searchQuery) return true
+      const haystack = [
+        course.title,
+        course.category,
+        course.instructor,
+        course.level,
+        course.duration,
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(searchQuery.toLowerCase())
+    })
+  const visibleCourseRows = filteredCourseRows.slice(0, pageSize)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -154,6 +182,59 @@ export default async function AdminCoursesPage() {
           </Button>
         </div>
 
+        <form action="/admin/courses" className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 md:grid-cols-[minmax(220px,1fr)_180px_150px_auto_auto] md:items-end">
+          <div className="space-y-2">
+            <label htmlFor="course-search" className="text-sm font-semibold text-[#0F172A]">Search</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                id="course-search"
+                name="q"
+                defaultValue={searchQuery}
+                placeholder="Search by title"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="course-status" className="text-sm font-semibold text-[#0F172A]">Status</label>
+            <select
+              id="course-status"
+              name="status"
+              defaultValue={statusFilter}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+            >
+              <option value="all">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="featured">Featured</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="course-page-size" className="text-sm font-semibold text-[#0F172A]">Items per page</label>
+            <select
+              id="course-page-size"
+              name="pageSize"
+              defaultValue={pageSize}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+          <Button type="submit" className="h-11 rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+            Filter
+          </Button>
+          <Button asChild variant="ghost" className="h-11 rounded-xl text-[#1D4ED8]">
+            <Link href="/admin/courses">Reset</Link>
+          </Button>
+        </form>
+
+        <p className="mb-4 text-sm text-slate-500">
+          Showing {visibleCourseRows.length} of {filteredCourseRows.length} courses.
+        </p>
+
         {dashboard.courses.length === 0 ? (
           <LmsEmptyState
             icon={BookOpen}
@@ -161,9 +242,16 @@ export default async function AdminCoursesPage() {
             description="Create the first course, then add modules and lessons from the course builder."
             action={<Button asChild className="rounded-xl bg-[#1D4ED8]"><Link href="/admin/courses/new">Create Course</Link></Button>}
           />
+        ) : visibleCourseRows.length === 0 ? (
+          <LmsEmptyState
+            icon={BookOpen}
+            title="No courses match"
+            description="Adjust the title or status filters to find the course you need."
+            action={<Button asChild variant="outline" className="rounded-xl bg-white"><Link href="/admin/courses">Reset Filters</Link></Button>}
+          />
         ) : (
           <div className="space-y-3">
-            {dashboard.courses.map(({ course, studentCount, averageCompletion }) => {
+            {visibleCourseRows.map(({ course, studentCount, averageCompletion }) => {
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
               return (
                 <article key={course.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">

@@ -16,10 +16,21 @@ export async function middleware(request: NextRequest) {
 
   const { supabaseResponse, user, supabase } = await updateSession(request)
   const pathname = request.nextUrl.pathname
+  const authError = request.nextUrl.searchParams.get('error')
 
   const isProtected = PROTECTED_PREFIXES.some((p) => matchesRoutePrefix(pathname, p))
   const isAuthRoute = AUTH_ROUTES.some((p) => matchesRoutePrefix(pathname, p))
   const isAdmin = pathname.startsWith('/admin')
+  const isAccountRecoveryError =
+    authError === 'auth_callback_failed' || authError === 'account_recovery_required'
+
+  if (isAccountRecoveryError && !matchesRoutePrefix(pathname, '/auth/login')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/login'
+    url.searchParams.set('error', 'account_recovery_required')
+    url.searchParams.delete('redirect')
+    return NextResponse.redirect(url)
+  }
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone()
@@ -42,7 +53,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (isAuthRoute && user) {
+  if (isAuthRoute && user && !isAccountRecoveryError) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

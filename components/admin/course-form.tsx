@@ -26,6 +26,16 @@ function metaLines(course: Course | undefined, key: string): string {
   return Array.isArray(value) ? value.join('\n') : ''
 }
 
+function metaNumber(course: Course | undefined, key: string): string {
+  const value = course?.metadata?.[key]
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? String(number) : ''
+}
+
+function metaBoolean(course: Course | undefined, key: string): boolean {
+  return course?.metadata?.[key] === true
+}
+
 function datetimeValue(value?: string | null): string {
   return value ? value.slice(0, 16) : ''
 }
@@ -37,6 +47,7 @@ export function CourseForm({ course }: { course?: Course }) {
 
   return (
     <form action={formAction} className="max-w-5xl space-y-6">
+      <input type="hidden" name="existing_metadata" value={JSON.stringify(course?.metadata ?? {})} />
       {state.error && <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p>}
       {state.success && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Saved successfully!</p>}
 
@@ -75,6 +86,10 @@ export function CourseForm({ course }: { course?: Course }) {
         <div className="space-y-2">
           <Label>Price</Label>
           <Input name="price" type="number" step="1" defaultValue={course?.price ?? 0} className="rounded-xl" />
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" name="is_free" defaultChecked={course ? course.is_free ?? Number(course.price ?? 0) <= 0 : false} />
+            Set this course as free
+          </label>
         </div>
         <div className="space-y-2">
           <Label>Discounted Price</Label>
@@ -122,6 +137,60 @@ export function CourseForm({ course }: { course?: Course }) {
           <Input name="instructor_image_url" defaultValue={course?.instructor_image_url ?? course?.instructor_avatar ?? ''} className="rounded-xl" />
         </div>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Instructor Help Option</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Show an extra public course tab for guided instructor support and a separate total price.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <input type="checkbox" name="instructor_help_enabled" defaultChecked={metaBoolean(course, 'instructorHelpEnabled')} />
+            Enable
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Tab Label</Label>
+            <Input name="instructor_help_label" defaultValue={metaString(course, 'instructorHelpLabel') || 'Instructor Help'} className="rounded-xl bg-white" />
+          </div>
+          <div className="space-y-2">
+            <Label>Total Price With Instructor Help</Label>
+            <Input name="instructor_help_price" type="number" step="1" defaultValue={metaNumber(course, 'instructorHelpPrice')} placeholder="5000" className="rounded-xl bg-white" />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Description</Label>
+            <Textarea
+              name="instructor_help_description"
+              defaultValue={metaString(course, 'instructorHelpDescription')}
+              rows={3}
+              className="rounded-xl bg-white"
+              placeholder="Rs 5,000 is the total course price with instructor help included."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>What Instructor Help Includes</Label>
+            <Textarea
+              name="instructor_help_includes"
+              defaultValue={metaLines(course, 'instructorHelpIncludes')}
+              rows={4}
+              className="rounded-xl bg-white"
+              placeholder="Course access plus instructor support&#10;Parent guidance and progress check-ins"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contact Instructor Link</Label>
+            <Input
+              name="instructor_help_contact_href"
+              defaultValue={metaString(course, 'instructorHelpContactHref')}
+              className="rounded-xl bg-white"
+              placeholder="https://wa.me/923008079480"
+            />
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
         <h2 className="mb-4 text-lg font-semibold">Course Media</h2>
@@ -308,7 +377,7 @@ export function CourseForm({ course }: { course?: Course }) {
           <input type="checkbox" name="featured" defaultChecked={course?.featured} /> Featured
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="published" defaultChecked={course?.published ?? true} /> Published
+          <input type="checkbox" name="published" defaultChecked={course?.published ?? true} /> Show on public Courses page
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input

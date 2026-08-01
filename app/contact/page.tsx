@@ -1,35 +1,42 @@
-'use client'
-
-import { useState } from 'react'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
+import { ContactForm } from '@/components/contact/contact-form'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { COMPANY } from '@/lib/company'
-import { Mail, Phone, MapPin } from 'lucide-react'
-import { toast } from 'sonner'
+import { buildMetadata } from '@/utils/seo'
+import { Mail, MapPin, Phone } from 'lucide-react'
 
-export default function ContactPage() {
-  const [pending, setPending] = useState(false)
+export const metadata = buildMetadata({
+  title: 'Contact Us',
+  description: 'Contact Phonics Club for orders, courses, training, consultancy, and account support.',
+  path: '/contact',
+})
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setPending(true)
-    await new Promise((r) => setTimeout(r, 800))
-    toast.success('Message sent! We will reply to your email shortly.')
-    setPending(false)
-    ;(e.target as HTMLFormElement).reset()
-  }
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ topic?: string }>
+}) {
+  const { topic } = await searchParams
+  const isAccountRecovery = topic === 'account-recovery'
+  const defaultSubject = isAccountRecovery ? 'Account recovery request' : ''
+  const defaultMessage = isAccountRecovery
+    ? 'Hello Phonics Club, I need admin help securing and resetting my account.\n\nRegistered email:\nFull name:\nPhone / WhatsApp:\n'
+    : ''
 
   return (
     <main>
       <AnnouncementBar />
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-4 text-center">Contact Us</h1>
-        <p className="text-muted-foreground text-center mb-12">{COMPANY.name}</p>
+        <h1 className="text-4xl font-bold mb-4 text-center">
+          {isAccountRecovery ? 'Account Recovery Support' : 'Contact Us'}
+        </h1>
+        <p className="text-muted-foreground text-center mb-12">
+          {isAccountRecovery
+            ? 'For your protection, password reset requests are verified by Phonics Club admin before new login details are issued.'
+            : COMPANY.name}
+        </p>
 
         <div className="grid lg:grid-cols-2 gap-10">
           <div className="space-y-6">
@@ -53,26 +60,23 @@ export default function ContactPage() {
               <MapPin className="w-5 h-5 shrink-0" />
               {COMPANY.address}
             </p>
-            <WhatsAppButton />
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <WhatsAppButton />
+              {isAccountRecovery && (
+                <Button asChild variant="outline" className="rounded-xl">
+                  <a href={`mailto:${COMPANY.adminEmail}?subject=${encodeURIComponent('Account recovery request')}`}>
+                    Email admin
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-card rounded-2xl border p-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input name="name" required className="rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input name="email" type="email" required className="rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea name="message" required rows={5} className="rounded-xl" />
-            </div>
-            <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#D30000]">
-              {pending ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
+          <ContactForm
+            defaultSubject={defaultSubject}
+            defaultMessage={defaultMessage}
+            recoveryMode={isAccountRecovery}
+          />
         </div>
       </div>
       <Footer />

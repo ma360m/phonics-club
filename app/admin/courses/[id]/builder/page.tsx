@@ -296,9 +296,9 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                 </Link>
               </Button>
               <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
-                <Link href={`/courses/${data.course.slug}`}>
+                <Link href={`/courses/${data.course.slug}?preview=1`}>
                   <Eye className="mr-2 h-4 w-4" />
-                  View public page
+                  Preview Course
                 </Link>
               </Button>
             </div>
@@ -604,8 +604,16 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
           description="Pricing, enrolment dates and access rules are saved from course settings."
           icon={<Wallet className="h-5 w-5" />}
         >
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <SummaryCard label="Price" value={Number(data.course.price) === 0 ? 'Free' : `${data.course.currency ?? 'PKR'} ${data.course.price}`} />
+            <SummaryCard
+              label="Instructor help"
+              value={
+                data.course.metadata?.instructorHelpEnabled && Number(data.course.metadata?.instructorHelpPrice ?? 0) > 0
+                  ? `${data.course.currency ?? 'PKR'} ${data.course.metadata.instructorHelpPrice}`
+                  : 'Off'
+              }
+            />
             <SummaryCard label="Max students" value={data.course.max_students ?? 'No limit'} />
             <SummaryCard label="Access days" value={data.course.access_duration_days ?? 90} />
           </div>
@@ -640,19 +648,19 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
         >
           <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
-              <Link href={`/courses/${data.course.slug}`}>
+              <Link href={`/courses/${data.course.slug}?preview=1`}>
                 <Eye className="mr-2 h-4 w-4" />
                 Preview Course
               </Link>
             </Button>
             <form action={draftAction}>
               <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
-                Save as Draft
+                Hide from Public Page
               </Button>
             </form>
             <form action={publishAction}>
               <Button type="submit" className="rounded-xl bg-[#8B1E2D] hover:bg-[#8B1E2D]/90">
-                Publish Course
+                Publish and Show
               </Button>
             </form>
           </div>

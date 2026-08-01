@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Home,
   Layers3,
+  MessageCircle,
   Star,
   UserRound,
   type LucideIcon,
@@ -19,6 +20,7 @@ import { CourseImage } from '@/components/courses/course-image'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   formatCourseCategory,
   getCourseDisplayMeta,
@@ -28,6 +30,7 @@ import {
   type CourseModuleWithLessons,
 } from '@/lib/lms'
 import { CurrencyDisplayNotice, PriceDisplay } from '@/components/currency/price-display'
+import { COMPANY } from '@/lib/company'
 import type { Course, CourseQuiz, CourseResource, CourseReview } from '@/types/database'
 
 interface Props {
@@ -53,6 +56,49 @@ function shortText(value: string | null | undefined, maxLength = 190) {
 
 function plural(value: number, singular: string, pluralLabel = `${singular}s`) {
   return `${value} ${value === 1 ? singular : pluralLabel}`
+}
+
+function metadataNumber(course: Course, key: string): number {
+  const value = Number(course.metadata?.[key])
+  return Number.isFinite(value) ? value : 0
+}
+
+function metadataString(course: Course, key: string): string {
+  const value = course.metadata?.[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function metadataLines(course: Course, key: string): string[] {
+  const value = course.metadata?.[key]
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []
+}
+
+function getInstructorHelp(course: Course) {
+  const enabled = course.metadata?.instructorHelpEnabled === true
+  const price = metadataNumber(course, 'instructorHelpPrice')
+  const label = metadataString(course, 'instructorHelpLabel') || 'Instructor Help'
+  const description =
+    metadataString(course, 'instructorHelpDescription') ||
+    'Add guided instructor support when your child needs help with practice, pronunciation and progress.'
+  const includes = metadataLines(course, 'instructorHelpIncludes')
+  const contactHref =
+    metadataString(course, 'instructorHelpContactHref') ||
+    `https://wa.me/${COMPANY.whatsapp}?text=${encodeURIComponent(`Hello Phonics Club, I want instructor help for ${course.title}.`)}`
+
+  return {
+    enabled: enabled && price > 0,
+    price,
+    label,
+    description,
+    includes: includes.length
+      ? includes
+      : [
+          'Course access plus guided instructor support',
+          'Parent guidance for practice at home',
+          'Progress check-ins and next-step recommendations',
+        ],
+    contactHref,
+  }
 }
 
 function CourseFact({
@@ -93,9 +139,10 @@ function EnrollmentCard({
   certificateEnabled: boolean
 }) {
   const price = getCoursePrice(course)
+  const instructorHelp = getInstructorHelp(course)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div id="course-access" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="border-b border-slate-200 pb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Course access</p>
         <p className="mt-2 text-3xl font-bold tracking-normal text-[#1D4ED8]">
@@ -118,6 +165,16 @@ function EnrollmentCard({
         <p className="mt-3 text-xs leading-5 text-slate-500">
           Enrollment and payment checks use the existing Phonics Club course flow.
         </p>
+        {instructorHelp.enabled && (
+          <p className="mt-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-xs font-medium leading-5 text-[#1D4ED8]">
+            {instructorHelp.label} total:{' '}
+            <PriceDisplay
+              amountPkr={instructorHelp.price}
+              className="inline text-xs font-bold text-[#1D4ED8]"
+              showApproxPkr={false}
+            />
+          </p>
+        )}
       </div>
 
       <ul className="mt-5 space-y-2.5" aria-label="Course details">
@@ -139,6 +196,83 @@ function EnrollmentCard({
         />
       </ul>
     </div>
+  )
+}
+
+function CourseAccessOptions({ course }: { course: Course }) {
+  const instructorHelp = getInstructorHelp(course)
+  if (!instructorHelp.enabled) return null
+
+  const selfPacedPrice = getCoursePrice(course)
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#1D4ED8]">Course Options</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-normal text-[#0F172A]">Choose Learning Support</h2>
+        </div>
+        <Badge className="w-fit rounded-full bg-[#FBBF24]/20 px-3 py-1 text-[#7A1D1D] hover:bg-[#FBBF24]/20">
+          Instructor help available
+        </Badge>
+      </div>
+
+      <Tabs defaultValue="self-paced" className="mt-5">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-2 sm:grid-cols-2">
+          <TabsTrigger
+            value="self-paced"
+            className="h-auto justify-between rounded-xl border border-transparent bg-white px-4 py-3 text-left data-[state=active]:border-[#1D4ED8] data-[state=active]:shadow-sm"
+          >
+            <span className="font-semibold">Self-paced</span>
+            <PriceDisplay amountPkr={selfPacedPrice} className="font-bold text-[#1D4ED8]" showApproxPkr={false} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="instructor-help"
+            className="h-auto justify-between rounded-xl border border-transparent bg-white px-4 py-3 text-left data-[state=active]:border-[#1D4ED8] data-[state=active]:shadow-sm"
+          >
+            <span className="font-semibold">{instructorHelp.label}</span>
+            <PriceDisplay amountPkr={instructorHelp.price} className="font-bold text-[#1D4ED8]" showApproxPkr={false} />
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="self-paced" className="mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+          <h3 className="font-semibold text-[#0F172A]">Course Access</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Best for families who want structured child practice with the course lessons, activities and progress tracking.
+          </p>
+          <Button asChild className="mt-4 rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+            <Link href={`/courses/${course.slug}#course-access`}>Enroll Self-paced</Link>
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="instructor-help" className="mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-[#0F172A]">Course + Instructor Help</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{instructorHelp.description}</p>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {instructorHelp.includes.map((item) => (
+                  <li key={item} className="flex gap-2 text-sm leading-6 text-slate-700">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1D4ED8]" aria-hidden="true" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-4 lg:w-56">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Price</p>
+              <PriceDisplay amountPkr={instructorHelp.price} className="mt-1 text-2xl font-bold text-[#1D4ED8]" showApproxPkr={false} />
+              <Button asChild className="mt-4 w-full rounded-xl bg-[#8B1E2D] hover:bg-[#8B1E2D]/90">
+                <Link href={instructorHelp.contactHref}>
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Contact Instructor
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </section>
   )
 }
 
@@ -277,6 +411,8 @@ export function CourseDetailView({
               certificateEnabled={meta.certificateEnabled}
             />
           </div>
+
+          <CourseAccessOptions course={course} />
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <Accordion type="single" collapsible>

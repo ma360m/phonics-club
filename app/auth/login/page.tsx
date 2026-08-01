@@ -3,6 +3,7 @@ import { AnnouncementBar, Footer } from '@/components/layout'
 import { LoginForm } from '@/components/auth/login-form'
 import { buildMetadata } from '@/utils/seo'
 import { APP_NAME } from '@/lib/constants'
+import type { LoginNotice } from '@/components/auth/login-form'
 
 export const metadata = buildMetadata({
   title: 'Sign In',
@@ -15,8 +16,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ message?: string; error?: string; redirect?: string }>
 }) {
-  const { redirect } = await searchParams
+  const { redirect, error, message } = await searchParams
   const redirectTo = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
+  const notice = getLoginNotice({ error, message })
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -33,11 +35,43 @@ export default async function LoginPage({
             <p className="text-muted-foreground mt-1">Sign in to {APP_NAME}</p>
           </div>
           <div className="bg-card rounded-2xl border border-border p-8 shadow-xl glass">
-            <LoginForm redirectTo={redirectTo} />
+            <LoginForm redirectTo={redirectTo} notice={notice} />
           </div>
         </div>
       </div>
       <Footer />
     </main>
   )
+}
+
+function getLoginNotice({
+  error,
+  message,
+}: {
+  error?: string
+  message?: string
+}): LoginNotice | undefined {
+  if (error === 'account_recovery_required' || error === 'auth_callback_failed') {
+    return {
+      variant: 'recovery',
+      title: 'Account recovery needs admin help',
+      message:
+        'To protect your account, online password reset is handled by Phonics Club support. Contact us with your registered email and phone number. After verification, admin will issue a new username and password.',
+    }
+  }
+
+  if (error) {
+    return {
+      variant: 'error',
+      title: 'Sign-in link could not be verified',
+      message: 'Please sign in again, or contact Phonics Club support if you need account help.',
+    }
+  }
+
+  if (message) {
+    return {
+      variant: 'success',
+      message,
+    }
+  }
 }

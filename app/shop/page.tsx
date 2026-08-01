@@ -4,6 +4,7 @@ import { BackButton } from '@/components/layout/back-button'
 import { ProductCard } from '@/components/shop/product-card'
 import { CatalogManager } from '@/components/shop/catalog-manager'
 import { CategoryFilter } from '@/components/shop/category-filter'
+import { Button } from '@/components/ui/button'
 import { getProducts } from '@/lib/data/queries'
 import { PRODUCT_COLLECTIONS, isProductCollection } from '@/lib/product-collections'
 import { PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
@@ -51,7 +52,8 @@ export default async function ShopPage({
           {activeCollection ? <input type="hidden" name="collection" value={activeCollection} /> : null}
           {category ? <input type="hidden" name="category" value={category} /> : null}
           <label htmlFor="shop-search" className="sr-only">Search products</label>
-          <div className="relative max-w-3xl">
+          <div className="flex max-w-3xl gap-2">
+            <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               id="shop-search"
@@ -60,6 +62,10 @@ export default async function ShopPage({
               placeholder="Search books, readers, workbooks, kits, ISBN or product name"
               className="h-13 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-sm outline-none transition-colors focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
             />
+            </div>
+            <Button type="submit" className="h-13 rounded-2xl bg-[#FBBF24] px-5 font-bold text-[#111827] hover:bg-[#F59E0B]">
+              Go
+            </Button>
           </div>
         </form>
 

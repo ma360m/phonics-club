@@ -11,7 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { PriceDisplay } from '@/components/currency/price-display'
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  wishlistMode = false,
+}: {
+  product: Product
+  wishlistMode?: boolean
+}) {
   const [isZoomOpen, setIsZoomOpen] = useState(false)
   const image = product.images[0]
   const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined)
@@ -71,7 +77,7 @@ export function ProductCard({ product }: { product: Product }) {
         </Link>
       </div>
       <div className="px-5 pb-5">
-        <ProductCardActions product={product} />
+        <ProductCardActions product={product} wishlistMode={wishlistMode} />
       </div>
 
       <Dialog open={isZoomOpen} onOpenChange={setIsZoomOpen}>

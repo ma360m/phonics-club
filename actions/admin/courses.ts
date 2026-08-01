@@ -17,6 +17,27 @@ function parseLines(formData: FormData, key: string): string[] {
   return String(raw).split('\n').map((s) => s.trim()).filter(Boolean)
 }
 
+function parseExistingMetadata(formData: FormData): Record<string, unknown> {
+  const raw = formData.get('existing_metadata')
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(String(raw))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function setMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+  value: unknown,
+  shouldKeep = true,
+) {
+  if (shouldKeep) metadata[key] = value
+  else delete metadata[key]
+}
+
 function parseCourseForm(formData: FormData) {
   let curriculum: CurriculumModule[] = []
   try {
@@ -26,6 +47,7 @@ function parseCourseForm(formData: FormData) {
     curriculum = []
   }
 
+  const freeCourse = formData.get('is_free') === 'on'
   const parsed = courseSchema.safeParse({
     title: formData.get('title'),
     slug: formData.get('slug'),
@@ -33,8 +55,8 @@ function parseCourseForm(formData: FormData) {
     description: formData.get('description'),
     rich_description: formData.get('rich_description'),
     excerpt: formData.get('excerpt'),
-    price: formData.get('price'),
-    discounted_price: formData.get('discounted_price') || null,
+    price: freeCourse ? 0 : formData.get('price'),
+    discounted_price: freeCourse ? null : formData.get('discounted_price') || null,
     currency: formData.get('currency') || 'PKR',
     category: formData.get('category'),
     level: formData.get('level'),
@@ -85,17 +107,32 @@ function parseCourseForm(formData: FormData) {
 
   const price = parsed.data.price
   const previewVideoUrl = String(formData.get('preview_video_url') ?? '').trim()
+  const instructorHelpEnabled = formData.get('instructor_help_enabled') === 'on'
+  const instructorHelpPrice = Number(String(formData.get('instructor_help_price') ?? '').replace(/[^\d.]/g, ''))
+  const instructorHelpLabel = String(formData.get('instructor_help_label') ?? '').trim()
+  const instructorHelpDescription = String(formData.get('instructor_help_description') ?? '').trim()
+  const instructorHelpContactHref = String(formData.get('instructor_help_contact_href') ?? '').trim()
   const highlights = parseLines(formData, 'highlights')
   const coreMaterials = parseLines(formData, 'core_materials')
   const intendedAudience = parseLines(formData, 'intended_audience')
+  const instructorHelpIncludes = parseLines(formData, 'instructor_help_includes')
   const targetAudience = parseLines(formData, 'target_audience')
   const metadata: Record<string, unknown> = {
+    ...parseExistingMetadata(formData),
     certificateEnabled: formData.get('certificate_enabled') === 'on',
   }
-  if (previewVideoUrl) metadata.previewVideoUrl = previewVideoUrl
-  if (highlights.length) metadata.highlights = highlights
-  if (coreMaterials.length) metadata.coreMaterials = coreMaterials
-  if (intendedAudience.length) metadata.intendedAudience = intendedAudience
+
+  setMetadataValue(metadata, 'previewVideoUrl', previewVideoUrl, Boolean(previewVideoUrl))
+  setMetadataValue(metadata, 'highlights', highlights, highlights.length > 0)
+  setMetadataValue(metadata, 'coreMaterials', coreMaterials, coreMaterials.length > 0)
+  setMetadataValue(metadata, 'intendedAudience', intendedAudience, intendedAudience.length > 0)
+  setMetadataValue(metadata, 'selfPacedPrice', price, price > 0)
+  setMetadataValue(metadata, 'instructorHelpEnabled', instructorHelpEnabled)
+  setMetadataValue(metadata, 'instructorHelpPrice', instructorHelpPrice, instructorHelpEnabled && Number.isFinite(instructorHelpPrice) && instructorHelpPrice > 0)
+  setMetadataValue(metadata, 'instructorHelpLabel', instructorHelpLabel || 'Instructor Help', instructorHelpEnabled)
+  setMetadataValue(metadata, 'instructorHelpDescription', instructorHelpDescription, instructorHelpEnabled && Boolean(instructorHelpDescription))
+  setMetadataValue(metadata, 'instructorHelpIncludes', instructorHelpIncludes, instructorHelpEnabled && instructorHelpIncludes.length > 0)
+  setMetadataValue(metadata, 'instructorHelpContactHref', instructorHelpContactHref, instructorHelpEnabled && Boolean(instructorHelpContactHref))
 
   return {
     ok: true as const,
@@ -104,7 +141,7 @@ function parseCourseForm(formData: FormData) {
       objectives: parseLines(formData, 'objectives'),
       requirements: parseLines(formData, 'requirements'),
       target_audience: targetAudience.length ? targetAudience : intendedAudience,
-      is_free: price === 0,
+      is_free: freeCourse || price === 0,
       curriculum,
       metadata,
     },

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Heart, ShoppingCart } from 'lucide-react'
+import Link from 'next/link'
+import { Heart, ShoppingCart, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { setProductCartQuantityAction } from '@/actions/cart'
-import { toggleWishlistAction } from '@/actions/wishlist'
+import { removeWishlistItemAction, toggleWishlistAction } from '@/actions/wishlist'
 import { addToGuestCart, syncGuestCartCookie } from '@/lib/guest-cart-client'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -78,9 +79,16 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
 }
 
 /** Compact actions for product cards on shop grid */
-export function ProductCardActions({ product }: { product: Product }) {
+export function ProductCardActions({
+  product,
+  wishlistMode = false,
+}: {
+  product: Product
+  wishlistMode?: boolean
+}) {
   const router = useRouter()
   const [qty, setQty] = useState(1)
+  const [wishlisted, setWishlisted] = useState(wishlistMode)
   const [pending, startTransition] = useTransition()
 
   return (
@@ -115,20 +123,38 @@ export function ProductCardActions({ product }: { product: Product }) {
       >
         <ShoppingCart className="w-3 h-3 mr-1" /> Add
       </Button>
+      {wishlistMode && (
+        <Button asChild size="sm" variant="outline" className="h-8 rounded-lg px-2 text-xs">
+          <Link href="/cart">
+            <ShoppingCart className="mr-1 h-3 w-3" />
+            Cart
+          </Link>
+        </Button>
+      )}
       <Button
         size="sm"
-        variant="outline"
+        variant={wishlistMode ? 'destructive' : 'outline'}
         className="rounded-lg h-8 px-2"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
-            const r = await toggleWishlistAction(product.id)
-            if (r.success) toast.success(r.data?.added ? 'Wishlisted' : 'Removed')
-            else toast.error(r.error)
+            const r = wishlistMode
+              ? await removeWishlistItemAction(product.id)
+              : await toggleWishlistAction(product.id)
+            if (r.success) {
+              if (!wishlistMode) setWishlisted(r.data?.added ?? !wishlisted)
+              toast.success(wishlistMode ? 'Removed from wishlist' : r.data?.added ? 'Wishlisted' : 'Removed')
+              router.refresh()
+            } else toast.error(r.error)
           })
         }
+        aria-label={wishlistMode ? 'Remove from wishlist' : wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
       >
-        <Heart className="w-3 h-3" />
+        {wishlistMode ? (
+          <Trash2 className="h-3 w-3" />
+        ) : (
+          <Heart className={`w-3 h-3 ${wishlisted ? 'fill-[#D30000] text-[#D30000]' : ''}`} />
+        )}
       </Button>
     </div>
   )

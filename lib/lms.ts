@@ -2,7 +2,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import { SEED_COURSES } from '@/lib/data/seed'
-import { CHILDREN_PHONICS_COURSES } from '@/lib/data/children-phonics-courses'
+import { CHILDREN_PHONICS_COURSES, applyChildrenPhonicsCourseDefaults } from '@/lib/data/children-phonics-courses'
 import { getCourses, getCourseBySlug } from '@/lib/data/queries'
 import { formatCourseCategory } from '@/lib/course-format'
 import type {
@@ -243,7 +243,8 @@ export async function getCourseById(
   options?: { includeUnpublished?: boolean },
 ): Promise<Course | null> {
   if (!isSupabaseConfigured()) {
-    return [...SEED_COURSES, ...CHILDREN_PHONICS_COURSES].find((course) => course.id === courseId) ?? null
+    const course = [...SEED_COURSES, ...CHILDREN_PHONICS_COURSES].find((item) => item.id === courseId) ?? null
+    return course ? applyChildrenPhonicsCourseDefaults(course) : null
   }
 
   const supabase = options?.includeUnpublished && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -253,7 +254,27 @@ export async function getCourseById(
   if (!options?.includeUnpublished) query = query.eq('published', true)
   const { data } = await query.maybeSingle()
 
-  return (data as Course | null) ?? CHILDREN_PHONICS_COURSES.find((course) => course.id === courseId) ?? null
+  const course = (data as Course | null) ?? CHILDREN_PHONICS_COURSES.find((item) => item.id === courseId) ?? null
+  return course ? applyChildrenPhonicsCourseDefaults(course) : null
+}
+
+async function getCourseBySlugForDetail(
+  slug: string,
+  options?: { includeUnpublished?: boolean },
+): Promise<Course | null> {
+  if (!options?.includeUnpublished) return getCourseBySlug(slug)
+  if (!isSupabaseConfigured()) {
+    const course = [...SEED_COURSES, ...CHILDREN_PHONICS_COURSES].find((item) => item.slug === slug) ?? null
+    return course ? applyChildrenPhonicsCourseDefaults(course) : null
+  }
+
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? await createServiceClient()
+    : await createClient()
+  const { data } = await supabase.from('courses').select('*').eq('slug', slug).maybeSingle()
+
+  const course = (data as Course | null) ?? CHILDREN_PHONICS_COURSES.find((item) => item.slug === slug) ?? null
+  return course ? applyChildrenPhonicsCourseDefaults(course) : null
 }
 
 export async function getCourseModules(course: Course): Promise<CourseModuleWithLessons[]> {
@@ -819,8 +840,11 @@ export async function getInstructorProfile(slug: string) {
   }
 }
 
-export async function getCourseDetailBundle(slug: string) {
-  const course = await getCourseBySlug(slug)
+export async function getCourseDetailBundle(
+  slug: string,
+  options?: { includeUnpublished?: boolean },
+) {
+  const course = await getCourseBySlugForDetail(slug, options)
   if (!course) return null
 
   const [modules, reviews, resources, quizzes, allCourses] = await Promise.all([

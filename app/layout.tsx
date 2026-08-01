@@ -6,7 +6,7 @@ import { Providers } from '@/components/providers'
 import { PhonicsAssistant } from '@/components/assistant/phonics-assistant'
 import { WhatsAppFloating } from '@/components/layout/whatsapp-button'
 import { ShopNowPopup } from '@/components/layout/shop-now-popup'
-import { buildMetadata, organizationJsonLd } from '@/utils/seo'
+import { buildMetadata, organizationJsonLd, websiteJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { CURRENCY_PREFERENCE_KEY, normalizeCurrency } from '@/lib/currency'
@@ -40,6 +40,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         <JsonLd data={organizationJsonLd()} />
+        <JsonLd data={websiteJsonLd()} />
         <Providers currencySettings={currencySettings} initialCurrency={initialCurrency}>
           {children}
           <ShopNowPopup />

@@ -35,7 +35,9 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     description:
       'Jolly Phonics Sounds: Groups 1-3 is an engaging, interactive phonics course designed for young learners beginning their literacy journey. Through songs, stories, actions, flashcards, letter formation, tracing activities, listening games, blending, and segmenting, children will learn the first 18 letter sounds of the Jolly Phonics programme in a fun and systematic way.\n\nEach lesson is carefully structured to build confidence through hands-on practice and positive reinforcement, helping children develop strong foundations in early reading and writing while learning at their own pace.',
     excerpt: 'A beginner children\'s phonics course covering the first 18 Jolly Phonics sounds.',
-    price: 0,
+    price: 2500,
+    discounted_price: null,
+    currency: 'PKR',
     category: 'children-courses',
     level: 'beginner',
     duration: 'Self-paced',
@@ -77,7 +79,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     seo_description: 'Beginner children\'s phonics course covering the first 18 Jolly Phonics sounds with flashcards, songs, tracing, blending and segmenting.',
     rating: 4.9,
     students_count: 0,
-    is_free: true,
+    is_free: false,
     certificate_enabled: false,
     featured: true,
     published: true,
@@ -87,6 +89,18 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
       sounds: 18,
       quizzes: 0,
       format: 'interactive',
+      selfPacedPrice: 2500,
+      instructorHelpEnabled: true,
+      instructorHelpPrice: 5000,
+      instructorHelpLabel: 'Instructor Help',
+      instructorHelpDescription:
+        'Choose instructor help when your child needs guided support, parent check-ins and help staying on track. Rs 5,000 is the total course price with instructor help included.',
+      instructorHelpIncludes: [
+        'Course access plus guided instructor support',
+        'Parent guidance for practice at home',
+        'Help with pronunciation, blending and segmenting practice',
+        'Progress check-ins and next-step recommendations',
+      ],
       certificateEnabled: false,
       childSoundCourse: true,
       coursePart: 1,
@@ -128,7 +142,9 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     description:
       'Continue your phonics adventure with Jolly Phonics Sounds: Groups 4-7, where children expand their reading skills by learning digraphs, alternative vowel sounds, and more advanced phonics patterns. Through interactive videos, songs, stories, tracing activities, flashcards, blending, and segmenting exercises, learners strengthen their reading fluency while building confidence in independent literacy.\n\nThis course completes all 42 Jolly Phonics sounds, preparing children for more fluent reading, writing, and spelling.',
     excerpt: 'A follow-on children\'s phonics course covering Jolly Phonics sound groups 4-7.',
-    price: 0,
+    price: 2500,
+    discounted_price: null,
+    currency: 'PKR',
     category: 'children-courses',
     level: 'beginner',
     duration: 'Self-paced',
@@ -173,7 +189,7 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
     seo_description: 'Children continue Jolly Phonics with sound groups 4-7, digraphs, tracing, songs, blending, segmenting and complete 42-sound review.',
     rating: 4.9,
     students_count: 0,
-    is_free: true,
+    is_free: false,
     certificate_enabled: false,
     featured: true,
     published: true,
@@ -183,6 +199,18 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
       sounds: 24,
       quizzes: 0,
       format: 'interactive',
+      selfPacedPrice: 2500,
+      instructorHelpEnabled: true,
+      instructorHelpPrice: 5000,
+      instructorHelpLabel: 'Instructor Help',
+      instructorHelpDescription:
+        'Choose instructor help when your child needs guided support, parent check-ins and help staying on track. Rs 5,000 is the total course price with instructor help included.',
+      instructorHelpIncludes: [
+        'Course access plus guided instructor support',
+        'Parent guidance for practice at home',
+        'Help with digraphs, tricky sounds, blending and spelling',
+        'Progress check-ins and next-step recommendations',
+      ],
       certificateEnabled: false,
       childSoundCourse: true,
       coursePart: 2,
@@ -224,13 +252,33 @@ export const CHILDREN_PHONICS_COURSES: Course[] = [
 ]
 
 export const CHILDREN_PHONICS_COURSE_SLUGS = CHILDREN_PHONICS_COURSES.map((course) => course.slug)
+const CHILDREN_PHONICS_COURSE_BY_SLUG = new Map(CHILDREN_PHONICS_COURSES.map((course) => [course.slug, course]))
 
 export function isChildrenPhonicsCourseSlug(slug: string) {
   return CHILDREN_PHONICS_COURSE_SLUGS.includes(slug)
 }
 
+export function applyChildrenPhonicsCourseDefaults(course: Course): Course {
+  const canonical = CHILDREN_PHONICS_COURSE_BY_SLUG.get(course.slug)
+  if (!canonical) return course
+
+  return {
+    ...course,
+    price: canonical.price,
+    discounted_price: canonical.discounted_price ?? null,
+    currency: canonical.currency ?? 'PKR',
+    is_free: canonical.is_free ?? false,
+    certificate_enabled: canonical.certificate_enabled ?? false,
+    metadata: {
+      ...(course.metadata ?? {}),
+      ...(canonical.metadata ?? {}),
+    },
+  }
+}
+
 export function mergeMissingChildrenPhonicsCourses(courses: Course[]) {
-  const existingSlugs = new Set(courses.map((course) => course.slug))
+  const normalizedCourses = courses.map(applyChildrenPhonicsCourseDefaults)
+  const existingSlugs = new Set(normalizedCourses.map((course) => course.slug))
   const missing = CHILDREN_PHONICS_COURSES.filter((course) => !existingSlugs.has(course.slug))
-  return missing.length ? [...courses, ...missing] : courses
+  return missing.length ? [...normalizedCourses, ...missing] : normalizedCourses
 }

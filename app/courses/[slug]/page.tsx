@@ -3,7 +3,7 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { CourseDetailView } from '@/components/courses/course-detail-view'
 import { getCourseBySlug } from '@/lib/data/queries'
 import { getCourseAccessState, getCourseDetailBundle, getUserEnrollment } from '@/lib/lms'
-import { getSession } from '@/lib/auth'
+import { getProfile, getSession, isLmsManagerRole } from '@/lib/auth'
 import { buildMetadata, courseJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 
@@ -19,9 +19,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   })
 }
 
-export default async function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CourseDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams?: Promise<{ preview?: string }>
+}) {
   const { slug } = await params
-  const bundle = await getCourseDetailBundle(slug)
+  const query = searchParams ? await searchParams : {}
+  const profile = query.preview === '1' ? await getProfile() : null
+  const managerPreview = query.preview === '1' && isLmsManagerRole(profile?.role)
+  const bundle = await getCourseDetailBundle(slug, { includeUnpublished: managerPreview })
   if (!bundle) notFound()
   const user = await getSession()
   const enrollment = user ? await getUserEnrollment(user.id, bundle.course.id) : null

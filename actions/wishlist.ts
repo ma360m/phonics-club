@@ -33,6 +33,23 @@ export async function toggleWishlistAction(productId: string): Promise<ActionRes
   return { success: true, data: { added: true } }
 }
 
+export async function removeWishlistItemAction(productId: string): Promise<ActionResult> {
+  const user = await getSession()
+  if (!user) return { success: false, error: 'Please sign in' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('wishlist_items')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('product_id', productId)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/wishlist')
+  revalidatePath('/shop')
+  return { success: true }
+}
+
 export async function getWishlistItems() {
   const user = await getSession()
   if (!user) return []

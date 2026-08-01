@@ -114,6 +114,7 @@ function coursePayload(course: Course) {
     excerpt: course.excerpt,
     price: course.price,
     discounted_price: course.discounted_price ?? null,
+    currency: course.currency ?? 'PKR',
     category: course.category,
     level: course.level,
     duration: course.duration,
@@ -288,6 +289,27 @@ export async function ensureChildrenPhonicsCoursesInstalled(options?: {
 
       if (error) throw new Error(error.message)
       dbCourse = inserted as Course
+    } else {
+      const payload = coursePayload(course)
+      const { data: updated, error } = await supabase
+        .from('courses')
+        .update({
+          price: payload.price,
+          discounted_price: payload.discounted_price,
+          currency: payload.currency ?? 'PKR',
+          is_free: payload.is_free,
+          certificate_enabled: payload.certificate_enabled,
+          metadata: {
+            ...(dbCourse.metadata ?? {}),
+            ...(payload.metadata ?? {}),
+          },
+        } as never)
+        .eq('id', dbCourse.id)
+        .select('*')
+        .single()
+
+      if (error) throw new Error(error.message)
+      dbCourse = updated as Course
     }
 
     const modules = await ensureModules(supabase, dbCourse.id, course.curriculum)
