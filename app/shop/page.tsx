@@ -64,15 +64,24 @@ export default async function ShopPage({
               {activeCollection ? <input type="hidden" name="collection" value={activeCollection} /> : null}
               {category ? <input type="hidden" name="category" value={category} /> : null}
               <label htmlFor="shop-search" className="sr-only">Search products</label>
-              <div className="relative max-w-3xl">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="shop-search"
-                  name="q"
-                  defaultValue={searchQuery}
-                  placeholder="Search books, readers, workbooks, kits, ISBN or product name"
-                  className="h-13 w-full rounded-2xl border border-white/60 bg-white/95 pl-12 pr-4 text-sm text-[#111827] shadow-xl outline-none backdrop-blur transition-colors placeholder:text-slate-500 focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/40"
-                />
+              <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="shop-search"
+                    name="q"
+                    defaultValue={searchQuery}
+                    placeholder="Search books, readers, workbooks, kits, ISBN or product name"
+                    className="h-13 w-full rounded-2xl border border-white/60 bg-white/95 pl-12 pr-4 text-sm text-[#111827] shadow-xl outline-none backdrop-blur transition-colors placeholder:text-slate-500 focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/40"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#FBBF24] px-6 text-sm font-bold text-[#0F172A] shadow-xl transition-colors hover:bg-[#F59E0B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FBBF24] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F172A]"
+                >
+                  <Search className="h-4 w-4" />
+                  Go
+                </button>
               </div>
             </form>
           </div>

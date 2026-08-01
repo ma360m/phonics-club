@@ -26,6 +26,7 @@ import { incrementMemberDiscountUsage, validateMemberDiscount } from '@/lib/disc
 import type { ActionResult, OrderItem } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
+const MAX_CUSTOMER_ITEM_QUANTITY = 999
 
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
@@ -55,7 +56,7 @@ async function getAuthorizedCustomerOrder(orderId: string, token?: string) {
   const serviceSupabase = await createServiceClient()
   const { data: order, error } = await serviceSupabase
     .from('orders')
-    .select('id, user_id, access_token, status, created_at, receipt_url')
+    .select('id, user_id, access_token, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, display_currency, exchange_rate')
     .eq('id', orderId)
     .single()
 
@@ -149,6 +150,124 @@ function applyItemDiscounts(items: OrderItem[], discountAmount: number, discount
       discount_percent: Number(discountPercent.toFixed(2)),
     }
   })
+}
+
+function toFiniteNumber(value: unknown, fallback = 0) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount : fallback
+}
+
+function normalizeStoredOrderItems(value: unknown): OrderItem[] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((rawItem) => {
+    if (!rawItem || typeof rawItem !== 'object') return []
+
+    const item = rawItem as Record<string, unknown>
+    const productId = typeof item.product_id === 'string' ? item.product_id : ''
+    const name = typeof item.name === 'string' ? item.name : ''
+    const price = Math.max(0, toFiniteNumber(item.price))
+    const quantity = Math.max(0, Math.round(toFiniteNumber(item.quantity)))
+
+    if (!productId || !name || quantity <= 0) return []
+
+    const normalized: OrderItem = {
+      product_id: productId,
+      name,
+      price,
+      quantity,
+    }
+
+    if (typeof item.image === 'string' && item.image) normalized.image = item.image
+
+    return [normalized]
+  })
+}
+
+function parseCustomerEditedOrderItems(formData: FormData, existingItems: OrderItem[]) {
+  if (!existingItems.length) return { items: existingItems }
+
+  const submittedProductIds = formData.getAll('itemProductId').map((value) => String(value ?? ''))
+  const submittedQuantities = formData.getAll('itemQuantity')
+
+  if (submittedProductIds.length !== existingItems.length || submittedQuantities.length !== existingItems.length) {
+    return { error: 'Order items are incomplete. Refresh the page and try again.' }
+  }
+
+  const editedItems: OrderItem[] = []
+  for (let index = 0; index < existingItems.length; index += 1) {
+    const existingItem = existingItems[index]
+    if (submittedProductIds[index] !== existingItem.product_id) {
+      return { error: 'Order items changed. Refresh the page and try again.' }
+    }
+
+    const quantity = Number(submittedQuantities[index])
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_CUSTOMER_ITEM_QUANTITY) {
+      return { error: 'Choose a valid quantity for each order item.' }
+    }
+
+    if (quantity > 0) {
+      editedItems.push({
+        product_id: existingItem.product_id,
+        name: existingItem.name,
+        price: Math.max(0, Number(existingItem.price) || 0),
+        quantity,
+        ...(existingItem.image ? { image: existingItem.image } : {}),
+      })
+    }
+  }
+
+  if (!editedItems.length) {
+    return { error: 'Keep at least one item in the order.' }
+  }
+
+  return { items: editedItems }
+}
+
+function haveOrderItemsChanged(existingItems: OrderItem[], editedItems: OrderItem[]) {
+  if (existingItems.length !== editedItems.length) return true
+
+  return existingItems.some((item, index) => {
+    const editedItem = editedItems[index]
+    return !editedItem || item.product_id !== editedItem.product_id || Number(item.quantity) !== Number(editedItem.quantity)
+  })
+}
+
+function calculateEditedOrderTotals(
+  order: {
+    shipping_fee?: number | null
+    discount_amount?: number | null
+    discount_percent?: number | null
+    display_currency?: string | null
+    exchange_rate?: number | null
+  },
+  items: OrderItem[],
+) {
+  const subtotal = items.reduce((sum, item) => sum + Math.max(0, Number(item.price) || 0) * Math.max(0, Number(item.quantity) || 0), 0)
+  const shippingFee = Math.max(0, toFiniteNumber(order.shipping_fee, SHIPPING_FEE_PKR))
+  const storedDiscountPercent = Math.max(0, toFiniteNumber(order.discount_percent))
+  const storedDiscountAmount = Math.max(0, toFiniteNumber(order.discount_amount))
+  const discountAmount = Math.min(
+    subtotal,
+    storedDiscountPercent > 0 ? Math.round(subtotal * (storedDiscountPercent / 100)) : storedDiscountAmount,
+  )
+  const discountPercent = subtotal > 0 ? Number(((discountAmount / subtotal) * 100).toFixed(2)) : 0
+  const discountedItems = applyItemDiscounts(items, discountAmount, discountPercent)
+  const total = Math.max(0, subtotal + shippingFee - discountAmount)
+  const displayCurrency = normalizeCurrency(order.display_currency)
+  const exchangeRate = toFiniteNumber(order.exchange_rate)
+  const displayExchangeRate = exchangeRate > 0 ? exchangeRate : undefined
+
+  return {
+    items: discountedItems,
+    subtotal,
+    shippingFee,
+    discountAmount,
+    discountPercent,
+    total,
+    displayCurrency,
+    displayExchangeRate,
+  }
 }
 
 export async function placeOrderAction(
@@ -511,6 +630,16 @@ export async function updateCustomerOrderDetailsAction(
       return { success: false, error: 'Orders can only be edited within 5 minutes of placement.' }
     }
 
+    const existingItems = normalizeStoredOrderItems(result.order.items)
+    const editedItemsResult = parseCustomerEditedOrderItems(formData, existingItems)
+    if (editedItemsResult.error || !editedItemsResult.items) {
+      return { success: false, error: editedItemsResult.error ?? 'Order items are incomplete.' }
+    }
+    const itemsChanged = existingItems.length > 0 && haveOrderItemsChanged(existingItems, editedItemsResult.items)
+    const editedTotals = itemsChanged
+      ? calculateEditedOrderTotals(result.order, editedItemsResult.items)
+      : null
+
     const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
     const receiptFile = formData.get('receipt') as File | null
     let receiptUrl = result.order.receipt_url as string | null
@@ -529,8 +658,9 @@ export async function updateCustomerOrderDetailsAction(
       zip: parsed.data.zip ?? '',
       country: parsed.data.country,
     }
+    const hasReceipt = Boolean(receiptUrl || result.order.receipt_path || receiptUpload)
     const status = shopPaymentNeedsReceipt(paymentMethod)
-      ? receiptUrl
+      ? hasReceipt
         ? 'payment_submitted'
         : 'awaiting_payment'
       : 'pending'
@@ -540,6 +670,19 @@ export async function updateCustomerOrderDetailsAction(
       receipt_url: receiptUrl,
       shipping_address: shippingAddress,
       status,
+    }
+    if (editedTotals) {
+      updatePayload.items = editedTotals.items
+      updatePayload.subtotal = editedTotals.subtotal
+      updatePayload.shipping_fee = editedTotals.shippingFee
+      updatePayload.discount_amount = editedTotals.discountAmount
+      updatePayload.discount_percent = editedTotals.discountPercent
+      updatePayload.total = editedTotals.total
+      updatePayload.display_currency = editedTotals.displayCurrency
+      updatePayload.display_subtotal = convertCurrency(editedTotals.subtotal, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
+      updatePayload.display_shipping_fee = convertCurrency(editedTotals.shippingFee, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
+      updatePayload.display_discount_amount = convertCurrency(editedTotals.discountAmount, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
+      updatePayload.display_total = convertCurrency(editedTotals.total, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
     }
     if (receiptUpload) {
       updatePayload.receipt_bucket = receiptUpload.bucket

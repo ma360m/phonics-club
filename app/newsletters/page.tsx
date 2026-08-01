@@ -30,31 +30,29 @@ export default async function NewslettersPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-        <BackButton fallbackHref="/" />
-        <div className="mb-10 overflow-hidden rounded-3xl border bg-white shadow-sm">
-          <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="p-6 sm:p-8 lg:p-10">
-              <Badge className="mb-4 bg-[#1D4ED8]">Newsletter Archive</Badge>
-              <h1 className="text-3xl font-bold sm:text-4xl">Past Phonics Club Newsletters</h1>
-              <p className="mt-3 max-w-2xl text-muted-foreground">
-                Browse previous newsletters by month and year.
-              </p>
-            </div>
-            <div className="relative min-h-56 bg-slate-50 lg:min-h-full">
-              <Image
-                src="/images/gallery/pl.jpg"
-                alt="Phonics Club newsletter and learning activity"
-                fill
-                priority
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 480px"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-transparent" />
-            </div>
+      <section className="relative isolate overflow-hidden bg-[#0F172A] text-white">
+        <Image
+          src="/images/gallery/pl.jpg"
+          alt="Phonics Club newsletter and learning activity"
+          fill
+          priority
+          className="absolute inset-0 -z-20 object-cover"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0F172A]/95 via-[#0F172A]/74 to-[#1D4ED8]/24" />
+        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:py-16">
+          <BackButton fallbackHref="/" />
+          <div className="mt-8 max-w-3xl">
+            <Badge className="mb-4 bg-[#1D4ED8] text-white">Newsletter Archive</Badge>
+            <h1 className="text-4xl font-bold tracking-normal text-white sm:text-5xl">Past Phonics Club Newsletters</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-white/86 sm:text-lg">
+              Browse previous newsletters by month and year.
+            </p>
           </div>
         </div>
+      </section>
 
+      <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         {years.length === 0 ? (
           <div className="rounded-2xl border bg-card p-8 text-center">
             <FileText className="mx-auto mb-3 h-10 w-10 text-[#1D4ED8]" />

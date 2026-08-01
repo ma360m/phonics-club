@@ -6,6 +6,7 @@ import { ClearGuestCartOnSuccess } from '@/components/checkout/clear-guest-cart-
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
+import type { OrderItem } from '@/types'
 
 interface AuthorizedOrder {
   id: string
@@ -14,6 +15,9 @@ interface AuthorizedOrder {
   payment_method?: string | null
   receipt_url?: string | null
   receipt_path?: string | null
+  subtotal?: number | null
+  total?: number | null
+  items?: OrderItem[] | null
   shipping_address?: Record<string, string> | null
   phone?: string | null
   guest_email?: string | null
@@ -32,7 +36,7 @@ export default async function CheckoutSuccessPage({
     const serviceSupabase = await createServiceClient()
     const { data } = await serviceSupabase
       .from('orders')
-      .select('id, user_id, access_token, status, created_at, payment_method, receipt_url, receipt_path, shipping_address, phone, guest_email')
+      .select('id, user_id, access_token, status, created_at, payment_method, receipt_url, receipt_path, subtotal, total, items, shipping_address, phone, guest_email')
       .eq('id', order)
       .single()
     const user = await getSession()
@@ -46,6 +50,9 @@ export default async function CheckoutSuccessPage({
         payment_method: data.payment_method,
         receipt_url: data.receipt_url,
         receipt_path: data.receipt_path,
+        subtotal: data.subtotal,
+        total: data.total,
+        items: data.items as OrderItem[] | null,
         shipping_address: data.shipping_address as Record<string, string> | null,
         phone: data.phone,
         guest_email: data.guest_email,

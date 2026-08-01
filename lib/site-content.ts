@@ -763,7 +763,7 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
     },
   ],
   supportImages: [
-    { src: '/images/gallery/pilot school.jpeg', alt: 'Phonics Club pilot school evidence and project images', caption: 'Supporting evidence, reports, and project images can be added by admins.' },
+    { src: '/images/gallery/pilot school.jpeg', alt: 'Phonics Club pilot school evidence and project images', caption: 'Pilot project Lahore training workshop.' },
     { src: '/images/gallery/pilot.jpg', alt: 'Phonics Club pilot study classroom project', caption: 'Pilot study and classroom implementation activity.' },
     { src: '/images/gallery/class.jpg', alt: 'Teacher-led phonics classroom session', caption: 'Training and classroom observation support.' },
     { src: '/images/gallery/pilotttttw.jpeg', alt: 'Pilot project evaluation team 2025-2026', caption: 'Pilot project Evaluation Team 2025-2026.' },
@@ -1067,7 +1067,7 @@ function withDefaultResearchProjectImages(projects: ResearchProject[]) {
 function withDefaultResearchSupportImages(images: ContentImage[]) {
   const requiredImages = DEFAULT_RESEARCH_PAGE.supportImages
   const normalizedImages = images.map((image) => {
-    if (/Supporting evidence, reports, and project images can be added by admins\./i.test(image.caption ?? '')) {
+    if (image.src === '/images/schools/partners-strip-2.png' || image.caption === requiredImages[0].caption) {
       return requiredImages[0]
     }
     return image

@@ -1,28 +1,17 @@
-'use client'
-
-import { useState } from 'react'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { ContactForm } from '@/components/contact/contact-form'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { COMPANY } from '@/lib/company'
+import { buildMetadata } from '@/utils/seo'
 import { Mail, Phone, MapPin } from 'lucide-react'
-import { toast } from 'sonner'
+
+export const metadata = buildMetadata({
+  title: 'Contact Us',
+  description: 'Contact Phonics Club for Jolly Phonics books, synthetic phonics training, school consultancy and course support in Pakistan.',
+  path: '/contact',
+})
 
 export default function ContactPage() {
-  const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setPending(true)
-    await new Promise((r) => setTimeout(r, 800))
-    toast.success('Message sent! We will reply to your email shortly.')
-    setPending(false)
-    ;(e.target as HTMLFormElement).reset()
-  }
-
   return (
     <main>
       <AnnouncementBar />
@@ -56,23 +45,7 @@ export default function ContactPage() {
             <WhatsAppButton />
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-card rounded-2xl border p-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input name="name" required className="rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input name="email" type="email" required className="rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea name="message" required rows={5} className="rounded-xl" />
-            </div>
-            <Button type="submit" disabled={pending} className="w-full rounded-xl bg-[#D30000]">
-              {pending ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
+          <ContactForm />
         </div>
       </div>
       <Footer />

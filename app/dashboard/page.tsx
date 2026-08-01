@@ -15,6 +15,7 @@ import { CustomerOrderControls } from '@/components/orders/customer-order-contro
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { getCourseAccessState } from '@/lib/lms'
 import { formatPrice, formatDate } from '@/utils/format'
+import type { OrderItem } from '@/types'
 
 type TrainingRegistrationDashboardRow = {
   id: string
@@ -62,6 +63,8 @@ export default async function DashboardPage() {
     payment_method?: string | null
     receipt_url?: string | null
     receipt_path?: string | null
+    subtotal?: number | null
+    items?: OrderItem[] | null
     shipping_address?: Record<string, string> | null
     phone?: string | null
     guest_email?: string | null
@@ -70,7 +73,7 @@ export default async function DashboardPage() {
   const [ordersResult, userTrainingResult, emailTrainingResult] = await Promise.all([
     supabase
       .from('orders')
-      .select('id, total, status, created_at, payment_method, receipt_url, receipt_path, shipping_address, phone, guest_email')
+      .select('id, total, subtotal, status, created_at, payment_method, receipt_url, receipt_path, items, shipping_address, phone, guest_email')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(5),

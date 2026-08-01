@@ -47,11 +47,34 @@ function AttentionIcon({ issue }: { issue: string }) {
   return <AlertTriangle className="h-4 w-4 text-[#8B1E2D]" />
 }
 
-export default async function AdminCoursesPage() {
+function courseMatchesQuery(course: { title?: string | null; category?: string | null; instructor?: string | null }, query: string) {
+  if (!query) return true
+  const searchText = [course.title, course.category, course.instructor].filter(Boolean).join(' ').toLowerCase()
+  return query.split(/\s+/).filter(Boolean).every((word) => searchText.includes(word))
+}
+
+export default async function AdminCoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; pageSize?: string }>
+}) {
+  const { q = '', status = 'all', pageSize = '20' } = await searchParams
   const [dashboard, profile] = await Promise.all([
     getInstructorDashboardData(),
     getProfile(),
   ])
+  const cleanQuery = q.trim().toLowerCase()
+  const selectedStatus = ['all', 'published', 'draft', 'featured'].includes(status) ? status : 'all'
+  const selectedPageSize = [10, 20, 50].includes(Number(pageSize)) ? Number(pageSize) : 20
+  const filteredCourses = dashboard.courses.filter(({ course }) => {
+    const statusMatches =
+      selectedStatus === 'all' ||
+      (selectedStatus === 'published' && course.published) ||
+      (selectedStatus === 'draft' && !course.published) ||
+      (selectedStatus === 'featured' && course.featured)
+    return statusMatches && courseMatchesQuery(course, cleanQuery)
+  })
+  const visibleCourses = filteredCourses.slice(0, selectedPageSize)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -144,7 +167,9 @@ export default async function AdminCoursesPage() {
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-bold text-[#0F172A]">My Courses</h2>
-            <p className="mt-1 text-sm text-slate-500">Course status, student count and completion at a glance.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Course status, student count and completion at a glance. Showing {visibleCourses.length} of {filteredCourses.length}.
+            </p>
           </div>
           <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
             <Link href="/admin/courses/new">
@@ -154,6 +179,47 @@ export default async function AdminCoursesPage() {
           </Button>
         </div>
 
+        <form action="/admin/courses" className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 lg:grid-cols-[minmax(0,1fr)_180px_150px_auto_auto] lg:items-end">
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-[#0F172A]">Search</span>
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search by title, category or instructor"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition-colors focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-[#0F172A]">Status</span>
+            <select
+              name="status"
+              defaultValue={selectedStatus}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition-colors focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+            >
+              <option value="all">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="featured">Featured</option>
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-[#0F172A]">Items per page</span>
+            <select
+              name="pageSize"
+              defaultValue={String(selectedPageSize)}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition-colors focus:border-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA]/30"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </label>
+          <Button type="submit" className="h-11 rounded-xl bg-[#1D4ED8]">Filter</Button>
+          <Button asChild variant="outline" className="h-11 rounded-xl border-slate-200 bg-white">
+            <Link href="/admin/courses">Reset</Link>
+          </Button>
+        </form>
+
         {dashboard.courses.length === 0 ? (
           <LmsEmptyState
             icon={BookOpen}
@@ -161,9 +227,16 @@ export default async function AdminCoursesPage() {
             description="Create the first course, then add modules and lessons from the course builder."
             action={<Button asChild className="rounded-xl bg-[#1D4ED8]"><Link href="/admin/courses/new">Create Course</Link></Button>}
           />
+        ) : filteredCourses.length === 0 ? (
+          <LmsEmptyState
+            icon={BookOpen}
+            title="No courses match"
+            description="Change the search or status filter to see more courses."
+            action={<Button asChild variant="outline" className="rounded-xl bg-white"><Link href="/admin/courses">Reset Filters</Link></Button>}
+          />
         ) : (
           <div className="space-y-3">
-            {dashboard.courses.map(({ course, studentCount, averageCompletion }) => {
+            {visibleCourses.map(({ course, studentCount, averageCompletion }) => {
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
               return (
                 <article key={course.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">

@@ -3,6 +3,30 @@ import { APP_NAME, APP_URL, APP_DESCRIPTION } from '@/lib/constants'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { Product, Course, BlogPost } from '@/types/database'
 
+const DEFAULT_KEYWORDS = [
+  'Phonics Club',
+  'Jolly Phonics Pakistan',
+  'synthetic phonics training',
+  'Jolly Grammar',
+  'phonics courses',
+  'phonics books Pakistan',
+  'teacher training Pakistan',
+  'early years literacy',
+]
+
+function cleanSeoText(value: string) {
+  return value
+    .replace(/\u00e2\u20ac\u201d/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function absoluteUrl(value?: string | null) {
+  if (!value) return undefined
+  if (/^https?:\/\//i.test(value)) return value
+  return `${APP_URL}${value.startsWith('/') ? value : `/${value}`}`
+}
+
 export function buildMetadata({
   title,
   description = APP_DESCRIPTION,
@@ -18,16 +42,33 @@ export function buildMetadata({
 }): Metadata {
   const fullTitle = title ? `${title} | ${APP_NAME}` : `${APP_NAME} | Premium Phonics Education`
   const url = `${APP_URL}${path}`
-  const ogImage = image || `${APP_URL}/og-default.png`
+  const safeDescription = cleanSeoText(description)
+  const ogImage = absoluteUrl(image) || `${APP_URL}/og-default.png`
 
   return {
     title: fullTitle,
-    description,
+    description: safeDescription,
+    applicationName: APP_NAME,
+    creator: APP_NAME,
+    publisher: APP_NAME,
+    category: 'education',
+    keywords: DEFAULT_KEYWORDS,
     metadataBase: new URL(APP_URL),
     alternates: { canonical: url },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
     openGraph: {
       title: fullTitle,
-      description,
+      description: safeDescription,
       url,
       siteName: APP_NAME,
       type,
@@ -36,7 +77,7 @@ export function buildMetadata({
     twitter: {
       card: 'summary_large_image',
       title: fullTitle,
-      description,
+      description: safeDescription,
       images: [ogImage],
     },
   }
@@ -45,11 +86,19 @@ export function buildMetadata({
 export function organizationJsonLd() {
   return {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': 'EducationalOrganization',
     name: APP_NAME,
     url: APP_URL,
     logo: `${APP_URL}/icon.svg`,
-    description: APP_DESCRIPTION,
+    description: cleanSeoText(APP_DESCRIPTION),
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        areaServed: 'PK',
+        availableLanguage: ['English', 'Urdu'],
+      },
+    ],
     sameAs: [
       'https://www.instagram.com/phonics.club/',
       'https://www.facebook.com/phonicsclub/',
@@ -60,13 +109,15 @@ export function organizationJsonLd() {
 
 export function productJsonLd(product: Product) {
   const pricing = getProductPricing(product)
+  const image = absoluteUrl(product.images[0])
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     description: product.description,
-    image: product.images[0],
-    sku: product.id,
+    image: image ? [image] : undefined,
+    sku: product.sku ?? product.product_number ?? product.id,
+    gtin: product.isbn ?? undefined,
     offers: {
       '@type': 'Offer',
       price: pricing.displayPrice,
@@ -81,6 +132,7 @@ export function productJsonLd(product: Product) {
 }
 
 export function courseJsonLd(course: Course) {
+  const price = Number(course.discounted_price ?? course.price ?? 0)
   return {
     '@context': 'https://schema.org',
     '@type': 'Course',
@@ -89,12 +141,13 @@ export function courseJsonLd(course: Course) {
     provider: { '@type': 'Organization', name: APP_NAME, url: APP_URL },
     offers: {
       '@type': 'Offer',
-      price: course.price,
-      priceCurrency: 'USD',
+      price,
+      priceCurrency: course.currency ?? 'PKR',
       url: `${APP_URL}/courses/${course.slug}`,
+      availability: course.published ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
     },
     educationalLevel: course.level,
-    image: course.image_url,
+    image: absoluteUrl(course.image_url ?? course.thumbnail_url),
   }
 }
 
@@ -104,7 +157,7 @@ export function articleJsonLd(post: BlogPost) {
     '@type': 'Article',
     headline: post.title,
     description: post.excerpt || post.seo_description,
-    image: post.cover_image,
+    image: absoluteUrl(post.cover_image),
     datePublished: post.created_at,
     dateModified: post.updated_at,
     author: {
@@ -117,5 +170,19 @@ export function articleJsonLd(post: BlogPost) {
       logo: { '@type': 'ImageObject', url: `${APP_URL}/icon.svg` },
     },
     url: `${APP_URL}/blog/${post.slug}`,
+  }
+}
+
+export function websiteJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: APP_NAME,
+    url: APP_URL,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${APP_URL}/shop?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
   }
 }

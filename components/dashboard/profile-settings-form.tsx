@@ -74,7 +74,7 @@ export function ProfileSettingsForm({ profile }: ProfileSettingsFormProps) {
       <form action={passwordAction} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-[#0F172A]">Password</h2>
-          <p className="mt-1 text-sm text-slate-500">Change your password from your signed-in account. Passwords are never shown to admins.</p>
+          <p className="mt-1 text-sm text-slate-500">Change your password from your signed-in account.</p>
         </div>
 
         {passwordState.error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{passwordState.error}</p>}

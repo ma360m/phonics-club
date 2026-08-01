@@ -210,15 +210,17 @@ export default async function AboutPage() {
               </span>
             </summary>
             {galleryImages.length ? (
-              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-8 overflow-x-auto pb-4 [scrollbar-color:#1D4ED8_#DBEAFE] [scrollbar-width:thin]">
+                <div className="flex snap-x snap-mandatory gap-5">
                 {galleryImages.map((image) => (
-                  <figure key={image.src} className="overflow-hidden rounded-xl border bg-white shadow-sm">
+                  <figure key={image.src} className="min-w-[82%] snap-start overflow-hidden rounded-xl border bg-white shadow-sm sm:min-w-[46%] lg:min-w-[31%]">
                     <div className="relative aspect-[4/3] bg-slate-50">
                       <Image src={image.src} alt={image.alt} fill className="object-contain p-2" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
                     </div>
                     {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
                   </figure>
                 ))}
+                </div>
               </div>
             ) : (
               <p className="mt-6 rounded-xl border bg-[#F8FAFC] p-4 text-sm text-muted-foreground">No gallery images are currently published.</p>

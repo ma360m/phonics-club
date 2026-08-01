@@ -6,10 +6,22 @@ import { filterProductsByCollection } from '@/lib/product-collections'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
 
+const PRODUCT_IMAGE_PATH_FIXES = new Map([
+  [
+    '/images/Readers/OurWorld/L3-Green-Our-World-Readers-Complete-Set',
+    '/images/Readers/OurWorld/L3-Green-Our-World-Readers-Complete-Set.jpg',
+  ],
+])
+
+function normalizeProductImage(src: string) {
+  return PRODUCT_IMAGE_PATH_FIXES.get(src) ?? src
+}
+
 function normalizeProduct(p: Product): Product {
   const compareAtPrice = Number(p.compare_at_price ?? 0)
   return {
     ...p,
+    images: Array.isArray(p.images) ? p.images.map(normalizeProductImage) : [],
     isbn: p.isbn ?? (p.metadata?.isbn as string) ?? null,
     price: Number(p.price),
     compare_at_price: compareAtPrice > 0 ? compareAtPrice : null,
