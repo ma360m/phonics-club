@@ -155,6 +155,8 @@ export async function createCourseCheckoutAction(
       .select('*')
       .eq('id', courseId)
       .eq('published', true)
+      .in('visibility_status', ['published', 'unlisted'])
+      .eq('archived', false)
       .maybeSingle()
 
     if (!course) return { success: false, error: 'Course not found' }
@@ -418,19 +420,22 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
 
 export async function getSignedCourseResourceAction(resourceId: string): Promise<ActionResult<{ url: string }>> {
   try {
-    const user = await requireCurrentUser()
     const supabase = await createClient()
     const { data: resource } = await supabase.from('course_resources').select('*').eq('id', resourceId).maybeSingle()
     if (!resource) return { success: false, error: 'Resource not found' }
-    const signed = await getSignedCourseResourceUrl(resource as CourseResource, user.id)
+    const user = await getSession()
+    if (resource.visibility !== 'public' && !user) return { success: false, error: 'Please sign in to open this resource' }
+    const signed = await getSignedCourseResourceUrl(resource as CourseResource, user?.id ?? '')
     if (!signed.success) return { success: false, error: signed.error }
 
-    const service = await getServiceSupabase()
-    await service.from('course_resource_downloads').insert({
-      resource_id: resourceId,
-      user_id: user.id,
-      course_id: resource.course_id,
-    } as never)
+    if (user) {
+      const service = await getServiceSupabase()
+      await service.from('course_resource_downloads').insert({
+        resource_id: resourceId,
+        user_id: user.id,
+        course_id: resource.course_id,
+      } as never)
+    }
 
     return { success: true, data: { url: signed.url } }
   } catch (error) {

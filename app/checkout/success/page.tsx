@@ -8,6 +8,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
 import type { OrderItem } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 interface AuthorizedOrder {
   id: string
   status: string

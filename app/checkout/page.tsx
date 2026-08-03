@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { buildMetadata } from '@/utils/seo'
 
 export const metadata = buildMetadata({ title: 'Checkout', path: '/checkout' })
+export const dynamic = 'force-dynamic'
 
 export default async function CheckoutPage() {
   const user = await getSession()
@@ -25,7 +26,7 @@ export default async function CheckoutPage() {
     <main>
       <AnnouncementBar />
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="mx-auto max-w-7xl overflow-hidden px-3 py-8 sm:px-4 sm:py-12">
         <BackButton fallbackHref="/cart" />
         <h1 className="text-3xl font-bold mb-2">Checkout</h1>
         {!user && (

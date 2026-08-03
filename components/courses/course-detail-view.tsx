@@ -5,10 +5,13 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Download,
   FileText,
   HelpCircle,
   Home,
   Layers3,
+  LockKeyhole,
+  MessageCircle,
   Star,
   UserRound,
   type LucideIcon,
@@ -16,6 +19,7 @@ import {
 import { saveCourseReviewAction } from '@/actions/lms'
 import { EnrollButton } from '@/components/courses/enroll-button'
 import { CourseImage } from '@/components/courses/course-image'
+import { CourseResourceAccess } from '@/components/courses/course-resource-access'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,6 +57,36 @@ function shortText(value: string | null | undefined, maxLength = 190) {
 
 function plural(value: number, singular: string, pluralLabel = `${singular}s`) {
   return `${value} ${value === 1 ? singular : pluralLabel}`
+}
+
+function courseMetadata(course: Course): Record<string, unknown> {
+  return course.metadata && typeof course.metadata === 'object' ? course.metadata : {}
+}
+
+function metaString(course: Course, key: string): string {
+  const value = courseMetadata(course)[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function metaNumber(course: Course, key: string): number | null {
+  const value = courseMetadata(course)[key]
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  return Number.isFinite(number) ? number : null
+}
+
+function instructorHelpPackage(course: Course) {
+  if (courseMetadata(course).instructorHelpEnabled !== true) return null
+  const totalPrice = metaNumber(course, 'instructorHelpTotalPrice')
+  if (totalPrice === null) return null
+
+  return {
+    totalPrice,
+    label: metaString(course, 'instructorHelpLabel') || 'Course + instructor help',
+    note: metaString(course, 'instructorHelpNote') || 'Includes guided instructor support alongside course access.',
+    contactUrl:
+      metaString(course, 'instructorHelpContactUrl') ||
+      `/contact?subject=${encodeURIComponent(`Instructor help for ${course.title}`)}`,
+  }
 }
 
 function CourseFact({
@@ -93,6 +127,7 @@ function EnrollmentCard({
   certificateEnabled: boolean
 }) {
   const price = getCoursePrice(course)
+  const helpPackage = instructorHelpPackage(course)
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -102,6 +137,36 @@ function EnrollmentCard({
           <PriceDisplay amountPkr={price} className="text-3xl font-bold tracking-normal text-[#1D4ED8]" />
         </p>
         <CurrencyDisplayNotice className="mt-2" />
+        <div className="mt-4 space-y-2">
+          <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-[#0F172A]">Self-paced course</span>
+              <PriceDisplay amountPkr={price} className="shrink-0 font-bold text-[#1D4ED8]" />
+            </div>
+          </div>
+          {helpPackage && (
+            <div className="rounded-xl border border-[#FBBF24]/60 bg-[#FFFBEB] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-[#0F172A]">{helpPackage.label}</span>
+                <PriceDisplay amountPkr={helpPackage.totalPrice} className="shrink-0 font-bold text-[#7A1D1D]" />
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-600">{helpPackage.note}</p>
+              <Button asChild variant="outline" className="mt-3 h-10 w-full rounded-xl border-[#FBBF24]/70 bg-white">
+                {helpPackage.contactUrl.startsWith('http') ? (
+                  <a href={helpPackage.contactUrl} target="_blank" rel="noreferrer">
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Contact Instructor
+                  </a>
+                ) : (
+                  <Link href={helpPackage.contactUrl}>
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Contact Instructor
+                  </Link>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="mt-4">
           {enrolled ? (
             <Button asChild className="h-11 w-full rounded-xl bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90">
@@ -146,6 +211,7 @@ export function CourseDetailView({
   course,
   modules,
   reviews = [],
+  resources = [],
   quizzes = [],
   enrolled = false,
 }: Props) {
@@ -171,6 +237,7 @@ export function CourseDetailView({
   const instructorName = course.instructor ?? 'Phonics Club'
   const instructorImage = course.instructor_image_url ?? course.instructor_avatar
   const showReviews = enrolled || reviews.length > 0
+  const resourceItems = [...resources].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
   return (
     <div className="pb-8">
@@ -418,6 +485,72 @@ export function CourseDetailView({
               </AccordionItem>
             </Accordion>
           </section>
+
+          {resourceItems.length > 0 && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-normal text-[#0F172A]">Course Resources</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                    Worksheets, reading packs, presentations, teacher notes and downloadable course material are collected here for quick access.
+                  </p>
+                </div>
+                <Badge variant="outline" className="w-fit rounded-full border-slate-200 bg-[#F8FAFC] px-3 py-1 text-slate-600">
+                  {plural(resourceItems.length, 'resource')}
+                </Badge>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {resourceItems.map((resource) => {
+                  const directUrl = resource.external_url ?? resource.resource_url
+                  const isPublic = resource.visibility === 'public'
+                  const canOpen = enrolled || isPublic
+                  const label = resource.is_downloadable ? 'Download' : 'Open'
+
+                  return (
+                    <article key={resource.id} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
+                      <div className="flex gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[#1D4ED8]">
+                          {canOpen ? <Download className="h-5 w-5" aria-hidden="true" /> : <LockKeyhole className="h-5 w-5" aria-hidden="true" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-[#0F172A]">{resource.title}</h3>
+                            {resource.is_compulsory && (
+                              <Badge className="rounded-full bg-[#FBBF24]/20 text-[#7A1D1D] hover:bg-[#FBBF24]/20">
+                                Required
+                              </Badge>
+                            )}
+                          </div>
+                          {resource.description && (
+                            <p className="mt-1 text-sm leading-6 text-slate-600">{resource.description}</p>
+                          )}
+                          <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <span>{formatCourseCategory(resource.resource_type || 'file')}</span>
+                            {resource.original_filename && (
+                              <>
+                                <span>/</span>
+                                <span className="truncate">{resource.original_filename}</span>
+                              </>
+                            )}
+                          </p>
+                          <div className="mt-3">
+                            {canOpen ? (
+                              <CourseResourceAccess resourceId={resource.id} directUrl={directUrl} label={label} />
+                            ) : (
+                              <Button type="button" size="sm" disabled className="rounded-xl">
+                                Enroll to unlock
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           {meta.certificateEnabled && (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

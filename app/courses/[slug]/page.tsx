@@ -7,6 +7,8 @@ import { getSession } from '@/lib/auth'
 import { buildMetadata, courseJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const course = await getCourseBySlug(slug)

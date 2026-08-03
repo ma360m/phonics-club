@@ -349,7 +349,6 @@ export function CheckoutForm({
     <form
       ref={formRef}
       action={formAction}
-      encType="multipart/form-data"
       data-validation-errors={showValidationErrors ? 'true' : 'false'}
       onChange={handleCheckoutFormChange}
       onSubmit={(event) => {
@@ -360,9 +359,9 @@ export function CheckoutForm({
         }
         if (!validateCheckoutFields({ focus: true, report: true })) event.preventDefault()
       }}
-      className="grid gap-6 data-[validation-errors=true]:[&_input:invalid]:border-rose-500 data-[validation-errors=true]:[&_input:invalid]:bg-rose-50 data-[validation-errors=true]:[&_input:invalid]:ring-2 data-[validation-errors=true]:[&_input:invalid]:ring-rose-100 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]"
+      className="grid min-w-0 gap-6 overflow-hidden data-[validation-errors=true]:[&_input:invalid]:border-rose-500 data-[validation-errors=true]:[&_input:invalid]:bg-rose-50 data-[validation-errors=true]:[&_input:invalid]:ring-2 data-[validation-errors=true]:[&_input:invalid]:ring-rose-100 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]"
     >
-      <section className="space-y-5 rounded-lg border bg-card p-6">
+      <section className="min-w-0 space-y-5 rounded-lg border bg-card p-4 sm:p-6">
         {state.error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p>
         )}
@@ -375,13 +374,13 @@ export function CheckoutForm({
           </p>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 sm:p-4">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-[#0F172A]">Checkout Cart</p>
               <p className="text-xs text-slate-500">Add, reduce, or remove items before reviewing the invoice.</p>
             </div>
-            <Button asChild variant="outline" size="sm" className="rounded-lg bg-white">
+            <Button asChild variant="outline" size="sm" className="w-fit rounded-lg bg-white">
               <Link href="/cart">Open Cart</Link>
             </Button>
           </div>
@@ -391,13 +390,13 @@ export function CheckoutForm({
                 const productId = item.product_id ?? item.id ?? item.name
                 const updating = cartUpdatingId === item.product_id
                 return (
-                  <li key={productId} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <li key={productId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-[#0F172A]">{item.name}</p>
+                      <p className="break-words text-sm font-semibold leading-snug text-[#0F172A] sm:text-base">{item.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{format(item.price)} each</p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <div className="flex items-center rounded-full border border-slate-200 bg-[#F8FAFC] p-1">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 sm:justify-end">
+                      <div className="flex shrink-0 items-center rounded-full border border-slate-200 bg-[#F8FAFC] p-1">
                         <button
                           type="button"
                           className="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-white disabled:opacity-50"
@@ -418,10 +417,10 @@ export function CheckoutForm({
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="w-24 text-right text-sm font-semibold">{format(item.price * item.quantity)}</p>
+                      <p className="min-w-[92px] flex-1 text-right text-sm font-semibold sm:flex-none">{format(item.price * item.quantity)}</p>
                       <button
                         type="button"
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                         onClick={() => changeCartQuantity(item, 0)}
                         disabled={updating}
                         aria-label={`Remove ${item.name} from cart`}
@@ -498,7 +497,7 @@ export function CheckoutForm({
             className="rounded-lg"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="city">City *</Label>
             <Input
@@ -631,11 +630,11 @@ export function CheckoutForm({
                 <p className="font-semibold">
                   {paymentMethod === 'bank_transfer' ? 'Bank Account Details' : `${paymentOptions.find((option) => option.value === paymentMethod)?.title} Details`}
                 </p>
-                <p>Bank: {bankDetails.bankName}</p>
-                <p>Account: {bankDetails.accountTitle}</p>
-                <p>A/C No: {bankDetails.accountNumber}</p>
-                {bankDetails.iban ? <p>IBAN: {bankDetails.iban}</p> : null}
-                <p className="text-muted-foreground">{bankDetails.instructions}</p>
+                <p className="break-words">Bank: {bankDetails.bankName}</p>
+                <p className="break-words">Account: {bankDetails.accountTitle}</p>
+                <p className="break-words">A/C No: {bankDetails.accountNumber}</p>
+                {bankDetails.iban ? <p className="break-words">IBAN: {bankDetails.iban}</p> : null}
+                <p className="break-words text-muted-foreground">{bankDetails.instructions}</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -691,7 +690,7 @@ export function CheckoutForm({
         </div>
       </section>
 
-      <aside className="h-fit rounded-lg border bg-card p-6 lg:sticky lg:top-24">
+      <aside className="min-w-0 h-fit rounded-lg border bg-card p-4 sm:p-6 lg:sticky lg:top-24">
         <div className="mb-5">
           <p className="text-sm font-semibold text-[#1D4ED8]">Invoice Preview</p>
           <h2 className="mt-1 text-2xl font-bold">Order review</h2>
@@ -822,14 +821,14 @@ function InvoicePreview({
         <p className="mb-2 font-semibold">Ordered items</p>
         <ul className="space-y-2">
           {cartItems.map((item) => (
-            <li key={`${item.name}-${item.quantity}`} className="flex justify-between gap-3 rounded-lg bg-muted/50 p-3">
-              <span>
-                <span className="block font-medium">{item.name}</span>
+            <li key={`${item.name}-${item.quantity}`} className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:justify-between">
+              <span className="min-w-0">
+                <span className="block break-words font-medium">{item.name}</span>
                 <span className="text-xs text-muted-foreground">
                   {item.quantity} x {format(item.price)}
                 </span>
               </span>
-              <span className="font-semibold">{format(item.price * item.quantity)}</span>
+              <span className="shrink-0 text-right font-semibold">{format(item.price * item.quantity)}</span>
             </li>
           ))}
         </ul>

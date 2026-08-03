@@ -16,16 +16,13 @@ import {
   getSocialReels,
   getWebsiteVideos,
 } from '@/lib/site-content'
-import { saveSiteContentFormAction } from '@/actions/admin/site-content'
 import { SchoolLogoManager } from '@/components/admin/school-logo-manager'
 import { SocialReelsManager } from '@/components/admin/social-reels-manager'
 import { SiteMediaUpload } from '@/components/admin/site-media-upload'
 import { SiteVideosManager } from '@/components/admin/site-videos-manager'
 import { AboutGalleryManager } from '@/components/admin/about-gallery-manager'
 import { FaqsManager } from '@/components/admin/faqs-manager'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { SiteContentEditorList } from '@/components/admin/site-content-editor-list'
 
 const SECTIONS = [
   { key: 'announcements', label: 'Announcement Ticker / Flyers', hint: 'Array of {id, message, linkUrl, linkText, couponCode, active}' },
@@ -111,20 +108,7 @@ export default async function AdminContentPage() {
         <AboutGalleryManager content={aboutPage} />
         <FaqsManager faqs={faqs} />
 
-        {SECTIONS.map(({ key, label, hint }) => (
-          <form id={key} key={key} action={saveSiteContentFormAction} className="scroll-mt-6 space-y-3 rounded-lg border bg-card p-6">
-            <input type="hidden" name="key" value={key} />
-            <Label className="text-lg font-semibold">{label}</Label>
-            <p className="text-xs text-muted-foreground">{hint}</p>
-            <Textarea
-              name="content"
-              rows={key.includes('policy') || key.includes('page') ? 16 : 8}
-              className="rounded-lg font-mono text-xs"
-              defaultValue={JSON.stringify(contentMap[key] ?? defaults[key] ?? [], null, 2)}
-            />
-            <Button type="submit" className="rounded-lg bg-[#1D4ED8]">Save {label}</Button>
-          </form>
-        ))}
+        <SiteContentEditorList sections={SECTIONS} contentMap={contentMap} defaults={defaults} />
       </div>
     </div>
   )

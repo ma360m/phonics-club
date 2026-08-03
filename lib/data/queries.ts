@@ -116,7 +116,13 @@ export async function getCourses(options?: {
   }
 
   const supabase = await createClient()
-  let query = supabase.from('courses').select('*').eq('published', true)
+  let query = supabase
+    .from('courses')
+    .select('*')
+    .eq('published', true)
+    .eq('visibility_status', 'published')
+    .eq('unlisted', false)
+    .eq('archived', false)
 
   if (options?.category) query = query.eq('category', options.category)
   if (options?.featured) query = query.eq('featured', true)
@@ -149,6 +155,8 @@ export async function getCourseBySlug(slug: string): Promise<Course | null> {
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
+    .in('visibility_status', ['published', 'unlisted'])
+    .eq('archived', false)
     .maybeSingle()
 
   if (error) {

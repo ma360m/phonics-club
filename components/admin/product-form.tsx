@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImageUpload } from './image-upload'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
 import type { ActionResult } from '@/types'
 
@@ -22,7 +23,17 @@ function getCollection(product?: Product) {
   return collection === 'phonics-club' || collection === 'jolly-learning' ? collection : ''
 }
 
-export function ProductForm({ product }: { product?: Product }) {
+export function ProductForm({
+  product,
+  className,
+  cancelHref = product ? '/admin/products' : null,
+  submitLabel,
+}: {
+  product?: Product
+  className?: string
+  cancelHref?: string | null
+  submitLabel?: string
+}) {
   const action = product
     ? updateProductAction.bind(null, product.id)
     : createProductAction
@@ -30,10 +41,10 @@ export function ProductForm({ product }: { product?: Product }) {
   const [images, setImages] = useState(product?.images?.join(', ') ?? '')
 
   return (
-    <form action={formAction} className="space-y-4 max-w-2xl">
+    <form action={formAction} className={cn('max-w-2xl space-y-4', className)}>
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       {state.success && <p className="text-emerald-600 text-sm">Saved successfully!</p>}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Name</Label>
           <Input name="name" defaultValue={product?.name} required className="rounded-xl" />
@@ -43,7 +54,7 @@ export function ProductForm({ product }: { product?: Product }) {
           <Input name="slug" defaultValue={product?.slug} required className="rounded-xl" />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>ISBN *</Label>
           <Input name="isbn" defaultValue={getIsbn(product)} required placeholder="978-969-..." className="rounded-xl" />
@@ -57,7 +68,7 @@ export function ProductForm({ product }: { product?: Product }) {
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Product Number</Label>
           <Input name="product_number" defaultValue={product?.product_number ?? ''} placeholder="PC-000123" className="rounded-xl font-mono" />
@@ -87,7 +98,7 @@ export function ProductForm({ product }: { product?: Product }) {
         <Label>Description</Label>
         <Textarea name="description" defaultValue={product?.description ?? ''} className="rounded-xl" />
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <Label>Price (PKR)</Label>
           <Input name="price" type="number" step="1" defaultValue={product?.price} required className="rounded-xl" />
@@ -140,7 +151,7 @@ export function ProductForm({ product }: { product?: Product }) {
         />
         <p className="text-xs text-muted-foreground">Upload one or more supporting pictures. Local images can also be placed in public/images/ and added as paths above.</p>
       </div>
-      <div className="flex gap-6">
+      <div className="flex flex-wrap gap-6">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={product?.featured} /> Featured
         </label>
@@ -148,13 +159,13 @@ export function ProductForm({ product }: { product?: Product }) {
           <input type="checkbox" name="published" defaultChecked={product?.published ?? true} /> Published
         </label>
       </div>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending} className="rounded-xl bg-[#1D4ED8]">
-          {pending ? 'Saving...' : product ? 'Update Product' : 'Add Product'}
+          {pending ? 'Saving...' : submitLabel ?? (product ? 'Update Product' : 'Add Product')}
         </Button>
-        {product && (
+        {product && cancelHref && (
           <Button type="button" variant="outline" className="rounded-xl" asChild>
-            <a href="/admin/products">Cancel</a>
+            <a href={cancelHref}>Cancel</a>
           </Button>
         )}
       </div>

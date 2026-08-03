@@ -92,10 +92,10 @@ export function PhonicsAssistant() {
         onClick={() => setOpen(true)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-4 right-4 z-40 w-16 h-16 bg-gradient-to-br from-[#1D4ED8] to-[#1e40af] hover:from-[#1D4ED8]/90 text-white rounded-full flex items-center justify-center shadow-2xl border-2 border-white/20"
+        className="fixed bottom-3 right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/20 bg-gradient-to-br from-[#1D4ED8] to-[#1e40af] text-white shadow-2xl hover:from-[#1D4ED8]/90 sm:bottom-4 sm:right-4 sm:h-16 sm:w-16"
         aria-label="Open AI assistant"
       >
-        <Bot className="w-8 h-8" />
+        <Bot className="h-6 w-6 sm:h-8 sm:w-8" />
       </motion.button>
 
       <AnimatePresence>
@@ -104,7 +104,7 @@ export function PhonicsAssistant() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-4 z-50 w-[min(100vw-2rem,420px)] h-[min(75vh,560px)] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-20 right-3 z-50 flex h-[min(75vh,560px)] w-[min(100vw-1.25rem,420px)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:bottom-24 sm:right-4 sm:w-[min(100vw-2rem,420px)]"
           >
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#1D4ED8] to-[#2563eb] text-white">
               <div className="flex items-center gap-2">

@@ -10,6 +10,8 @@ export const metadata = buildMetadata({
   path: '/auth/forgot-password',
 })
 
+export const dynamic = 'force-dynamic'
+
 export default function ForgotPasswordPage() {
   return (
     <main className="flex min-h-screen flex-col">

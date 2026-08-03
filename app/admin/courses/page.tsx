@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import {
   AlertTriangle,
+  Archive,
   BookOpen,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
   Eye,
+  EyeOff,
   FileQuestion,
   GraduationCap,
   ImageIcon,
@@ -31,6 +33,8 @@ import { LmsEmptyState, LmsStatCard, LmsStatusBadge } from '@/components/lms/lms
 import { formatCourseCategory } from '@/lib/lms'
 import { normalizeMediaUrl } from '@/lib/media-url'
 
+export const dynamic = 'force-dynamic'
+
 function formatDate(value?: string | null) {
   if (!value) return 'Not updated'
   return new Date(value).toLocaleDateString('en-PK', {
@@ -53,6 +57,20 @@ function courseMatchesQuery(course: { title?: string | null; category?: string |
   return query.split(/\s+/).filter(Boolean).every((word) => searchText.includes(word))
 }
 
+function visibilityLabel(course: any) {
+  if (course.archived || course.visibility_status === 'archived') return 'archived'
+  if (!course.published || course.visibility_status === 'draft') return 'draft'
+  if (course.unlisted || course.visibility_status === 'unlisted') return 'hidden'
+  return 'listed'
+}
+
+function visibilityTone(course: any): 'green' | 'gold' | 'red' | 'navy' {
+  if (course.archived || course.visibility_status === 'archived') return 'red'
+  if (!course.published || course.visibility_status === 'draft') return 'gold'
+  if (course.unlisted || course.visibility_status === 'unlisted') return 'navy'
+  return 'green'
+}
+
 export default async function AdminCoursesPage({
   searchParams,
 }: {
@@ -64,20 +82,22 @@ export default async function AdminCoursesPage({
     getProfile(),
   ])
   const cleanQuery = q.trim().toLowerCase()
-  const selectedStatus = ['all', 'published', 'draft', 'featured'].includes(status) ? status : 'all'
+  const selectedStatus = ['all', 'published', 'draft', 'hidden', 'archived', 'featured'].includes(status) ? status : 'all'
   const selectedPageSize = [10, 20, 50].includes(Number(pageSize)) ? Number(pageSize) : 20
   const filteredCourses = dashboard.courses.filter(({ course }) => {
     const statusMatches =
       selectedStatus === 'all' ||
       (selectedStatus === 'published' && course.published) ||
       (selectedStatus === 'draft' && !course.published) ||
+      (selectedStatus === 'hidden' && (course.unlisted || course.visibility_status === 'unlisted')) ||
+      (selectedStatus === 'archived' && (course.archived || course.visibility_status === 'archived')) ||
       (selectedStatus === 'featured' && course.featured)
     return statusMatches && courseMatchesQuery(course, cleanQuery)
   })
   const visibleCourses = filteredCourses.slice(0, selectedPageSize)
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -199,6 +219,8 @@ export default async function AdminCoursesPage({
               <option value="all">All Status</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
+              <option value="hidden">Hidden</option>
+              <option value="archived">Archived</option>
               <option value="featured">Featured</option>
             </select>
           </label>
@@ -239,9 +261,9 @@ export default async function AdminCoursesPage({
             {visibleCourses.map(({ course, studentCount, averageCompletion }) => {
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
               return (
-                <article key={course.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">
-                  <div className="grid gap-4 lg:grid-cols-[96px_minmax(0,1fr)_auto] lg:items-center">
-                    <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-[#EFF6FF] lg:aspect-square">
+                <article key={course.id} className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">
+                  <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(420px,1fr)_auto] xl:items-center">
+                    <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-[#EFF6FF] xl:aspect-square">
                       {imageUrl ? (
                         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -256,11 +278,14 @@ export default async function AdminCoursesPage({
                         <LmsStatusBadge tone={course.published ? 'green' : 'gold'}>
                           {course.published ? 'published' : 'draft'}
                         </LmsStatusBadge>
+                        <LmsStatusBadge tone={visibilityTone(course)}>
+                          {visibilityLabel(course)}
+                        </LmsStatusBadge>
                         {course.featured && <LmsStatusBadge tone="blue">featured</LmsStatusBadge>}
                         <span className="text-xs text-slate-500">{formatCourseCategory(course.category)}</span>
                       </div>
                       <h3 className="truncate text-lg font-bold text-[#0F172A]">{course.title}</h3>
-                      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
+                      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3 xl:max-w-3xl">
                         <span className="inline-flex items-center gap-2">
                           <Users className="h-4 w-4 text-[#1D4ED8]" />
                           {studentCount} students
@@ -270,13 +295,23 @@ export default async function AdminCoursesPage({
                           {averageCompletion}% complete
                         </span>
                         <span className="inline-flex items-center gap-2">
-                          <CalendarClock className="h-4 w-4 text-[#1D4ED8]" />
-                          {formatDate(course.updated_at ?? course.created_at)}
+                          {course.archived ? (
+                            <Archive className="h-4 w-4 text-[#8B1E2D]" />
+                          ) : course.unlisted ? (
+                            <EyeOff className="h-4 w-4 text-[#1D4ED8]" />
+                          ) : (
+                            <CalendarClock className="h-4 w-4 text-[#1D4ED8]" />
+                          )}
+                          {course.archived
+                            ? 'Archived'
+                            : course.unlisted
+                              ? 'Hidden from Courses page'
+                              : formatDate(course.updated_at ?? course.created_at)}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                       <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
                         <Link href={`/courses/${course.slug}`}>
                           <Eye className="mr-2 h-4 w-4" />

@@ -88,7 +88,7 @@ export function CartPageClient() {
         const product = item.products
         const pricing = getProductPricing(product)
         return (
-          <div key={item.id} className="flex gap-4 bg-card rounded-2xl border p-4">
+          <div key={item.id} className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 sm:flex-row">
             <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shrink-0">
               {product?.images?.[0] ? (
                 <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
@@ -96,8 +96,8 @@ export function CartPageClient() {
                 <div className="flex items-center justify-center h-full text-2xl">📚</div>
               )}
             </div>
-            <div className="flex-1">
-              <Link href={`/shop/${product.slug}`} className="font-semibold hover:text-[#1D4ED8]">
+            <div className="min-w-0 flex-1">
+              <Link href={`/shop/${product.slug}`} className="break-words font-semibold hover:text-[#1D4ED8]">
                 {product.name}
               </Link>
               <p className="text-[#1D4ED8] font-bold mt-1">
@@ -112,7 +112,7 @@ export function CartPageClient() {
                 <CartItemControls cartItemId={item.id} quantity={item.quantity} />
               )}
             </div>
-            <p className="font-bold">
+            <p className="shrink-0 text-right font-bold sm:text-left">
               <PriceDisplay amountPkr={pricing.displayPrice * item.quantity} showApproxPkr={false} />
             </p>
           </div>

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { LmsPageHeader } from '@/components/lms/lms-primitives'
 import { getProfile, isAdminRole } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const [course, profile] = await Promise.all([getAdminCourse(id), getProfile()])

@@ -26,10 +26,10 @@ export function WhatsAppFloating() {
       href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-24 right-4 z-40 w-14 h-14 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105"
+      className="fixed bottom-20 right-3 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-transform hover:scale-105 hover:bg-[#20bd5a] sm:bottom-24 sm:right-4 sm:h-14 sm:w-14"
       aria-label="WhatsApp"
     >
-      <MessageCircle className="w-7 h-7" />
+      <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
     </a>
   )
 }

@@ -297,6 +297,63 @@ export async function uploadCourseResourceFormAction(courseId: string, formData:
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 
+export async function updateCourseResourceFormAction(resourceId: string, courseId: string, formData: FormData): Promise<void> {
+  const actor = await requireManagedCourse(courseId)
+  const supabase = await createServiceClient()
+  const { data: existing, error: loadError } = await supabase
+    .from('course_resources')
+    .select('*')
+    .eq('id', resourceId)
+    .eq('course_id', courseId)
+    .maybeSingle()
+  if (loadError || !existing) throw toError(loadError ?? 'Resource not found', 'Course resource could not be updated.')
+
+  const file = formData.get('file') as File | null
+  const externalUrl = text(formData, 'external_url')
+  let uploaded: Awaited<ReturnType<typeof uploadLmsFile>> | null = null
+
+  if (file && file.size > 0) {
+    uploaded = await uploadLmsFile(LMS_BUCKETS.resources, file, `${courseId}/resources`, {
+      allowedMimeTypes: LMS_ALLOWED_MIME_TYPES,
+      maxBytes: 100 * 1024 * 1024,
+    })
+  }
+
+  const { error } = await supabase
+    .from('course_resources')
+    .update({
+      module_id: text(formData, 'module_id') || null,
+      lesson_id: text(formData, 'lesson_id') || null,
+      title: text(formData, 'title'),
+      description: text(formData, 'description') || null,
+      resource_type: text(formData, 'resource_type') || 'file',
+      scope: text(formData, 'scope') || 'course',
+      external_url: externalUrl || null,
+      resource_url: externalUrl || null,
+      storage_bucket: uploaded?.bucket ?? existing.storage_bucket ?? null,
+      storage_path: uploaded?.path ?? existing.storage_path ?? null,
+      original_filename: uploaded?.filename ?? existing.original_filename ?? null,
+      mime_type: uploaded?.mimeType ?? existing.mime_type ?? null,
+      file_size_bytes: uploaded?.sizeBytes ?? existing.file_size_bytes ?? null,
+      visibility: text(formData, 'visibility') || 'enrolled',
+      is_downloadable: formData.get('is_downloadable') === 'on',
+      is_view_only: formData.get('is_view_only') === 'on',
+      is_compulsory: formData.get('is_compulsory') === 'on',
+      sort_order: num(formData, 'sort_order', 0),
+      uploaded_by: uploaded ? actor.id : existing.uploaded_by,
+    } as never)
+    .eq('id', resourceId)
+    .eq('course_id', courseId)
+
+  if (error) throw toError(error, 'Course resource could not be updated.')
+
+  if (uploaded && existing.storage_bucket && existing.storage_path) {
+    await supabase.storage.from(existing.storage_bucket).remove([existing.storage_path])
+  }
+
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
 export async function deleteCourseResourceAction(resourceId: string, courseId: string): Promise<void> {
   await requireManagedCourse(courseId)
   const supabase = await createServiceClient()

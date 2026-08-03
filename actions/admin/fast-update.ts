@@ -8,6 +8,7 @@ import type { ActionResult } from '@/types'
 
 const fastUpdateRowSchema = z.object({
   id: z.string().uuid(),
+  isbn: z.string().trim().optional(),
   price: z.coerce.number().min(0),
   stock: z.coerce.number().int().min(0),
   sale_enabled: z.boolean(),
@@ -33,17 +34,20 @@ export async function fastUpdateProductsAction(
   let failed = 0
 
   for (const row of parsed.data) {
+    const payload: Record<string, unknown> = {
+      price: row.price,
+      stock: row.stock,
+      sale_enabled: row.sale_enabled,
+      sale_price: row.sale_price,
+      sale_percentage: row.sale_percentage,
+      published: row.published,
+      featured: row.featured,
+    }
+    if (row.isbn) payload.isbn = row.isbn
+
     const { error } = await supabase
       .from('products')
-      .update({
-        price: row.price,
-        stock: row.stock,
-        sale_enabled: row.sale_enabled,
-        sale_price: row.sale_price,
-        sale_percentage: row.sale_percentage,
-        published: row.published,
-        featured: row.featured,
-      } as never)
+      .update(payload as never)
       .eq('id', row.id)
 
     if (error) failed += 1

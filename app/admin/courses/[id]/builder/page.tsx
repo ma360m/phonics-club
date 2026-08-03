@@ -14,10 +14,16 @@ import {
   getAdminCourseLms,
   updateCourseLessonFormAction,
   updateCourseModuleFormAction,
+  updateCourseResourceFormAction,
   updateQuizQuestionFormAction,
   uploadCourseResourceFormAction,
 } from '@/actions/admin/lms'
-import { updateCourseMediaAction, updateCoursePublishStatusAction } from '@/actions/admin/courses'
+import {
+  updateCourseArchiveStatusAction,
+  updateCourseCatalogVisibilityAction,
+  updateCourseMediaAction,
+  updateCoursePublishStatusAction,
+} from '@/actions/admin/courses'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import {
   AlertDialog,
@@ -39,15 +45,18 @@ import { CourseMediaUpload } from '@/components/admin/course-media-upload'
 import { LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
 import {
   ArrowLeft,
+  Archive,
   Award,
   BookOpen,
   CheckCircle2,
   Eye,
+  EyeOff,
   FileQuestion,
   FileUp,
   Layers3,
   Link2,
   Plus,
+  RotateCcw,
   Save,
   Settings2,
   Trash2,
@@ -254,6 +263,20 @@ function StepNav() {
   )
 }
 
+function visibilityLabel(course: any) {
+  if (course.archived || course.visibility_status === 'archived') return 'archived'
+  if (!course.published || course.visibility_status === 'draft') return 'draft'
+  if (course.unlisted || course.visibility_status === 'unlisted') return 'hidden from Courses page'
+  return 'listed publicly'
+}
+
+function visibilityTone(course: any): 'green' | 'gold' | 'red' | 'navy' {
+  if (course.archived || course.visibility_status === 'archived') return 'red'
+  if (!course.published || course.visibility_status === 'draft') return 'gold'
+  if (course.unlisted || course.visibility_status === 'unlisted') return 'navy'
+  return 'green'
+}
+
 export default async function AdminCourseBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const data = await getAdminCourseLms(id)
@@ -264,6 +287,10 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
   const lessonCount = lessons.length
   const draftAction = updateCoursePublishStatusAction.bind(null, id, false)
   const publishAction = updateCoursePublishStatusAction.bind(null, id, true)
+  const hideFromCatalogAction = updateCourseCatalogVisibilityAction.bind(null, id, false)
+  const showInCatalogAction = updateCourseCatalogVisibilityAction.bind(null, id, true)
+  const archiveAction = updateCourseArchiveStatusAction.bind(null, id, true)
+  const restoreAction = updateCourseArchiveStatusAction.bind(null, id, false)
 
   return (
     <div className="mx-auto grid max-w-[1500px] gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
@@ -278,6 +305,9 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
             <div className="flex flex-wrap items-center gap-2">
               <LmsStatusBadge tone={data.course.published ? 'green' : 'gold'}>
                 {data.course.published ? 'published' : 'draft'}
+              </LmsStatusBadge>
+              <LmsStatusBadge tone={visibilityTone(data.course)}>
+                {visibilityLabel(data.course)}
               </LmsStatusBadge>
               <Badge variant="outline" className="rounded-full border-slate-200 bg-white">
                 {modules.length} modules
@@ -655,6 +685,36 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                 Publish Course
               </Button>
             </form>
+            {data.course.unlisted || data.course.visibility_status === 'unlisted' ? (
+              <form action={showInCatalogAction}>
+                <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
+                  <Eye className="mr-2 h-4 w-4" />
+                  Show on Courses Page
+                </Button>
+              </form>
+            ) : (
+              <form action={hideFromCatalogAction}>
+                <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  Hide from Courses Page
+                </Button>
+              </form>
+            )}
+            {data.course.archived || data.course.visibility_status === 'archived' ? (
+              <form action={restoreAction}>
+                <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Restore
+                </Button>
+              </form>
+            ) : (
+              <form action={archiveAction}>
+                <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </Button>
+              </form>
+            )}
           </div>
         </StepSection>
       </div>
@@ -715,7 +775,7 @@ function CourseResources({ courseId, modules, resources }: { courseId: string; m
         <FileUp className="h-5 w-5 text-[#1D4ED8]" />
         <h3 className="text-lg font-bold text-[#0F172A]">PDFs and Resources</h3>
       </div>
-      <form action={uploadCourseResourceFormAction.bind(null, courseId)} encType="multipart/form-data" className="grid gap-4 lg:grid-cols-3">
+      <form action={uploadCourseResourceFormAction.bind(null, courseId)} className="grid gap-4 lg:grid-cols-3">
         {field('Title', <Input name="title" required className="rounded-xl" />)}
         {field('File', <Input name="file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*,audio/*,video/mp4,video/webm" className="rounded-xl" />, 'PDF, Office, ZIP, image, audio or video resources use the existing LMS storage flow.')}
         {field('External URL', <Input name="external_url" placeholder="https://..." className="rounded-xl" />)}
@@ -739,24 +799,50 @@ function CourseResources({ courseId, modules, resources }: { courseId: string; m
       <div className="mt-5 space-y-2">
         {resources.length === 0 && <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">No resources uploaded yet.</p>}
         {resources.map((resource: any) => (
-          <div key={resource.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-[#F8FAFC] p-3">
-            <div>
-              <p className="font-medium">{resource.title}</p>
-              <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span>{resource.visibility}</span>
-                <span>/</span>
-                <span>{resource.original_filename ?? resource.external_url ?? 'metadata only'}</span>
-              </p>
+          <div key={resource.id} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{resource.title}</p>
+                <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span>{resource.visibility ?? 'enrolled'}</span>
+                  <span>/</span>
+                  <span>{resource.original_filename ?? resource.external_url ?? 'metadata only'}</span>
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {resource.external_url ? <Link2 className="h-4 w-4 text-[#1D4ED8]" /> : null}
+                {resource.is_compulsory && <Badge>Compulsory</Badge>}
+                <DeleteDialog
+                  title="Delete resource?"
+                  description="This removes the resource record and any stored file linked to it."
+                  action={deleteCourseResourceAction.bind(null, resource.id, courseId)}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {resource.external_url ? <Link2 className="h-4 w-4 text-[#1D4ED8]" /> : null}
-              {resource.is_compulsory && <Badge>Compulsory</Badge>}
-              <DeleteDialog
-                title="Delete resource?"
-                description="This removes the resource record and any stored file linked to it."
-                action={deleteCourseResourceAction.bind(null, resource.id, courseId)}
-              />
-            </div>
+            <form
+              action={updateCourseResourceFormAction.bind(null, resource.id, courseId)}
+              className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-3"
+            >
+              {field('Title', <Input name="title" required defaultValue={resource.title ?? ''} className="rounded-xl" />)}
+              {field('Replace File', <Input name="file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*,audio/*,video/mp4,video/webm" className="rounded-xl" />)}
+              {field('External URL', <Input name="external_url" defaultValue={resource.external_url ?? resource.resource_url ?? ''} placeholder="https://..." className="rounded-xl" />)}
+              <div className="lg:col-span-3">{field('Description', <Textarea name="description" defaultValue={resource.description ?? ''} className="rounded-xl" rows={2} />)}</div>
+              {field('Resource Type', <Input name="resource_type" defaultValue={resource.resource_type ?? 'file'} className="rounded-xl" />)}
+              {field('Order', <Input name="sort_order" type="number" defaultValue={resource.sort_order ?? 0} className="rounded-xl" />)}
+              {field('Visibility', <VisibilitySelect defaultValue={resource.visibility ?? 'enrolled'} />)}
+              {field('Scope', <ScopeSelect defaultValue={resource.scope ?? 'course'} />)}
+              {field('Attach to Module', <ModuleSelect modules={modules} defaultValue={resource.module_id ?? ''} />)}
+              {field('Attach to Lesson', <LessonSelect modules={modules} defaultValue={resource.lesson_id ?? ''} />)}
+              <div className="flex flex-wrap gap-4 text-sm lg:col-span-3">
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="is_downloadable" defaultChecked={resource.is_downloadable !== false} /> Downloadable</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="is_view_only" defaultChecked={Boolean(resource.is_view_only)} /> View only</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="is_compulsory" defaultChecked={Boolean(resource.is_compulsory)} /> Compulsory</label>
+              </div>
+              <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white lg:w-fit">
+                <Save className="mr-2 h-4 w-4" />
+                Save Resource
+              </Button>
+            </form>
           </div>
         ))}
       </div>
@@ -927,9 +1013,9 @@ function DifficultySelect({ defaultValue = 'standard' }: { defaultValue?: string
   )
 }
 
-function VisibilitySelect() {
+function VisibilitySelect({ defaultValue = 'enrolled' }: { defaultValue?: string }) {
   return (
-    <select name="visibility" defaultValue="enrolled" className="w-full rounded-xl border px-3 py-2 text-sm">
+    <select name="visibility" defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
       <option value="public">Public</option>
       <option value="enrolled">Enrolled</option>
       <option value="paid">Paid</option>
@@ -938,9 +1024,9 @@ function VisibilitySelect() {
   )
 }
 
-function ScopeSelect() {
+function ScopeSelect({ defaultValue = 'course' }: { defaultValue?: string }) {
   return (
-    <select name="scope" defaultValue="course" className="w-full rounded-xl border px-3 py-2 text-sm">
+    <select name="scope" defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
       <option value="course">Course</option>
       <option value="module">Module</option>
       <option value="lesson">Lesson</option>
@@ -950,18 +1036,18 @@ function ScopeSelect() {
   )
 }
 
-function ModuleSelect({ modules }: { modules: any[] }) {
+function ModuleSelect({ modules, defaultValue = '' }: { modules: any[]; defaultValue?: string }) {
   return (
-    <select name="module_id" defaultValue="" className="w-full rounded-xl border px-3 py-2 text-sm">
+    <select name="module_id" defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
       <option value="">Whole course</option>
       {modules.map((module: any) => <option key={module.id} value={module.id}>{module.title}</option>)}
     </select>
   )
 }
 
-function LessonSelect({ modules, name = 'lesson_id' }: { modules: any[]; name?: string }) {
+function LessonSelect({ modules, name = 'lesson_id', defaultValue = '' }: { modules: any[]; name?: string; defaultValue?: string }) {
   return (
-    <select name={name} defaultValue="" className="w-full rounded-xl border px-3 py-2 text-sm">
+    <select name={name} defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
       <option value="">No lesson</option>
       {modules.flatMap((module: any) => (module.course_lessons ?? []).map((lesson: any) => (
         <option key={lesson.id} value={lesson.id}>{module.title} - {lesson.title}</option>

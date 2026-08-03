@@ -26,6 +26,17 @@ function metaLines(course: Course | undefined, key: string): string {
   return Array.isArray(value) ? value.join('\n') : ''
 }
 
+function metaStringWithFallback(course: Course | undefined, key: string, fallback = ''): string {
+  const value = course?.metadata?.[key]
+  if (typeof value === 'number') return String(value)
+  return typeof value === 'string' ? value : fallback
+}
+
+function metaBoolean(course: Course | undefined, key: string, fallback = false): boolean {
+  const value = course?.metadata?.[key]
+  return typeof value === 'boolean' ? value : fallback
+}
+
 function datetimeValue(value?: string | null): string {
   return value ? value.slice(0, 16) : ''
 }
@@ -108,6 +119,51 @@ export function CourseForm({ course }: { course?: Course }) {
         </div>
       </div>
 
+      <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+        <h2 className="mb-4 text-lg font-semibold">Publishing and Catalogue Visibility</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Public Status</Label>
+            <select
+              name="visibility_status"
+              defaultValue={course?.visibility_status ?? (course?.published === false ? 'draft' : 'published')}
+              className="w-full rounded-xl border bg-white px-3 py-2"
+            >
+              <option value="published">Published and listed</option>
+              <option value="unlisted">Published but hidden from Courses page</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Enrollment Status</Label>
+            <select
+              name="enrollment_status"
+              defaultValue={course?.enrollment_status ?? 'open'}
+              className="w-full rounded-xl border bg-white px-3 py-2"
+            >
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="coming_soon">Coming soon</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <input type="checkbox" name="published" defaultChecked={course?.published ?? true} /> Published
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <input type="checkbox" name="unlisted" defaultChecked={course?.unlisted ?? course?.visibility_status === 'unlisted'} /> Hide from public Courses page
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <input type="checkbox" name="coming_soon" defaultChecked={course?.coming_soon ?? course?.enrollment_status === 'coming_soon'} /> Coming soon
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <input type="checkbox" name="archived" defaultChecked={course?.archived ?? course?.visibility_status === 'archived'} /> Archived
+          </label>
+        </div>
+      </section>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Instructor Name</Label>
@@ -122,6 +178,56 @@ export function CourseForm({ course }: { course?: Course }) {
           <Input name="instructor_image_url" defaultValue={course?.instructor_image_url ?? course?.instructor_avatar ?? ''} className="rounded-xl" />
         </div>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+        <h2 className="mb-4 text-lg font-semibold">Instructor Help Package</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              name="instructor_help_enabled"
+              defaultChecked={metaBoolean(course, 'instructorHelpEnabled')}
+            />
+            Offer course with instructor help
+          </label>
+          <div className="space-y-2">
+            <Label>Total Price With Instructor Help</Label>
+            <Input
+              name="instructor_help_total_price"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={metaStringWithFallback(course, 'instructorHelpTotalPrice', '5000')}
+              className="rounded-xl bg-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Package Label</Label>
+            <Input
+              name="instructor_help_label"
+              defaultValue={metaStringWithFallback(course, 'instructorHelpLabel', 'Course + instructor help')}
+              className="rounded-xl bg-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contact URL</Label>
+            <Input
+              name="instructor_help_contact_url"
+              defaultValue={metaStringWithFallback(course, 'instructorHelpContactUrl', '/contact?subject=Instructor%20help')}
+              className="rounded-xl bg-white"
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Help Package Note</Label>
+            <Textarea
+              name="instructor_help_note"
+              defaultValue={metaStringWithFallback(course, 'instructorHelpNote', 'Includes guided instructor support alongside course access.')}
+              rows={2}
+              className="rounded-xl bg-white"
+            />
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
         <h2 className="mb-4 text-lg font-semibold">Course Media</h2>
@@ -306,9 +412,6 @@ export function CourseForm({ course }: { course?: Course }) {
       <div className="flex gap-6">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={course?.featured} /> Featured
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="published" defaultChecked={course?.published ?? true} /> Published
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input

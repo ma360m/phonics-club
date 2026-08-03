@@ -24,6 +24,8 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
     .select('id, slug, title, price, discounted_price, is_free, published, access_duration_days')
     .eq('id', courseId)
     .eq('published', true)
+    .in('visibility_status', ['published', 'unlisted'])
+    .eq('archived', false)
     .maybeSingle()
 
   if (courseError) return { success: false, error: courseError.message }

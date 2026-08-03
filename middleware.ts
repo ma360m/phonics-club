@@ -1,9 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
-import { isSupabaseConfigured } from '@/lib/auth'
 
 const PROTECTED_PREFIXES = ['/dashboard', '/wishlist', '/admin', '/course']
 const AUTH_ROUTES = ['/auth/login', '/auth/signup']
+
+function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+}
 
 function matchesRoutePrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`)

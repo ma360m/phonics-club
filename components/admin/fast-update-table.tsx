@@ -19,7 +19,7 @@ function toRow(product: Product): Row {
     id: product.id,
     name: product.name,
     sku: product.sku,
-    isbn: product.isbn,
+    isbn: product.isbn ?? (product.metadata?.isbn as string | undefined) ?? '',
     category: product.category,
     price: Number(product.price ?? 0),
     stock: Number(product.stock ?? 0),
@@ -74,8 +74,9 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
   function saveSelected() {
     const updates = rows
       .filter((row) => selectedIds.has(row.id))
-      .map(({ id, price, stock, sale_enabled, sale_price, sale_percentage, published, featured }) => ({
+      .map(({ id, isbn, price, stock, sale_enabled, sale_price, sale_percentage, published, featured }) => ({
         id,
+        isbn: String(isbn ?? '').trim(),
         price,
         stock,
         sale_enabled,
@@ -134,6 +135,7 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                   />
                 </th>
                 <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">ISBN</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Stock</th>
                 <th className="px-4 py-3">Sale</th>
@@ -159,6 +161,14 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[row.category, row.sku ? `SKU ${row.sku}` : null, row.isbn ? `ISBN ${row.isbn}` : null].filter(Boolean).join(' | ')}
                     </p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      value={row.isbn ?? ''}
+                      onChange={(event) => updateRow(row.id, { isbn: event.target.value })}
+                      className="h-9 w-44 rounded-lg font-mono text-xs"
+                      placeholder="ISBN"
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <Input

@@ -4,6 +4,8 @@ import { LmsPageHeader } from '@/components/lms/lms-primitives'
 import { ProfileSettingsForm } from '@/components/dashboard/profile-settings-form'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardProfilePage() {
   await requireAuth()
   const profile = await getProfile()

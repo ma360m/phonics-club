@@ -17,6 +17,8 @@ import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatCard, LmsStatusBad
 import { Activity, Award, BookOpen, CheckCircle2, Clock, CreditCard, Heart, Play, Sparkles, UploadCloud, type LucideIcon } from 'lucide-react'
 import type { Certificate, Course } from '@/types/database'
 
+export const dynamic = 'force-dynamic'
+
 async function getUserCertificates(userId: string): Promise<Certificate[]> {
   if (!isSupabaseConfigured()) return []
   const supabase = await createClient()

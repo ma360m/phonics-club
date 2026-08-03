@@ -16,6 +16,8 @@ export const metadata = buildMetadata({
   path: '/courses',
 })
 
+export const dynamic = 'force-dynamic'
+
 function catalogueHref(filters: CourseCatalogFilters, patch: CourseCatalogFilters = {}) {
   const params = new URLSearchParams()
   Object.entries({ ...filters, ...patch }).forEach(([key, value]) => {

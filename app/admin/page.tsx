@@ -17,6 +17,8 @@ import {
 } from '@/components/admin/admin-performance-dashboard'
 import type { Course, CoursePayment, Enrollment, Order, Profile } from '@/types/database'
 
+export const dynamic = 'force-dynamic'
+
 type EnrollmentMetricRow = Pick<Enrollment, 'id' | 'user_id' | 'course_id' | 'enrolled_at' | 'progress' | 'status'> & {
   courses?: Pick<Course, 'id' | 'title' | 'slug' | 'instructor'> | Pick<Course, 'id' | 'title' | 'slug' | 'instructor'>[] | null
 }

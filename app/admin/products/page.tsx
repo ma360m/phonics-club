@@ -4,6 +4,8 @@ import { isSupabaseConfigured } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import type { Product } from '@/types/database'
 
+export const dynamic = 'force-dynamic'
+
 async function getSupabaseStatus() {
   if (!isSupabaseConfigured()) return { connected: false, products: [] as Product[] }
 

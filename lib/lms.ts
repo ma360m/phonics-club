@@ -250,7 +250,12 @@ export async function getCourseById(
     ? await createServiceClient()
     : await createClient()
   let query = supabase.from('courses').select('*').eq('id', courseId)
-  if (!options?.includeUnpublished) query = query.eq('published', true)
+  if (!options?.includeUnpublished) {
+    query = query
+      .eq('published', true)
+      .in('visibility_status', ['published', 'unlisted'])
+      .eq('archived', false)
+  }
   const { data } = await query.maybeSingle()
 
   const fallback = CHILDREN_PHONICS_COURSES.find((course) => course.id === courseId) ?? null

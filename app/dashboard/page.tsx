@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
@@ -8,14 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
-import { LmsEmptyState, LmsPageHeader, LmsSectionCard, LmsStatusBadge } from '@/components/lms/lms-primitives'
-import { BookOpen, CalendarDays, Download, FileText, GraduationCap, Heart, Shield, ShoppingBag, UserRound, Wrench } from 'lucide-react'
+import { LmsEmptyState, LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
+import { BookOpen, CalendarDays, ChevronDown, Download, FileText, GraduationCap, Heart, Shield, ShoppingBag, UserRound, Wrench, type LucideIcon } from 'lucide-react'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { getCourseAccessState } from '@/lib/lms'
 import { formatPrice, formatDate } from '@/utils/format'
 import type { OrderItem } from '@/types'
+
+export const dynamic = 'force-dynamic'
 
 type TrainingRegistrationDashboardRow = {
   id: string
@@ -48,6 +51,39 @@ function certificateState(registration: TrainingRegistrationDashboardRow) {
     return { label: `Emailed ${formatDate(registration.certificate_emailed_at)}`, href: '' }
   }
   return { label: 'Certificate not uploaded yet', href: '' }
+}
+
+function DashboardDisclosureCard({
+  id,
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  id?: string
+  title: string
+  icon: LucideIcon
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <details id={id} open className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 rounded-2xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+        <span className="flex min-w-0 items-center gap-2 text-xl font-bold text-[#0F172A]">
+          <Icon className="h-5 w-5 shrink-0 text-[#1D4ED8]" />
+          <span className="break-words">{title}</span>
+        </span>
+        <span className="flex flex-wrap items-center gap-2">
+          {action}
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition-colors group-open:bg-[#EFF6FF] group-open:text-[#1D4ED8]">
+            Toggle
+            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+          </span>
+        </span>
+      </summary>
+      <div className="border-t border-slate-200 p-5 sm:p-6">{children}</div>
+    </details>
+  )
 }
 
 export default async function DashboardPage() {
@@ -218,7 +254,8 @@ export default async function DashboardPage() {
         </details>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
-          <LmsSectionCard
+          <DashboardDisclosureCard
+            id="my-courses"
             title="My Courses"
             icon={BookOpen}
             action={<Link href="/dashboard/my-courses" className="text-sm font-semibold text-[#1D4ED8] hover:underline">View all</Link>}
@@ -239,11 +276,11 @@ export default async function DashboardPage() {
                     const access = getCourseAccessState(e as never)
                     return (
                       <li key={e.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <Link href={`/course/${course?.id}/learn`} className="font-semibold text-[#0F172A] hover:text-[#1D4ED8]">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <Link href={`/course/${course?.id}/learn`} className="min-w-0 break-words text-sm font-semibold text-[#0F172A] hover:text-[#1D4ED8] sm:text-base">
                             {course?.title}
                           </Link>
-                          <LmsStatusBadge tone={access.active ? 'blue' : access.pendingPayment ? 'gold' : 'red'}>
+                          <LmsStatusBadge tone={access.active ? 'blue' : access.pendingPayment ? 'gold' : 'red'} className="w-fit shrink-0">
                             {access.status.replace(/_/g, ' ')}
                           </LmsStatusBadge>
                         </div>
@@ -258,9 +295,9 @@ export default async function DashboardPage() {
 
               </>
             )}
-          </LmsSectionCard>
+          </DashboardDisclosureCard>
 
-          <LmsSectionCard id="orders" title="Recent Orders" icon={ShoppingBag}>
+          <DashboardDisclosureCard id="orders" title="Recent Orders" icon={ShoppingBag}>
             {orders.length === 0 ? (
               <LmsEmptyState icon={ShoppingBag} title="No orders yet" description="Shop orders and invoices linked to your account will appear here." />
             ) : (
@@ -273,7 +310,7 @@ export default async function DashboardPage() {
                       <Badge variant="outline" className="rounded-full bg-white">
                         {getCustomerOrderStatusLabel(o.status, o.payment_method)}
                       </Badge>
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
                         <Button asChild size="sm" variant="ghost" className="h-8 rounded-lg px-2">
                           <Link href={`/api/orders/${o.id}/invoice`} target="_blank">
                             <FileText className="mr-1 h-3.5 w-3.5" />
@@ -293,7 +330,7 @@ export default async function DashboardPage() {
                 ))}
               </ul>
             )}
-          </LmsSectionCard>
+          </DashboardDisclosureCard>
         </div>
 
         <details id="trainings" className="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">

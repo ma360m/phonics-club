@@ -10,6 +10,8 @@ export const metadata = buildMetadata({
   path: '/auth/signup',
 })
 
+export const dynamic = 'force-dynamic'
+
 export default function SignupPage() {
   return (
     <main className="min-h-screen flex flex-col">

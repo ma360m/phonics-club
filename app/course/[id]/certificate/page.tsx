@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
+export const dynamic = 'force-dynamic'
+
 function formatDate(value?: string | null) {
   if (!value) return 'Not completed yet'
   return new Date(value).toLocaleDateString('en-PK', {

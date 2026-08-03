@@ -19,7 +19,25 @@ function parseLines(formData: FormData, key: string): string[] {
   return String(raw).split('\n').map((s) => s.trim()).filter(Boolean)
 }
 
-function parseCourseForm(formData: FormData) {
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {}
+}
+
+function optionalNumber(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) ?? '').trim()
+  if (!raw) return null
+  const value = Number(raw)
+  return Number.isFinite(value) ? Math.max(0, value) : null
+}
+
+function setOptionalString(metadata: Record<string, unknown>, key: string, value: string) {
+  if (value) metadata[key] = value
+  else delete metadata[key]
+}
+
+function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
   let curriculum: CurriculumModule[] = []
   try {
     const raw = formData.get('curriculum')
@@ -27,6 +45,28 @@ function parseCourseForm(formData: FormData) {
   } catch {
     curriculum = []
   }
+
+  const selectedVisibilityRaw = String(formData.get('visibility_status') || (formData.get('published') === 'on' ? 'published' : 'draft'))
+  const selectedVisibility = ['draft', 'published', 'unlisted', 'archived'].includes(selectedVisibilityRaw)
+    ? selectedVisibilityRaw
+    : 'draft'
+  const archived = formData.get('archived') === 'on' || selectedVisibility === 'archived'
+  const selectedDraft = selectedVisibility === 'draft'
+  const published = !archived && !selectedDraft && (
+    selectedVisibility === 'published' ||
+    selectedVisibility === 'unlisted' ||
+    formData.get('published') === 'on'
+  )
+  const unlisted = selectedVisibility === 'unlisted' || (selectedVisibility !== 'published' && formData.get('unlisted') === 'on')
+  const visibilityStatus = archived
+    ? 'archived'
+    : !published
+      ? 'draft'
+      : unlisted || selectedVisibility === 'unlisted'
+        ? 'unlisted'
+        : selectedVisibility === 'published'
+          ? 'published'
+          : 'published'
 
   const parsed = courseSchema.safeParse({
     title: formData.get('title'),
@@ -66,7 +106,12 @@ function parseCourseForm(formData: FormData) {
     seo_title: formData.get('seo_title'),
     seo_description: formData.get('seo_description'),
     featured: formData.get('featured') === 'on',
-    published: formData.get('published') === 'on',
+    published,
+    visibility_status: visibilityStatus,
+    enrollment_status: formData.get('enrollment_status') || 'open',
+    unlisted: visibilityStatus === 'unlisted',
+    archived,
+    coming_soon: formData.get('coming_soon') === 'on',
     certificate_enabled: formData.get('certificate_enabled') === 'on',
     completion_requires_lessons: formData.get('completion_requires_lessons') === 'on',
     completion_requires_online_minutes: formData.get('completion_requires_online_minutes') === 'on',
@@ -91,13 +136,25 @@ function parseCourseForm(formData: FormData) {
   const coreMaterials = parseLines(formData, 'core_materials')
   const intendedAudience = parseLines(formData, 'intended_audience')
   const targetAudience = parseLines(formData, 'target_audience')
-  const metadata: Record<string, unknown> = {
-    certificateEnabled: formData.get('certificate_enabled') === 'on',
-  }
+  const metadata = metadataRecord(existingMetadata)
+  metadata.certificateEnabled = formData.get('certificate_enabled') === 'on'
   if (previewVideoUrl) metadata.previewVideoUrl = previewVideoUrl
+  else delete metadata.previewVideoUrl
   if (highlights.length) metadata.highlights = highlights
+  else delete metadata.highlights
   if (coreMaterials.length) metadata.coreMaterials = coreMaterials
+  else delete metadata.coreMaterials
   if (intendedAudience.length) metadata.intendedAudience = intendedAudience
+  else delete metadata.intendedAudience
+
+  const instructorHelpEnabled = formData.get('instructor_help_enabled') === 'on'
+  const instructorHelpTotalPrice = optionalNumber(formData, 'instructor_help_total_price')
+  metadata.instructorHelpEnabled = instructorHelpEnabled
+  if (instructorHelpEnabled && instructorHelpTotalPrice !== null) metadata.instructorHelpTotalPrice = instructorHelpTotalPrice
+  else delete metadata.instructorHelpTotalPrice
+  setOptionalString(metadata, 'instructorHelpLabel', String(formData.get('instructor_help_label') ?? '').trim())
+  setOptionalString(metadata, 'instructorHelpNote', String(formData.get('instructor_help_note') ?? '').trim())
+  setOptionalString(metadata, 'instructorHelpContactUrl', String(formData.get('instructor_help_contact_url') ?? '').trim())
 
   return {
     ok: true as const,
@@ -143,13 +200,14 @@ export async function updateCourseAction(
   formData: FormData
 ): Promise<ActionResult> {
   const actor = await requireAdminOrInstructor()
-  const parsed = parseCourseForm(formData)
-  if (!parsed.ok) return { success: false, error: parsed.error }
-
   const supabase = await createClient()
   if (!(await canManageCourseId(actor, id, supabase))) {
     return { success: false, error: 'You can only update courses assigned to your instructor account.' }
   }
+  const { data: existing } = await supabase.from('courses').select('metadata').eq('id', id).maybeSingle()
+  const parsed = parseCourseForm(formData, (existing as { metadata?: unknown } | null)?.metadata)
+  if (!parsed.ok) return { success: false, error: parsed.error }
+
   const { error } = await supabase.from('courses').update(parsed.data as never).eq('id', id)
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Course could not be updated.') }
 
@@ -199,8 +257,85 @@ export async function updateCoursePublishStatusAction(id: string, published: boo
   if (!(await canManageCourseId(actor, id, supabase))) {
     throw new Error('You can only publish courses assigned to your instructor account.')
   }
-  const { error } = await supabase.from('courses').update({ published } as never).eq('id', id)
+  const { error } = await supabase
+    .from('courses')
+    .update({
+      published,
+      ...(published ? { unlisted: false } : {}),
+      visibility_status: published ? 'published' : 'draft',
+      archived: false,
+    } as never)
+    .eq('id', id)
   if (error) throw toError(error, published ? 'Course could not be published.' : 'Course could not be saved as draft.')
+
+  if (published) {
+    const { error: lessonsError } = await supabase
+      .from('course_lessons')
+      .update({ published: true } as never)
+      .eq('course_id', id)
+    if (lessonsError) throw toError(lessonsError, 'Course was published, but lessons could not be shown.')
+
+    const { error: quizzesError } = await supabase
+      .from('course_quizzes')
+      .update({ published: true } as never)
+      .eq('course_id', id)
+    if (quizzesError) throw toError(quizzesError, 'Course was published, but quizzes could not be shown.')
+  }
+
+  revalidatePath('/admin/courses')
+  revalidatePath(`/admin/courses/${id}/builder`)
+  revalidatePath('/courses')
+}
+
+export async function updateCourseCatalogVisibilityAction(id: string, listed: boolean): Promise<void> {
+  const actor = await requireAdminOrInstructor()
+  const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    throw new Error('You can only update courses assigned to your instructor account.')
+  }
+  const { data: course } = await supabase
+    .from('courses')
+    .select('published')
+    .eq('id', id)
+    .maybeSingle()
+  const published = Boolean((course as { published?: boolean } | null)?.published)
+  const { error } = await supabase
+    .from('courses')
+    .update({
+      unlisted: !listed,
+      archived: false,
+      visibility_status: published ? (listed ? 'published' : 'unlisted') : 'draft',
+    } as never)
+    .eq('id', id)
+  if (error) throw toError(error, listed ? 'Course could not be shown publicly.' : 'Course could not be hidden.')
+
+  revalidatePath('/admin/courses')
+  revalidatePath(`/admin/courses/${id}/builder`)
+  revalidatePath('/courses')
+}
+
+export async function updateCourseArchiveStatusAction(id: string, archived: boolean): Promise<void> {
+  const actor = await requireAdminOrInstructor()
+  const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    throw new Error('You can only update courses assigned to your instructor account.')
+  }
+  const { data: course } = await supabase
+    .from('courses')
+    .select('published, unlisted')
+    .eq('id', id)
+    .maybeSingle()
+  const published = Boolean((course as { published?: boolean } | null)?.published)
+  const unlisted = Boolean((course as { unlisted?: boolean } | null)?.unlisted)
+  const { error } = await supabase
+    .from('courses')
+    .update({
+      archived,
+      visibility_status: archived ? 'archived' : published ? (unlisted ? 'unlisted' : 'published') : 'draft',
+      published: archived ? false : published,
+    } as never)
+    .eq('id', id)
+  if (error) throw toError(error, archived ? 'Course could not be archived.' : 'Course could not be restored.')
 
   revalidatePath('/admin/courses')
   revalidatePath(`/admin/courses/${id}/builder`)

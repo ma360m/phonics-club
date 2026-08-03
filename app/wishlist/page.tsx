@@ -6,6 +6,8 @@ import { ProductCard } from '@/components/shop/product-card'
 import { Button } from '@/components/ui/button'
 import type { Product } from '@/types/database'
 
+export const dynamic = 'force-dynamic'
+
 export default async function WishlistPage() {
   await requireAuth()
   const items = await getWishlistItems()

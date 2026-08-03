@@ -178,6 +178,11 @@ export interface Course {
   expiry_warning_days?: number[]
   featured: boolean
   published: boolean
+  visibility_status?: 'draft' | 'published' | 'unlisted' | 'archived'
+  enrollment_status?: 'open' | 'closed' | 'coming_soon'
+  unlisted?: boolean
+  archived?: boolean
+  coming_soon?: boolean
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string

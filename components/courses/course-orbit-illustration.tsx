@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,11 +15,47 @@ const orbitBalls = [
 
 export function CourseOrbitIllustration() {
   const [orbitStarted, setOrbitStarted] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (orbitStarted) return
+
+    const startOnScroll = () => {
+      if (window.scrollY > 24) setOrbitStarted(true)
+    }
+
+    startOnScroll()
+    window.addEventListener('scroll', startOnScroll, { passive: true })
+    return () => window.removeEventListener('scroll', startOnScroll)
+  }, [orbitStarted])
+
+  useEffect(() => {
+    if (orbitStarted) return
+
+    const mobileAutoStart = window.matchMedia('(hover: none), (pointer: coarse)').matches
+    const timer = mobileAutoStart ? window.setTimeout(() => setOrbitStarted(true), 500) : undefined
+    const observer = 'IntersectionObserver' in window
+      ? new IntersectionObserver(
+          ([entry]) => {
+            if (entry?.isIntersecting) setOrbitStarted(true)
+          },
+          { threshold: 0.35 },
+        )
+      : null
+
+    if (rootRef.current && observer) observer.observe(rootRef.current)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      observer?.disconnect()
+    }
+  }, [orbitStarted])
 
   return (
     <div
+      ref={rootRef}
       className="group/orbit relative mx-auto flex aspect-square w-full max-w-[340px] items-center justify-center sm:max-w-[390px] lg:max-w-none"
       onMouseEnter={() => setOrbitStarted(true)}
+      onTouchStart={() => setOrbitStarted(true)}
       aria-hidden="true"
     >
       <style>{`

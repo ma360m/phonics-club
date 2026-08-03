@@ -19,7 +19,7 @@ export function AppearanceAccessibilityButton({ className }: { className?: strin
       title="Open appearance and accessibility settings"
       aria-label="Open appearance and accessibility settings"
       className={cn(
-        'fixed bottom-44 right-4 z-40 h-12 w-12 rounded-full border-[#BFDBFE] bg-white text-[#1D4ED8] shadow-xl transition-transform hover:scale-105 hover:bg-[#EFF6FF] focus-visible:ring-4 focus-visible:ring-[#60A5FA]/40 md:bottom-40',
+        'fixed bottom-36 right-3 z-40 h-11 w-11 rounded-full border-[#BFDBFE] bg-white text-[#1D4ED8] shadow-xl transition-transform hover:scale-105 hover:bg-[#EFF6FF] focus-visible:ring-4 focus-visible:ring-[#60A5FA]/40 sm:bottom-44 sm:right-4 sm:h-12 sm:w-12 md:bottom-40',
         className,
       )}
     >

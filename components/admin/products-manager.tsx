@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { Fragment, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Database,
   ImageIcon,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +37,7 @@ import { toast } from 'sonner'
 import type { Product } from '@/types/database'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { ProductForm } from '@/components/admin/product-form'
 
 interface Props {
   products: Product[]
@@ -47,6 +50,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
   const [pending, startTransition] = useTransition()
   const [importing, setImporting] = useState(false)
   const [uploadIsbn, setUploadIsbn] = useState('')
+  const [quickEditId, setQuickEditId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const replaceFileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -314,7 +318,8 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                 const img = p.images?.[0]
                 const pricing = getProductPricing(p)
                 return (
-                  <tr key={p.id} className={`border-t ${selected.has(p.id) ? 'bg-[#1D4ED8]/5' : ''}`}>
+                  <Fragment key={p.id}>
+                  <tr className={`border-t ${selected.has(p.id) ? 'bg-[#1D4ED8]/5' : ''}`}>
                     <td className="p-3">
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleOne(p.id)} />
                     </td>
@@ -352,6 +357,15 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                     <td className="p-3">{p.stock}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant={quickEditId === p.id ? 'default' : 'outline'}
+                          className="h-8 rounded-lg"
+                          onClick={() => setQuickEditId((current) => (current === p.id ? null : p.id))}
+                        >
+                          {quickEditId === p.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          Quick
+                        </Button>
                         <Button asChild size="sm" variant="outline" className="rounded-lg h-8">
                           <Link href={`/admin/products/${p.id}`}><Pencil className="w-3.5 h-3.5" /></Link>
                         </Button>
@@ -386,6 +400,32 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                       </div>
                     </td>
                   </tr>
+                  {quickEditId === p.id && (
+                    <tr className="border-t bg-[#F8FAFC]">
+                      <td colSpan={10} className="p-4">
+                        <div className="rounded-2xl border border-[#BFDBFE] bg-white p-4 text-left shadow-sm">
+                          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-[#0F172A]">Quick edit product</p>
+                              <p className="text-xs text-muted-foreground">
+                                Edit ISBN, SKU, barcode, image paths, pricing, stock, category, sale, featured, and published status without leaving this page.
+                              </p>
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" className="w-fit rounded-lg" onClick={() => setQuickEditId(null)}>
+                              Close
+                            </Button>
+                          </div>
+                          <ProductForm
+                            product={p}
+                            className="max-w-none"
+                            cancelHref={null}
+                            submitLabel="Save Quick Edit"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 )
               })
             )}

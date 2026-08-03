@@ -36,7 +36,7 @@ export default async function AdminNewslettersPage() {
           <CardTitle>Upload newsletter</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={uploadNewsletterFormAction} encType="multipart/form-data" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <form action={uploadNewsletterFormAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <label className="flex flex-col gap-2 text-sm sm:col-span-2">
               <span className="font-medium">Title</span>
               <input name="title" placeholder="July 2026 Newsletter" className="rounded-xl border bg-background px-3 py-2" />

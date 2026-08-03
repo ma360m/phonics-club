@@ -41,8 +41,11 @@ const learnerLinks = [
   { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
 ]
 
-function isActive(pathname: string, href: string, match?: string[]) {
-  const baseHref = href.split('#')[0]
+function isActive(pathname: string, href: string, currentHash: string, match?: string[]) {
+  const [baseHref, rawHash] = href.split('#')
+  const hrefHash = rawHash ? `#${rawHash}` : ''
+  if (hrefHash) return pathname === baseHref && currentHash === hrefHash
+  if (currentHash && pathname === baseHref) return false
   if (pathname === baseHref) return true
   return match?.some((item) => pathname === item || pathname.startsWith(item)) ?? false
 }
@@ -54,6 +57,7 @@ function SidebarContent({
   userEmail,
   isAdmin,
   isLmsManager,
+  currentHash,
   compact = false,
   onToggleCompact,
 }: {
@@ -63,6 +67,7 @@ function SidebarContent({
   userEmail?: string | null
   isAdmin?: boolean
   isLmsManager?: boolean
+  currentHash: string
   compact?: boolean
   onToggleCompact?: () => void
 }) {
@@ -104,7 +109,7 @@ function SidebarContent({
 
       <nav className={cn('flex-1 space-y-1 overflow-y-auto px-3 py-4', compact && 'px-2')} aria-label="Learning navigation">
         {learnerLinks.map(({ href, label, icon: Icon, match }) => {
-          const active = isActive(pathname, href, match)
+          const active = isActive(pathname, href, currentHash, match)
           return (
             <Link
               key={href}
@@ -184,10 +189,18 @@ export function LmsShell({ children, userName, userEmail, isAdmin, isLmsManager 
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [currentHash, setCurrentHash] = useState('')
 
   useEffect(() => {
     setOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash)
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+    return () => window.removeEventListener('hashchange', syncHash)
+  }, [])
 
   useEffect(() => {
     const stored = window.localStorage.getItem('phonics-lms-sidebar-collapsed')
@@ -204,7 +217,7 @@ export function LmsShell({ children, userName, userEmail, isAdmin, isLmsManager 
 
   return (
     <div className="bg-[#F4F8FF]">
-      <div className="mx-auto flex min-h-[calc(100vh-96px)] max-w-[1480px] gap-5 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-[1880px] gap-5 px-4 py-5 sm:px-6 lg:px-8">
         <aside
           className={cn(
             'sticky top-4 hidden h-[calc(100vh-2rem)] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[width] duration-200 ease-out md:block',
@@ -218,6 +231,7 @@ export function LmsShell({ children, userName, userEmail, isAdmin, isLmsManager 
               userEmail={userEmail}
               isAdmin={isAdmin}
               isLmsManager={isLmsManager}
+              currentHash={currentHash}
               compact={sidebarCollapsed}
               onToggleCompact={toggleSidebarCollapsed}
             />
@@ -260,6 +274,7 @@ export function LmsShell({ children, userName, userEmail, isAdmin, isLmsManager 
             userEmail={userEmail}
             isAdmin={isAdmin}
             isLmsManager={isLmsManager}
+            currentHash={currentHash}
           />
           <div className="mx-4 mb-4 rounded-2xl border border-[#1D4ED8]/15 bg-[#EFF6FF] p-4 text-sm text-slate-600">
             <div className="mb-2 flex items-center gap-2 font-semibold text-[#1D4ED8]">

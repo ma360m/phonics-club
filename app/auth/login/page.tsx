@@ -10,6 +10,8 @@ export const metadata = buildMetadata({
   path: '/auth/login',
 })
 
+export const dynamic = 'force-dynamic'
+
 export default async function LoginPage({
   searchParams,
 }: {
