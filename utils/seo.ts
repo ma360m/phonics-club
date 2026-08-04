@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { APP_NAME, APP_URL, APP_DESCRIPTION } from '@/lib/constants'
+import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { Product, Course, BlogPost } from '@/types/database'
 
@@ -95,7 +96,9 @@ export function organizationJsonLd() {
   return {
     '@context': 'https://schema.org',
     '@type': 'EducationalOrganization',
+    '@id': `${APP_URL}/#organization`,
     name: APP_NAME,
+    alternateName: ['Phonics Club', 'Phonics Club Pakistan'],
     url: APP_URL,
     logo: `${APP_URL}/logo.png`,
     description: cleanSeoText(APP_DESCRIPTION),
@@ -174,6 +177,7 @@ export function articleJsonLd(post: BlogPost) {
     },
     publisher: {
       '@type': 'Organization',
+      '@id': `${APP_URL}/#organization`,
       name: APP_NAME,
       logo: { '@type': 'ImageObject', url: `${APP_URL}/logo.png` },
     },
@@ -185,39 +189,34 @@ export function websiteJsonLd() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${APP_URL}/#website`,
     name: APP_NAME,
+    alternateName: ['Phonics Club', 'Phonics Club Pakistan'],
     url: APP_URL,
+    inLanguage: 'en',
+    publisher: { '@id': `${APP_URL}/#organization` },
     potentialAction: {
       '@type': 'SearchAction',
       target: `${APP_URL}/shop?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
-    hasPart: [
-      {
-        '@type': 'SiteNavigationElement',
-        name: 'Shop',
-        url: `${APP_URL}/shop`,
-      },
-      {
-        '@type': 'SiteNavigationElement',
-        name: 'Courses',
-        url: `${APP_URL}/courses`,
-      },
-      {
-        '@type': 'SiteNavigationElement',
-        name: 'Trainings',
-        url: `${APP_URL}/trainings`,
-      },
-      {
-        '@type': 'SiteNavigationElement',
-        name: 'About Us',
-        url: `${APP_URL}/about`,
-      },
-      {
-        '@type': 'SiteNavigationElement',
-        name: 'Contact Us',
-        url: `${APP_URL}/contact`,
-      },
-    ],
+    mainEntity: {
+      '@type': 'ItemList',
+      name: 'Primary Phonics Club navigation',
+      itemListOrder: 'https://schema.org/ItemListOrderAscending',
+      itemListElement: PRIMARY_SITE_LINKS.map((link, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: link.name,
+        url: `${APP_URL}${link.href}`,
+      })),
+    },
+    hasPart: PRIMARY_SITE_LINKS.map((link, index) => ({
+      '@type': 'SiteNavigationElement',
+      position: index + 1,
+      name: link.name,
+      description: link.description,
+      url: `${APP_URL}${link.href}`,
+    })),
   }
 }

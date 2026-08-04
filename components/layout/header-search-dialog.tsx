@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 
 const searchTargets = [
   {
@@ -39,12 +40,12 @@ const searchTargets = [
 ] as const
 
 const quickLinks = [
-  { label: 'Shop', href: '/shop', icon: ShoppingBag },
-  { label: 'Courses', href: '/courses', icon: BookOpen },
-  { label: 'Trainings', href: '/trainings', icon: GraduationCap },
-  { label: 'About Us', href: '/about', icon: Info },
-  { label: 'Contact Us', href: '/contact', icon: Contact },
-] as const
+  { ...PRIMARY_SITE_LINKS[0], icon: ShoppingBag },
+  { ...PRIMARY_SITE_LINKS[1], icon: BookOpen },
+  { ...PRIMARY_SITE_LINKS[2], icon: GraduationCap },
+  { ...PRIMARY_SITE_LINKS[3], icon: Info },
+  { ...PRIMARY_SITE_LINKS[4], icon: Contact },
+]
 
 type SearchTarget = (typeof searchTargets)[number]['value']
 
@@ -161,7 +162,7 @@ export function HeaderSearchDialog({
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#0F172A] ring-1 ring-slate-200 transition-colors hover:text-[#1D4ED8] hover:ring-[#BFDBFE]"
                 >
                   <Icon className="h-4 w-4 text-[#1D4ED8]" />
-                  {item.label}
+                  {item.name}
                 </Link>
               )
             })}

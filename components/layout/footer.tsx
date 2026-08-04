@@ -3,22 +3,18 @@ import Image from 'next/image'
 import { Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react'
 import { COMPANY } from '@/lib/company'
 import { APP_NAME } from '@/lib/constants'
+import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 import { AppearanceAccessibilityLink } from '@/components/display-preferences/appearance-accessibility-link'
 
 const footerLinks = {
-  company: [
-    { name: 'About Us', href: '/about' },
+  explore: PRIMARY_SITE_LINKS,
+  support: [
+    { name: 'FAQs', href: '/faqs' },
     { name: 'Certified Trainers', href: '/certified-trainers' },
     { name: 'Research', href: '/research' },
     { name: 'Blog', href: '/blog' },
     { name: 'Newsletters', href: '/newsletters' },
-    { name: 'Shop', href: '/shop' },
-  ],
-  support: [
-    { name: 'FAQs', href: '/faqs' },
-    { name: 'Training', href: '/trainings' },
     { name: 'Consultancy', href: '/consultancy' },
-    { name: 'Contact Us', href: '/contact' },
   ],
   legal: [
     { name: 'Privacy Policy', href: '/privacy' },
@@ -88,10 +84,10 @@ export function Footer() {
             </div>
           </div>
 
-          {(['company', 'courses', 'support', 'legal'] as const).map((section) => (
+          {(['explore', 'courses', 'support', 'legal'] as const).map((section) => (
             <div key={section}>
               <h3 className="font-semibold text-sm uppercase tracking-wider mb-4 text-white/90 capitalize">
-                {section === 'company' ? 'Company' : section}
+                {section}
               </h3>
               <ul className="space-y-3">
                 {footerLinks[section].map((link) => (

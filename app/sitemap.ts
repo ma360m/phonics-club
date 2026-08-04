@@ -1,6 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { APP_URL } from '@/lib/constants'
+import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 import { getProducts, getCourses, getBlogPosts } from '@/lib/data/queries'
+
+const primarySitemapPaths = new Set<string>(PRIMARY_SITE_LINKS.map((link) => link.href))
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
@@ -24,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${APP_URL}${path}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: path === '' ? 1 : 0.8,
+    priority: path === '' ? 1 : primarySitemapPaths.has(path) ? 0.9 : 0.8,
   }))
 
   const [products, courses, posts] = await Promise.all([
