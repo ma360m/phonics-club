@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getProfile, isAdminRole } from '@/lib/auth'
 import { COMPANY } from '@/lib/company'
+import { APP_URL } from '@/lib/constants'
 
 const DAY_MS = 86_400_000
 
 function baseUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : APP_URL)
   ).replace(/\/$/, '')
 }
 

@@ -5,11 +5,12 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { createMobileApiResponse, createMobileRequestId, handleMobileApiError } from '@/lib/mobile-api/response'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
+import { APP_URL } from '@/lib/constants'
 
 function appBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : APP_URL)
   ).replace(/\/$/, '')
 }
 

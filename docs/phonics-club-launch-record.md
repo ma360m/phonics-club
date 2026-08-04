@@ -119,8 +119,7 @@ Supabase Auth settings:
 - Redirect URLs:
   - `https://www.phonicsclub.com/auth/callback`
   - `https://phonicsclub.com/auth/callback`
-  - The current Vercel preview/production URL callback if testing before DNS cutover
-  - `http://localhost:3000/auth/callback` for local testing
+  - The current Vercel preview/production URL callback only if testing before DNS cutover
 
 DNS/domain:
 

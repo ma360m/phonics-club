@@ -12,6 +12,7 @@ import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/au
 import { canManageCourseId } from '@/lib/admin/course-scope'
 import { getCertificateStatus, getCourseAccessState, getCourseById, getUserEnrollment, isCourseCertificateEnabled } from '@/lib/lms'
 import { createServiceClient } from '@/lib/supabase/server'
+import { APP_URL } from '@/lib/constants'
 import { Award, CheckCircle2, ChevronLeft, Clock, Download, ExternalLink, ShieldCheck } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ function formatDate(value?: string | null) {
 function appBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : APP_URL)
   ).replace(/\/$/, '')
 }
 

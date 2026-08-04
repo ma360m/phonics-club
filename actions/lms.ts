@@ -13,6 +13,7 @@ import {
 import { buildCertificatePdf } from '@/lib/certificate-pdf'
 import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
+import { APP_URL } from '@/lib/constants'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
 
@@ -32,7 +33,7 @@ async function getServiceSupabase() {
 function appBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : APP_URL)
   ).replace(/\/$/, '')
 }
 

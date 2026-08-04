@@ -5,11 +5,12 @@ import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
+import { APP_URL } from '@/lib/constants'
 
 const emailSchema = z.string().trim().email()
 
 function appBaseUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  return (process.env.NEXT_PUBLIC_APP_URL ?? APP_URL).replace(/\/$/, '')
 }
 
 function customersNotice(type: 'message' | 'error', value: string) {

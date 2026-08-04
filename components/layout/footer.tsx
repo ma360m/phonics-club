@@ -25,6 +25,7 @@ const footerLinks = {
     { name: 'Terms of Service', href: '/terms' },
     { name: 'Cookie Policy', href: '/cookies' },
     { name: 'Refund Policy', href: '/refunds' },
+    { name: 'Shipping Policy', href: '/shipping' },
   ],
   courses: [
     { name: 'Teacher Courses', href: '/courses?category=teacher-courses' },

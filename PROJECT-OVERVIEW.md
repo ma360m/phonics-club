@@ -358,9 +358,9 @@ Homepage **Trust Badges** section:
 
 ```env
 # App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://www.phonicsclub.com
 NEXT_PUBLIC_APP_NAME=PHONICS CLUB
-ADMIN_EMAIL=phonicscclub@gmail.com
+ADMIN_EMAIL=phonicsclub@gmail.com
 
 # Supabase (required for production)
 NEXT_PUBLIC_SUPABASE_URL=
@@ -385,7 +385,7 @@ ORDER_EMAIL_FROM=orders@phonicsclub.com
 ```bash
 npm install
 cp .env.example .env.local   # fill Supabase keys
-npm run dev                    # http://localhost:3000
+npm run dev                    # open the local URL printed by Next.js
 ```
 
 **Make yourself admin** (after signup, in Supabase SQL):

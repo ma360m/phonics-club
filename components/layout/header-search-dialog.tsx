@@ -1,8 +1,9 @@
 'use client'
 
 import { FormEvent, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, FileText, Search, ShoppingBag } from 'lucide-react'
+import { BookOpen, Contact, FileText, GraduationCap, Info, Search, ShoppingBag } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,14 @@ const searchTargets = [
     icon: FileText,
     hint: 'Tips, news, teaching articles',
   },
+] as const
+
+const quickLinks = [
+  { label: 'Shop', href: '/shop', icon: ShoppingBag },
+  { label: 'Courses', href: '/courses', icon: BookOpen },
+  { label: 'Trainings', href: '/trainings', icon: GraduationCap },
+  { label: 'About Us', href: '/about', icon: Info },
+  { label: 'Contact Us', href: '/contact', icon: Contact },
 ] as const
 
 type SearchTarget = (typeof searchTargets)[number]['value']
@@ -138,6 +147,26 @@ export function HeaderSearchDialog({
             Search
           </button>
         </form>
+
+        <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-normal text-slate-500">Quick links</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {quickLinks.map((item) => {
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#0F172A] ring-1 ring-slate-200 transition-colors hover:text-[#1D4ED8] hover:ring-[#BFDBFE]"
+                >
+                  <Icon className="h-4 w-4 text-[#1D4ED8]" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

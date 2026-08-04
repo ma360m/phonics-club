@@ -727,8 +727,8 @@ export const DEFAULT_RESEARCH_PAGE: ResearchPageContent = {
       schools: ['Alrasheed Ideal School', 'Ahmad Grammar School', 'Mumtaz School of Education', 'English Grammar School', 'Faran Grammar School', 'Decent Public School'],
       links: [
         { label: 'Project orientation', href: 'https://web.facebook.com/punjabeducationfoundation.official/posts/887316214662770?_rdr' },
-        { label: 'Project launched', href: 'http://punjabeducationfoundation.blogspot.com/2015/05/pilot-project-launched-to-develop.html' },
-        { label: 'Training news', href: 'http://www.thenews.com.pk/print/42710-32-associate-professors-promoted' },
+        { label: 'Project launched', href: 'https://punjabeducationfoundation.blogspot.com/2015/05/pilot-project-launched-to-develop.html' },
+        { label: 'Training news', href: 'https://www.thenews.com.pk/print/42710-32-associate-professors-promoted' },
       ],
       images: [
         {
@@ -837,6 +837,17 @@ export const DEFAULT_POLICIES: Record<string, PolicyContent> = {
       { title: 'Course Cancellations', body: ['Classroom course cancellation requests made 15 or more working days before the course start date may be eligible for a refund after a 30% admin fee. Requests made less than 15 working days before the course start date are not eligible for refund.'] },
       { title: 'Course Postponement', body: ['Classroom course postponement requests must be made at least 5 working days before the course start date. Requests made less than 5 working days before the course start date cannot be postponed.'] },
       { title: 'Contact Us', body: ['For exchange or refund requests, contact info@phonicsclub.com and include your order number, name, relevant photos, and a description of the issue.'] },
+    ],
+  },
+  shipping_policy: {
+    lastUpdated: 'July 2026',
+    intro: ['This Shipping Policy explains how Phonics Club processes and delivers physical products ordered through the website.'],
+    sections: [
+      { title: 'Delivery Area', body: ['We deliver products across Pakistan using available courier and delivery partners. International delivery is not enabled unless confirmed directly by Phonics Club before ordering.'] },
+      { title: 'Processing Time', body: ['Orders are prepared after payment verification and stock confirmation. Processing times may vary during holidays, high-demand periods, or courier delays.'] },
+      { title: 'Shipping Charges', body: ['Shipping charges are shown at checkout where applicable. Customers are responsible for entering a complete and accurate delivery address and phone number.'] },
+      { title: 'Delivery Issues', body: ['If a parcel is delayed, returned, damaged, or marked delivered but not received, contact Phonics Club with your order number so the team can coordinate with the courier.'] },
+      { title: 'Contact Us', body: ['For shipping questions, contact info@phonicsclub.com or phonicsclub@gmail.com with your order number and delivery details.'] },
     ],
   },
   cookies_policy: {

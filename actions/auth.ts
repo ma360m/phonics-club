@@ -5,10 +5,11 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema } from '@/lib/validations/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { APP_URL } from '@/lib/constants'
 import type { ActionResult } from '@/types'
 
 function appBaseUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  return (process.env.NEXT_PUBLIC_APP_URL ?? APP_URL).replace(/\/$/, '')
 }
 
 type PasswordResetVerification = {
@@ -164,7 +165,7 @@ export async function signupAction(
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: `${appBaseUrl()}/auth/callback`,
     },
   })
 

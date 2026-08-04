@@ -35,7 +35,7 @@ npm install
 Copy `.env.example` to `.env.local` and fill in:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://www.phonicsclub.com
 NEXT_PUBLIC_APP_NAME=PHONICS CLUB
 
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -56,7 +56,7 @@ ORDER_ADMIN_EMAIL=admin@yourdomain.com
 1. Create a project at [supabase.com](https://supabase.com)
 2. Run `supabase/schema.sql` in the SQL Editor
 3. Enable Email auth in Authentication → Providers
-4. Set Site URL to `http://localhost:3000` and redirect URL to `http://localhost:3000/auth/callback`
+4. Set Site URL to `https://www.phonicsclub.com` and redirect URL to `https://www.phonicsclub.com/auth/callback`
 
 ### 4. Create admin user
 
@@ -72,7 +72,7 @@ UPDATE profiles SET role = 'admin' WHERE email = 'your@email.com';
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open the local URL printed by Next.js in your terminal.
 
 > **Note:** Without Supabase env vars, the app runs with seed data (read-only demo mode).
 

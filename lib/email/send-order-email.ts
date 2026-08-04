@@ -2,6 +2,7 @@ import { COMPANY } from '@/lib/company'
 import { invoiceFileBaseName } from '@/lib/invoice'
 import { formatDate, formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
+import { APP_URL } from '@/lib/constants'
 
 interface EmailAttachment {
   filename: string
@@ -77,7 +78,7 @@ function getBaseUrl(): string {
   const vercelUrl = process.env.VERCEL_URL
   if (vercelUrl) return withProtocol(vercelUrl)
 
-  return 'http://localhost:3000'
+  return APP_URL
 }
 
 function escapeHtml(value: unknown): string {
