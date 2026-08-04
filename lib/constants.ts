@@ -1,7 +1,7 @@
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'PHONICS CLUB'
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.phonicsclub.com'
 export const APP_DESCRIPTION =
-  'Phonics Club Pvt Ltd — official Jolly Phonics & Grammar distributor. Training, support and consultancy for synthetic phonics in Pakistan.'
+  'Phonics Club Pvt Ltd - official Jolly Phonics & Grammar distributor. Training, support and consultancy for synthetic phonics in Pakistan.'
 
 export const PRODUCT_CATEGORIES = [
   'activity-books',

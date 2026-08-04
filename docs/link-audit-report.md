@@ -1,6 +1,6 @@
 # Phonics Club Link Audit
 
-Date: August 3, 2026
+Date: August 4, 2026
 
 ## Summary
 
@@ -20,6 +20,10 @@ No hardcoded `http://`, `localhost`, temporary `vercel.app`, old WordPress expor
 | `app/course/[id]/certificate/page.tsx` | Certificate verification links could fall back to `http://localhost:3000`. | Uses `APP_URL` fallback, defaulting to `https://www.phonicsclub.com`. |
 | `lib/email/send-order-email.ts` | Order email base URL fallback used `http://localhost:3000`. | Uses `APP_URL`, defaulting to `https://www.phonicsclub.com`. |
 | `lib/site-content.ts` | Two Research page external references used `http://` URLs. | Changed to HTTPS versions. |
+| `next.config.mjs` | Google-indexed old WordPress routes such as `/home`, `/contact-us`, `/our-shop`, `/about-us`, `/online-courses`, `/training`, `/login-register`, `/my-account`, and legacy policy slugs could return 404 on the Next.js site. | Added permanent redirects to the matching current routes: `/`, `/contact`, `/shop`, `/about`, `/courses`, `/trainings`, `/auth/login`, `/dashboard`, `/privacy`, `/terms`, `/refunds`, and `/shipping`. |
+| `utils/seo.ts` | Organization/article schema used the generic `/icon.svg`, and site navigation schema did not explicitly list the preferred public sitelinks. | Uses `/logo.png` for organization logo metadata and exposes preferred navigation order: Shop, Courses, Trainings, About Us, Contact Us. |
+| `app/sitemap.ts` | Main public pages were valid, but the sitemap order did not match the preferred search sitelink order. | Reordered static sitemap routes to prioritize Shop, Courses, Trainings, About Us, and Contact Us after the homepage. |
+| `app/manifest.ts` | No web app manifest was available to reinforce site name and icons. | Added a manifest with Phonics Club name, theme color, and logo icons. |
 | `README.md` | Setup examples used `http://localhost:3000` for public app URL and Supabase callback. | Changed launch examples to `https://www.phonicsclub.com` and official callback. |
 | `PROJECT-OVERVIEW.md` | Env example used `http://localhost:3000` and an incorrect admin email spelling. | Changed to `https://www.phonicsclub.com` and `phonicsclub@gmail.com`. |
 | `docs/phonics-club-launch-record.md` | Redirect checklist included localhost callback in public launch checklist. | Removed localhost callback from launch checklist. |

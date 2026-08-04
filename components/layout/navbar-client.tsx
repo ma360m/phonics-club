@@ -44,10 +44,12 @@ export function NavbarClient({
   }, [])
 
   return (
-    <motion.header
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className={`sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'glass shadow-lg' : 'bg-transparent'}`}
+    <header
+      className={`sticky top-0 z-[70] transition-all duration-300 ${
+        isScrolled
+          ? 'glass shadow-lg'
+          : 'border-b border-transparent bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80'
+      }`}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
@@ -133,6 +135,6 @@ export function NavbarClient({
           )}
         </AnimatePresence>
       </nav>
-    </motion.header>
+    </header>
   )
 }

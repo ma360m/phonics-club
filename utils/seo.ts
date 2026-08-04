@@ -55,6 +55,14 @@ export function buildMetadata({
     keywords: DEFAULT_KEYWORDS,
     metadataBase: new URL(APP_URL),
     alternates: { canonical: url },
+    icons: {
+      icon: [
+        { url: '/logo.png', type: 'image/png', sizes: '512x512' },
+        { url: '/icon.svg', type: 'image/svg+xml' },
+      ],
+      apple: [{ url: '/apple-icon.png', type: 'image/png' }],
+      shortcut: ['/logo.png'],
+    },
     robots: {
       index: true,
       follow: true,
@@ -89,7 +97,7 @@ export function organizationJsonLd() {
     '@type': 'EducationalOrganization',
     name: APP_NAME,
     url: APP_URL,
-    logo: `${APP_URL}/icon.svg`,
+    logo: `${APP_URL}/logo.png`,
     description: cleanSeoText(APP_DESCRIPTION),
     contactPoint: [
       {
@@ -167,7 +175,7 @@ export function articleJsonLd(post: BlogPost) {
     publisher: {
       '@type': 'Organization',
       name: APP_NAME,
-      logo: { '@type': 'ImageObject', url: `${APP_URL}/icon.svg` },
+      logo: { '@type': 'ImageObject', url: `${APP_URL}/logo.png` },
     },
     url: `${APP_URL}/blog/${post.slug}`,
   }
@@ -184,5 +192,32 @@ export function websiteJsonLd() {
       target: `${APP_URL}/shop?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
+    hasPart: [
+      {
+        '@type': 'SiteNavigationElement',
+        name: 'Shop',
+        url: `${APP_URL}/shop`,
+      },
+      {
+        '@type': 'SiteNavigationElement',
+        name: 'Courses',
+        url: `${APP_URL}/courses`,
+      },
+      {
+        '@type': 'SiteNavigationElement',
+        name: 'Trainings',
+        url: `${APP_URL}/trainings`,
+      },
+      {
+        '@type': 'SiteNavigationElement',
+        name: 'About Us',
+        url: `${APP_URL}/about`,
+      },
+      {
+        '@type': 'SiteNavigationElement',
+        name: 'Contact Us',
+        url: `${APP_URL}/contact`,
+      },
+    ],
   }
 }
