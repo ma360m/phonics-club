@@ -11,8 +11,6 @@ import { VortexLearningSection } from '@/components/sections/vortex-learning'
 import { FeaturedProductsGrid } from '@/components/sections/featured-products-grid'
 import { FeaturedCoursesGrid } from '@/components/sections/featured-courses-grid'
 import { BlogPreviewGrid } from '@/components/sections/blog-preview-grid'
-import { JsonLd } from '@/components/seo/json-ld'
-import { organizationJsonLd } from '@/utils/seo'
 import { getProducts, getCourses, getBlogPosts } from '@/lib/data/queries'
 import { getSocialReels, getVortexLearning, getSchoolLogos, getWebsiteVideos } from '@/lib/site-content'
 
@@ -29,7 +27,6 @@ export default async function HomePage() {
 
   return (
     <main>
-      <JsonLd data={organizationJsonLd()} />
       <AnnouncementBar />
       <Navbar />
       <HeroSection videoUrl={websiteVideos.homeHeroVideoUrl} demoButtonUrl={websiteVideos.homeHeroDemoUrl} />

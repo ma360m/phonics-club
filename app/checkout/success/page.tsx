@@ -23,28 +23,39 @@ interface AuthorizedOrder {
   shipping_address?: Record<string, string> | null
   phone?: string | null
   guest_email?: string | null
+  customer_edit_allowed_until?: string | null
+  requires_admin_confirmation?: boolean | null
+  admin_confirmation_reason?: string | null
 }
 
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string; token?: string }>
+  searchParams: Promise<{ order?: string; token?: string; editToken?: string }>
 }) {
-  const { order, token } = await searchParams
-  const tokenQuery = token ? `&token=${token}` : ''
+  const { order, token, editToken } = await searchParams
+  const authQuery = token ? `token=${token}` : editToken ? `editToken=${editToken}` : ''
+  const invoiceQuery = authQuery ? `?${authQuery}` : ''
+  const invoicePdfQuery = authQuery ? `?format=pdf&${authQuery}` : '?format=pdf'
   let authorizedOrder: AuthorizedOrder | null = null
 
   if (order) {
     const serviceSupabase = await createServiceClient()
     const { data } = await serviceSupabase
       .from('orders')
-      .select('id, user_id, access_token, status, created_at, payment_method, receipt_url, receipt_path, subtotal, total, items, shipping_address, phone, guest_email')
+      .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, payment_method, receipt_url, receipt_path, subtotal, total, items, shipping_address, phone, guest_email, requires_admin_confirmation, admin_confirmation_reason')
       .eq('id', order)
       .single()
     const user = await getSession()
     const tokenMatches = token && data?.access_token && token === data.access_token
+    const editTokenMatches =
+      editToken &&
+      data?.customer_edit_token &&
+      editToken === data.customer_edit_token &&
+      data.customer_edit_allowed_until &&
+      new Date(data.customer_edit_allowed_until).getTime() > Date.now()
     const userOwnsOrder = user?.id && data?.user_id === user.id
-    if (data && (tokenMatches || userOwnsOrder)) {
+    if (data && (tokenMatches || editTokenMatches || userOwnsOrder)) {
       authorizedOrder = {
         id: data.id,
         status: data.status,
@@ -58,6 +69,9 @@ export default async function CheckoutSuccessPage({
         shipping_address: data.shipping_address as Record<string, string> | null,
         phone: data.phone,
         guest_email: data.guest_email,
+        customer_edit_allowed_until: data.customer_edit_allowed_until,
+        requires_admin_confirmation: data.requires_admin_confirmation,
+        admin_confirmation_reason: data.admin_confirmation_reason,
       }
     }
   }
@@ -81,7 +95,7 @@ export default async function CheckoutSuccessPage({
             <>
               <Button asChild className="rounded-xl bg-[#1D4ED8]">
                 <a
-                  href={`/api/orders/${order}/invoice?format=pdf${tokenQuery}`}
+                  href={`/api/orders/${order}/invoice${invoicePdfQuery}`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -89,8 +103,8 @@ export default async function CheckoutSuccessPage({
                 </a>
               </Button>
               <Button asChild variant="outline" className="rounded-xl">
-                <a href={`/api/orders/${order}/invoice${token ? `?token=${token}` : ''}`} target="_blank" rel="noreferrer">
-                  View Invoice (HTML)
+                <a href={`/api/orders/${order}/invoice${invoiceQuery}`} target="_blank" rel="noreferrer">
+                  See Online / Live View
                 </a>
               </Button>
             </>
@@ -104,7 +118,7 @@ export default async function CheckoutSuccessPage({
         </div>
         {authorizedOrder && (
           <div className="mt-10 text-left">
-            <CustomerOrderControls order={authorizedOrder} token={token} />
+            <CustomerOrderControls order={authorizedOrder} token={token} editToken={editToken} />
           </div>
         )}
       </div>

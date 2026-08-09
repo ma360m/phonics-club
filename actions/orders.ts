@@ -14,8 +14,9 @@ import { buildInvoiceHtml } from '@/lib/invoice'
 import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { buildInvoicePdf, generateOrderAccessToken } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
-import { sendLowStockAlertEmail, sendOrderConfirmationEmail, type LowStockEmailAlert } from '@/lib/email/send-order-email'
+import { sendLowStockAlertEmail, sendOrderConfirmationEmail } from '@/lib/email/send-order-email'
 import { uploadOrderReceiptFile, type OrderReceiptUpload } from '@/lib/orders/receipt-upload'
+import { applyStockChangesForOrder, applyStockDeltaForOrderEdit, validateAndAnnotateEditedOrderStock, validateAndAnnotateOrderStock } from '@/lib/orders/stock'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
 import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
@@ -23,6 +24,7 @@ import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
 import { incrementMemberDiscountUsage, validateMemberDiscount } from '@/lib/discounts/member-discounts'
+import { APP_URL } from '@/lib/constants'
 import type { ActionResult, OrderItem } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
@@ -50,13 +52,18 @@ const customerOrderEditSchema = checkoutSchema
   .extend({
     orderId: z.string().uuid('Order link is invalid.'),
     token: z.string().optional(),
+    editToken: z.string().optional(),
   })
 
-async function getAuthorizedCustomerOrder(orderId: string, token?: string) {
+function appBaseUrl() {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? APP_URL).replace(/\/$/, '')
+}
+
+async function getAuthorizedCustomerOrder(orderId: string, token?: string, editToken?: string) {
   const serviceSupabase = await createServiceClient()
   const { data: order, error } = await serviceSupabase
     .from('orders')
-    .select('id, user_id, access_token, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, display_currency, exchange_rate')
+    .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason')
     .eq('id', orderId)
     .single()
 
@@ -67,8 +74,14 @@ async function getAuthorizedCustomerOrder(orderId: string, token?: string) {
   const user = await getSession()
   const tokenMatches = token && order.access_token && token === order.access_token
   const userOwnsOrder = user?.id && order.user_id === user.id
+  const editTokenMatches =
+    editToken &&
+    order.customer_edit_token &&
+    editToken === order.customer_edit_token &&
+    order.customer_edit_allowed_until &&
+    new Date(order.customer_edit_allowed_until).getTime() > Date.now()
 
-  if (!tokenMatches && !userOwnsOrder) {
+  if (!tokenMatches && !editTokenMatches && !userOwnsOrder) {
     return {
       error:
         'This order is not authorized. Use the original order link or sign in with the account that placed the order.',
@@ -76,27 +89,6 @@ async function getAuthorizedCustomerOrder(orderId: string, token?: string) {
   }
 
   return { order, serviceSupabase }
-}
-
-async function applyStockChangesForOrder(orderId: string, items: OrderItem[]): Promise<LowStockEmailAlert[]> {
-  try {
-    const supabase = await createServiceClient()
-    const { data, error } = await supabase.rpc('apply_order_stock_changes' as never, {
-      p_order_id: orderId,
-      p_items: items,
-      p_threshold: 20,
-    } as never)
-
-    if (error) {
-      console.error('[Stock alerts] Could not apply stock changes:', error.message)
-      return []
-    }
-
-    return (data ?? []) as LowStockEmailAlert[]
-  } catch (error) {
-    console.error('[Stock alerts] Could not apply stock changes:', error)
-    return []
-  }
 }
 
 async function validateCoupon(code: string, subtotal: number) {
@@ -301,6 +293,9 @@ export async function placeOrderAction(
   }
 
   let items: OrderItem[] = cartItemsToOrderItems(resolvedCart)
+  const stockCheck = await validateAndAnnotateOrderStock(items)
+  if (stockCheck.error) return { success: false, error: stockCheck.error }
+  items = stockCheck.items
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const shippingFee = SHIPPING_FEE_PKR
@@ -418,6 +413,9 @@ export async function placeOrderAction(
     display_shipping_fee: convertCurrency(chargedShippingFee, displayCurrency, exchangeRate),
     display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
+    requires_admin_confirmation: stockCheck.requiresAdminConfirmation,
+    admin_confirmation_reason: stockCheck.adminConfirmationReason,
+    source: 'web',
   }
 
   const supabase = user ? await createClient() : await createServiceClient()
@@ -427,7 +425,7 @@ export async function placeOrderAction(
     .select()
     .single()
 
-  if (error && /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason/i.test(error.message)) {
+  if (error && /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source/i.test(error.message)) {
     const legacyPayload = { ...orderPayload }
     delete legacyPayload.display_currency
     delete legacyPayload.exchange_rate
@@ -441,6 +439,9 @@ export async function placeOrderAction(
     delete legacyPayload.member_discount_percent
     delete legacyPayload.shipping_discount_amount
     delete legacyPayload.shipping_discount_reason
+    delete legacyPayload.requires_admin_confirmation
+    delete legacyPayload.admin_confirmation_reason
+    delete legacyPayload.source
     const retry = await supabase
       .from('orders')
       .insert(legacyPayload as never)
@@ -510,6 +511,8 @@ export async function placeOrderAction(
     exchangeRate,
     items,
     shippingAddress,
+    requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
+    adminConfirmationReason: stockCheck.adminConfirmationReason,
   })
 
   await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
@@ -604,6 +607,7 @@ export async function updateCustomerOrderDetailsAction(
   const parsed = customerOrderEditSchema.safeParse({
     orderId: formData.get('orderId'),
     token: formData.get('token') || undefined,
+    editToken: formData.get('editToken') || undefined,
     fullName: formData.get('fullName'),
     email: formData.get('email'),
     phone: formData.get('phone'),
@@ -622,12 +626,12 @@ export async function updateCustomerOrderDetailsAction(
   }
 
   try {
-    const result = await getAuthorizedCustomerOrder(parsed.data.orderId, parsed.data.token)
+    const result = await getAuthorizedCustomerOrder(parsed.data.orderId, parsed.data.token, parsed.data.editToken)
     if (result.error || !result.order || !result.serviceSupabase) {
       return { success: false, error: result.error ?? 'Order could not be found.' }
     }
-    if (!canCustomerEditOrder(result.order.status, result.order.created_at)) {
-      return { success: false, error: 'Orders can only be edited within 5 minutes of placement.' }
+    if (!canCustomerEditOrder(result.order.status, result.order.created_at, Date.now(), result.order.customer_edit_allowed_until)) {
+      return { success: false, error: 'Orders can only be edited within 10 minutes of placement, unless admin shares a temporary edit link.' }
     }
 
     const existingItems = normalizeStoredOrderItems(result.order.items)
@@ -636,8 +640,12 @@ export async function updateCustomerOrderDetailsAction(
       return { success: false, error: editedItemsResult.error ?? 'Order items are incomplete.' }
     }
     const itemsChanged = existingItems.length > 0 && haveOrderItemsChanged(existingItems, editedItemsResult.items)
+    const stockCheck = itemsChanged ? await validateAndAnnotateEditedOrderStock(existingItems, editedItemsResult.items) : null
+    if (stockCheck?.error) {
+      return { success: false, error: stockCheck.error }
+    }
     const editedTotals = itemsChanged
-      ? calculateEditedOrderTotals(result.order, editedItemsResult.items)
+      ? calculateEditedOrderTotals(result.order, stockCheck?.items ?? editedItemsResult.items)
       : null
 
     const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
@@ -683,6 +691,10 @@ export async function updateCustomerOrderDetailsAction(
       updatePayload.display_shipping_fee = convertCurrency(editedTotals.shippingFee, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
       updatePayload.display_discount_amount = convertCurrency(editedTotals.discountAmount, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
       updatePayload.display_total = convertCurrency(editedTotals.total, editedTotals.displayCurrency, editedTotals.displayExchangeRate)
+      if (stockCheck) {
+        updatePayload.requires_admin_confirmation = stockCheck.requiresAdminConfirmation
+        updatePayload.admin_confirmation_reason = stockCheck.adminConfirmationReason
+      }
     }
     if (receiptUpload) {
       updatePayload.receipt_bucket = receiptUpload.bucket
@@ -701,6 +713,15 @@ export async function updateCustomerOrderDetailsAction(
 
     if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be updated.') }
 
+    if (editedTotals) {
+      const lowStockAlerts = await applyStockDeltaForOrderEdit(result.order.id, existingItems, editedTotals.items)
+      await sendLowStockAlertEmail(
+        lowStockAlerts,
+        result.order.id,
+        String(result.order.invoice_number ?? result.order.id.slice(0, 8)),
+      )
+    }
+
     revalidatePath('/checkout/success')
     revalidatePath('/dashboard')
     revalidatePath('/admin/orders')
@@ -716,18 +737,19 @@ export async function cancelCustomerOrderAction(
 ): Promise<ActionResult> {
   const orderId = String(formData.get('orderId') ?? '')
   const token = String(formData.get('token') ?? '') || undefined
+  const editToken = String(formData.get('editToken') ?? '') || undefined
 
   if (!z.string().uuid().safeParse(orderId).success) {
     return { success: false, error: 'Order link is invalid.' }
   }
 
   try {
-    const result = await getAuthorizedCustomerOrder(orderId, token)
+    const result = await getAuthorizedCustomerOrder(orderId, token, editToken)
     if (result.error || !result.order || !result.serviceSupabase) {
       return { success: false, error: result.error ?? 'Order could not be found.' }
     }
-    if (!canCustomerEditOrder(result.order.status, result.order.created_at)) {
-      return { success: false, error: 'Orders can only be cancelled within 5 minutes of placement.' }
+    if (!canCustomerEditOrder(result.order.status, result.order.created_at, Date.now(), result.order.customer_edit_allowed_until)) {
+      return { success: false, error: 'Orders can only be cancelled within 10 minutes of placement, unless admin shares a temporary edit link.' }
     }
 
     const { error } = await result.serviceSupabase
@@ -736,6 +758,8 @@ export async function cancelCustomerOrderAction(
       .eq('id', result.order.id)
 
     if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be cancelled.') }
+
+    await applyStockDeltaForOrderEdit(result.order.id, normalizeStoredOrderItems(result.order.items), [])
 
     revalidatePath('/checkout/success')
     revalidatePath('/dashboard')
@@ -815,6 +839,41 @@ export async function updateOrderInvoiceNumberAction(orderId: string, invoiceNum
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Invoice number could not be updated.') }
   revalidatePath('/admin/orders')
   return { success: true }
+}
+
+export async function allowCustomerInvoiceEditAction(orderId: string): Promise<ActionResult<{ editUrl: string; allowedUntil: string }>> {
+  await requireAdmin()
+
+  if (!z.string().uuid().safeParse(orderId).success) {
+    return { success: false, error: 'Order link is invalid.' }
+  }
+
+  const editToken = generateOrderAccessToken()
+  const allowedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+  const supabase = await createClient()
+  const { data: order, error } = await supabase
+    .from('orders')
+    .update({
+      customer_edit_token: editToken,
+      customer_edit_allowed_until: allowedUntil,
+      customer_edit_enabled_at: new Date().toISOString(),
+    } as never)
+    .eq('id', orderId)
+    .select('id')
+    .single()
+
+  if (error || !order) {
+    return { success: false, error: friendlyErrorMessage(error ?? 'Order not found', 'Edit link could not be created.') }
+  }
+
+  revalidatePath('/admin/orders')
+  return {
+    success: true,
+    data: {
+      allowedUntil,
+      editUrl: `${appBaseUrl()}/checkout/success?order=${orderId}&editToken=${editToken}`,
+    },
+  }
 }
 
 export async function updateOrderStatusFormAction(formData: FormData): Promise<void> {

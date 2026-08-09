@@ -5,7 +5,7 @@ import {
   updateOrderShippingFormAction,
   updateOrderStatusFormAction,
 } from '@/actions/orders'
-import { AdminOrderDeleteButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
+import { AdminOrderDeleteButton, AdminOrderEditLinkButton, AdminOrderInvoiceLinks } from '@/components/admin/order-actions'
 import { formatPrice, formatDate } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +39,13 @@ export default async function AdminOrdersPage() {
                   <p className="text-sm">{addr?.fullName} · {order.phone ?? addr?.phone}</p>
                   <p className="text-sm text-muted-foreground">{addr?.email}</p>
                   {!order.user_id && <Badge variant="outline" className="mt-1">Guest order</Badge>}
+                  {order.source === 'fast_invoice' && <Badge variant="outline" className="mt-1 ml-1">Fast invoice</Badge>}
+                  {order.requires_admin_confirmation && (
+                    <div className="mt-2 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <p className="font-semibold">Admin stock confirmation required</p>
+                      {order.admin_confirmation_reason ? <p className="mt-1">{order.admin_confirmation_reason}</p> : null}
+                    </div>
+                  )}
                   <form action={updateOrderInvoiceNumberFormAction} className="mt-3 flex max-w-sm flex-wrap items-center gap-2">
                     <input type="hidden" name="orderId" value={order.id} />
                     <input
@@ -130,6 +137,7 @@ export default async function AdminOrdersPage() {
                   <Button type="submit" size="sm" variant="outline" className="rounded-xl">Set Shipping</Button>
                 </form>
                 <AdminOrderInvoiceLinks orderId={order.id} />
+                <AdminOrderEditLinkButton orderId={order.id} />
                 <AdminOrderDeleteButton orderId={order.id} />
               </div>
             </div>

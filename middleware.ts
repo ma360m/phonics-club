@@ -16,12 +16,20 @@ function matchesRoutePrefix(pathname: string, prefix: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  const normalizedPathname = pathname.toLowerCase()
+
+  if (pathname !== normalizedPathname) {
+    const url = request.nextUrl.clone()
+    url.pathname = normalizedPathname
+    return NextResponse.redirect(url, 301)
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.next()
   }
 
   const { supabaseResponse, user, supabase } = await updateSession(request)
-  const pathname = request.nextUrl.pathname
 
   const isProtected = PROTECTED_PREFIXES.some((p) => matchesRoutePrefix(pathname, p))
   const isAuthRoute = AUTH_ROUTES.some((p) => matchesRoutePrefix(pathname, p))

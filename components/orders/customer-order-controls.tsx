@@ -34,14 +34,19 @@ interface CustomerOrder {
   shipping_address?: Record<string, string> | null
   phone?: string | null
   guest_email?: string | null
+  customer_edit_allowed_until?: string | null
+  requires_admin_confirmation?: boolean | null
+  admin_confirmation_reason?: string | null
 }
 
 export function CustomerOrderControls({
   order,
   token,
+  editToken,
 }: {
   order: CustomerOrder
   token?: string
+  editToken?: string
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [updateState, updateAction, updatePending] = useActionState(updateCustomerOrderDetailsAction, initialState)
@@ -49,14 +54,16 @@ export function CustomerOrderControls({
   const [paymentMethod, setPaymentMethod] = useState<ShopPaymentMethod>(normalizeShopPaymentMethod(order.payment_method))
   const orderItems = useMemo(() => (Array.isArray(order.items) ? order.items : []), [order.items])
   const [itemQuantities, setItemQuantities] = useState(() => orderItems.map((item) => Math.max(0, Number(item.quantity) || 0)))
-  const canEdit = canCustomerEditOrder(order.status, order.created_at)
+  const canEdit = canCustomerEditOrder(order.status, order.created_at, Date.now(), order.customer_edit_allowed_until)
   const canUploadReceipt =
     shopPaymentNeedsReceipt(order.payment_method) &&
     !order.receipt_url &&
     !order.receipt_path &&
     !['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'].includes(order.status)
   const address = order.shipping_address ?? {}
-  const editUntil = new Date(new Date(order.created_at).getTime() + 5 * 60 * 1000)
+  const defaultEditUntil = new Date(new Date(order.created_at).getTime() + 10 * 60 * 1000)
+  const adminEditUntil = order.customer_edit_allowed_until ? new Date(order.customer_edit_allowed_until) : null
+  const editUntil = adminEditUntil && adminEditUntil.getTime() > defaultEditUntil.getTime() ? adminEditUntil : defaultEditUntil
   const editedItemsSubtotal = orderItems.reduce((sum, item, index) => {
     return sum + Math.max(0, Number(item.price) || 0) * Math.max(0, itemQuantities[index] ?? 0)
   }, 0)
@@ -96,6 +103,18 @@ export function CustomerOrderControls({
         </details>
       </div>
 
+      {order.requires_admin_confirmation && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-semibold">Admin stock confirmation required</p>
+          <p className="mt-1">
+            Some item stock is low or on backorder. Admin will confirm availability before processing this order.
+          </p>
+          {order.admin_confirmation_reason ? (
+            <p className="mt-2 text-xs text-amber-800">{order.admin_confirmation_reason}</p>
+          ) : null}
+        </div>
+      )}
+
       {canUploadReceipt && (
         <PaymentReceiptUploadForm orderId={order.id} token={token} />
       )}
@@ -116,7 +135,7 @@ export function CustomerOrderControls({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-semibold">Need to change something?</p>
-              <p className="text-sm text-muted-foreground">Contact, address, payment method, and order items can be edited during the 5-minute window.</p>
+              <p className="text-sm text-muted-foreground">Contact, address, payment method, and order items can be edited during the 10-minute window.</p>
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" className="rounded-lg" onClick={() => setEditOpen((open) => !open)}>
@@ -125,6 +144,7 @@ export function CustomerOrderControls({
               <form action={cancelAction}>
                 <input type="hidden" name="orderId" value={order.id} />
                 {token && <input type="hidden" name="token" value={token} />}
+                {editToken && <input type="hidden" name="editToken" value={editToken} />}
                 <Button type="submit" disabled={cancelPending || cancelState.success} variant="destructive" className="rounded-lg">
                   {cancelPending ? 'Cancelling...' : 'Cancel Order'}
                 </Button>
@@ -136,6 +156,7 @@ export function CustomerOrderControls({
             <form action={updateAction} className="mt-5 space-y-4 border-t pt-5">
               <input type="hidden" name="orderId" value={order.id} />
               {token && <input type="hidden" name="token" value={token} />}
+              {editToken && <input type="hidden" name="editToken" value={editToken} />}
               <input type="hidden" name="country" value={address.country ?? 'Pakistan'} />
 
               {hasEditableOrderItems && (
@@ -160,6 +181,9 @@ export function CustomerOrderControls({
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold">{item.name}</p>
                             <p className="text-xs text-muted-foreground">{formatPrice(itemPrice)} each</p>
+                            {item.stock_note ? (
+                              <p className="mt-1 text-xs font-medium text-amber-700">{item.stock_note}</p>
+                            ) : null}
                           </div>
                           <QuantityStepper
                             value={quantity}

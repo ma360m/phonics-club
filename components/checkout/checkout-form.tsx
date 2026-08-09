@@ -15,6 +15,7 @@ import { CurrencyDisplayNotice } from '@/components/currency/price-display'
 import { useCurrency } from '@/components/currency/currency-provider'
 import { formatCurrency } from '@/lib/currency'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { evaluateProductOrderability, type ProductStockStatus } from '@/lib/products/inventory'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 
 const initialState: ActionResult = { success: false }
@@ -47,6 +48,9 @@ interface CheckoutItem {
   price: number
   quantity: number
   image?: string
+  stock_status?: ProductStockStatus
+  stock_note?: string
+  stock_available?: number
 }
 
 interface CheckoutDetails {
@@ -88,6 +92,15 @@ type ApiCartItem = {
     sale_percentage?: number | null
     sale_badge_text?: string | null
     images?: string[]
+    stock?: number | null
+    reserved_stock?: number | null
+    low_stock_threshold?: number | null
+    stock_management_enabled?: boolean | null
+    backorder_policy?: string | null
+    max_backorder_quantity?: number | null
+    max_purchase_quantity?: number | null
+    estimated_availability_date?: string | null
+    backorder_message?: string | null
   } | null
 }
 
@@ -288,6 +301,7 @@ export function CheckoutForm({
       const quantity = Number(item.quantity ?? 0)
       if (!product || quantity <= 0) continue
       const pricing = getProductPricing(product)
+      const stock = evaluateProductOrderability(product, quantity)
       nextItems.push({
         id: item.id,
         product_id: item.product_id ?? product.id,
@@ -295,6 +309,11 @@ export function CheckoutForm({
         price: pricing.displayPrice,
         quantity,
         image: product.images?.[0],
+        ...(stock.status !== 'in_stock' ? {
+          stock_status: stock.status,
+          stock_note: stock.message,
+          ...(typeof stock.available === 'number' ? { stock_available: stock.available } : {}),
+        } : {}),
       })
     }
 
@@ -394,6 +413,9 @@ export function CheckoutForm({
                     <div className="min-w-0">
                       <p className="break-words text-sm font-semibold leading-snug text-[#0F172A] sm:text-base">{item.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{format(item.price)} each</p>
+                      {item.stock_note ? (
+                        <p className="mt-1 text-xs font-medium text-amber-700">{item.stock_note}</p>
+                      ) : null}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 sm:justify-end">
                       <div className="flex shrink-0 items-center rounded-full border border-slate-200 bg-[#F8FAFC] p-1">
@@ -827,6 +849,9 @@ function InvoicePreview({
                 <span className="text-xs text-muted-foreground">
                   {item.quantity} x {format(item.price)}
                 </span>
+                {item.stock_note ? (
+                  <span className="mt-1 block text-xs font-medium text-amber-700">{item.stock_note}</span>
+                ) : null}
               </span>
               <span className="shrink-0 text-right font-semibold">{format(item.price * item.quantity)}</span>
             </li>

@@ -100,8 +100,11 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       const discountText = line.lineDiscount > 0
         ? `${formatDiscountPercent(line.discountPercent)}<br><span style="color:#64748b">-${formatPrice(line.lineDiscount)}</span>`
         : '-'
+      const stockNote = line.item.stock_note
+        ? `<br><span style="display:block;margin-top:4px;color:#b45309;font-size:12px;font-weight:700">${escapeHtml(line.item.stock_note)}</span>`
+        : ''
       return `<tr>
-        <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${stockNote}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>

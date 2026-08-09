@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/types/database'
 import { QuantityStepper } from '@/components/shop/quantity-stepper'
+import { evaluateProductOrderability, getProductPurchaseLimit, getProductStockNotice } from '@/lib/products/inventory'
 
 interface Props {
   product: Product
@@ -23,6 +24,8 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
   const [qty, setQty] = useState(initialQty || 1)
   const [wishlisted, setWishlisted] = useState(inWishlist)
   const [pending, startTransition] = useTransition()
+  const orderability = evaluateProductOrderability(product, qty)
+  const stockNotice = getProductStockNotice(product, qty)
 
   function addToCart() {
     startTransition(async () => {
@@ -55,13 +58,13 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
         value={qty}
         onChange={setQty}
         min={1}
-        max={product.stock > 0 ? product.stock : 99}
+        max={getProductPurchaseLimit(product)}
         disabled={pending}
       />
 
-      <Button onClick={addToCart} disabled={pending || product.stock <= 0} className="rounded-xl bg-[#1D4ED8]">
+      <Button onClick={addToCart} disabled={pending || !orderability.ok} className="rounded-xl bg-[#1D4ED8]">
         <ShoppingCart className="w-4 h-4 mr-2" />
-        Add to Cart
+        {orderability.status === 'backorder' ? 'Backorder' : 'Add to Cart'}
       </Button>
 
       <Button
@@ -75,6 +78,11 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
       >
         <Heart className={`w-4 h-4 ${wishlisted ? 'fill-[#D30000] text-[#D30000]' : ''}`} />
       </Button>
+      {stockNotice ? (
+        <p className={`basis-full text-xs font-medium ${stockNotice.ok ? 'text-amber-700' : 'text-destructive'}`}>
+          {stockNotice.message}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -85,6 +93,8 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
   const [qty, setQty] = useState(1)
   const [wishlisted, setWishlisted] = useState(wishlistMode)
   const [pending, startTransition] = useTransition()
+  const orderability = evaluateProductOrderability(product, qty)
+  const stockNotice = getProductStockNotice(product, qty)
 
   function addToCart() {
     startTransition(async () => {
@@ -129,7 +139,7 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
         value={qty}
         onChange={setQty}
         min={1}
-        max={product.stock > 0 ? product.stock : 99}
+        max={getProductPurchaseLimit(product)}
         disabled={pending}
         className="rounded-lg"
         buttonClassName="h-8 w-8"
@@ -137,11 +147,11 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
       />
       <Button
         size="sm"
-        disabled={pending || product.stock <= 0}
+        disabled={pending || !orderability.ok}
         className="h-8 flex-1 rounded-lg bg-[#1D4ED8] text-xs"
         onClick={addToCart}
       >
-        <ShoppingCart className="w-3 h-3 mr-1" /> Add
+        <ShoppingCart className="w-3 h-3 mr-1" /> {orderability.status === 'backorder' ? 'Backorder' : 'Add'}
       </Button>
       {wishlistMode ? (
         <>
@@ -171,6 +181,11 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
           <Heart className={`w-3 h-3 ${wishlisted ? 'fill-[#D30000] text-[#D30000]' : ''}`} />
         </Button>
       )}
+      {stockNotice ? (
+        <p className={`basis-full text-xs font-medium ${stockNotice.ok ? 'text-amber-700' : 'text-destructive'}`}>
+          {stockNotice.message}
+        </p>
+      ) : null}
     </div>
   )
 }

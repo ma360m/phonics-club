@@ -12,6 +12,7 @@ import { useCurrency } from '@/components/currency/currency-provider'
 import { formatCurrency } from '@/lib/currency'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { getProductStockNotice } from '@/lib/products/inventory'
 
 interface CartItem {
   id: string
@@ -27,6 +28,15 @@ interface CartItem {
     sale_percentage?: number | null
     sale_badge_text?: string | null
     images?: string[]
+    stock?: number | null
+    reserved_stock?: number | null
+    low_stock_threshold?: number | null
+    stock_management_enabled?: boolean | null
+    backorder_policy?: string | null
+    max_backorder_quantity?: number | null
+    max_purchase_quantity?: number | null
+    estimated_availability_date?: string | null
+    backorder_message?: string | null
   }
 }
 
@@ -87,6 +97,7 @@ export function CartPageClient() {
       {items.map((item) => {
         const product = item.products
         const pricing = getProductPricing(product)
+        const stockNotice = getProductStockNotice(product, item.quantity)
         return (
           <div key={item.id} className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 sm:flex-row">
             <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shrink-0">
@@ -111,6 +122,11 @@ export function CartPageClient() {
               ) : (
                 <CartItemControls cartItemId={item.id} quantity={item.quantity} />
               )}
+              {stockNotice ? (
+                <p className={`mt-2 text-xs font-medium ${stockNotice.ok ? 'text-amber-700' : 'text-destructive'}`}>
+                  {stockNotice.message}
+                </p>
+              ) : null}
             </div>
             <p className="shrink-0 text-right font-bold sm:text-left">
               <PriceDisplay amountPkr={pricing.displayPrice * item.quantity} showApproxPkr={false} />

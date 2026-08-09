@@ -23,6 +23,10 @@ function toRow(product: Product): Row {
     category: product.category,
     price: Number(product.price ?? 0),
     stock: Number(product.stock ?? 0),
+    low_stock_threshold: Number(product.low_stock_threshold ?? 20),
+    stock_management_enabled: product.stock_management_enabled ?? true,
+    backorder_policy: product.backorder_policy === 'enabled' || product.backorder_policy === 'enabled_with_warning' ? product.backorder_policy : 'disabled',
+    max_backorder_quantity: product.max_backorder_quantity == null ? null : Number(product.max_backorder_quantity),
     sale_enabled: Boolean(product.sale_enabled),
     sale_price: product.sale_price == null ? null : Number(product.sale_price),
     sale_percentage: product.sale_percentage == null ? null : Number(product.sale_percentage),
@@ -74,11 +78,15 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
   function saveSelected() {
     const updates = rows
       .filter((row) => selectedIds.has(row.id))
-      .map(({ id, isbn, price, stock, sale_enabled, sale_price, sale_percentage, published, featured }) => ({
+      .map(({ id, isbn, price, stock, low_stock_threshold, stock_management_enabled, backorder_policy, max_backorder_quantity, sale_enabled, sale_price, sale_percentage, published, featured }) => ({
         id,
         isbn: String(isbn ?? '').trim(),
         price,
         stock,
+        low_stock_threshold,
+        stock_management_enabled,
+        backorder_policy,
+        max_backorder_quantity,
         sale_enabled,
         sale_price,
         sale_percentage,
@@ -123,7 +131,7 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-[1080px] w-full text-sm">
+          <table className="min-w-[1440px] w-full text-sm">
             <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-12 px-4 py-3">
@@ -138,6 +146,10 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                 <th className="px-4 py-3">ISBN</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Stock</th>
+                <th className="px-4 py-3">Low Alert</th>
+                <th className="px-4 py-3">Track</th>
+                <th className="px-4 py-3">Backorder</th>
+                <th className="px-4 py-3">Backorder Max</th>
                 <th className="px-4 py-3">Sale</th>
                 <th className="px-4 py-3">Sale Price</th>
                 <th className="px-4 py-3">Sale %</th>
@@ -186,6 +198,44 @@ export function FastUpdateTable({ products }: { products: Product[] }) {
                       value={row.stock}
                       onChange={(event) => updateRow(row.id, { stock: Number(event.target.value) })}
                       className="h-9 w-24 rounded-lg"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={row.low_stock_threshold}
+                      onChange={(event) => updateRow(row.id, { low_stock_threshold: Number(event.target.value) })}
+                      className="h-9 w-24 rounded-lg"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={row.stock_management_enabled}
+                      onChange={(event) => updateRow(row.id, { stock_management_enabled: event.target.checked })}
+                      aria-label={`Stock tracking for ${row.name}`}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={row.backorder_policy}
+                      onChange={(event) => updateRow(row.id, { backorder_policy: event.target.value as Row['backorder_policy'] })}
+                      className="h-9 w-40 rounded-lg border bg-background px-2 text-xs"
+                    >
+                      <option value="disabled">Disabled</option>
+                      <option value="enabled">Enabled</option>
+                      <option value="enabled_with_warning">With warning</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={row.max_backorder_quantity ?? ''}
+                      onChange={(event) => updateRow(row.id, { max_backorder_quantity: event.target.value === '' ? null : Number(event.target.value) })}
+                      className="h-9 w-24 rounded-lg"
+                      placeholder="Any"
                     />
                   </td>
                   <td className="px-4 py-3">

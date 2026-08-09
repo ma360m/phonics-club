@@ -42,6 +42,7 @@ const instructorLinks = [
 
 const adminLinks = [
   { href: '/admin/fast-update', label: 'Fast Update', icon: TableProperties },
+  { href: '/admin/fast-invoices', label: 'Fast Invoices', icon: FileText },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/course-payments', label: 'Course Payments', icon: CreditCard },
   { href: '/admin/course-cancellations', label: 'Cancellations', icon: FileText },

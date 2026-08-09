@@ -214,7 +214,7 @@ export const DEFAULT_FAQS: FAQItem[] = [
   {
     q: 'How can I cancel a product order?',
     a: [
-      'A product order can be cancelled only within 5 minutes of placement and only before it has moved into payment confirmation, processing, shipping, or delivery.',
+      'A product order can be cancelled only within 10 minutes of placement and only before it has moved into payment confirmation, processing, shipping, or delivery.',
       'Once the edit window closes, contact Phonics Club support for any urgent correction requests.',
     ],
   },

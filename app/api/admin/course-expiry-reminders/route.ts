@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getProfile, isAdminRole } from '@/lib/auth'
 import { COMPANY } from '@/lib/company'
 import { APP_URL } from '@/lib/constants'
+import { sendTransactionalEmail } from '@/lib/email/mailer'
 
 const DAY_MS = 86_400_000
 
@@ -35,21 +36,12 @@ async function sendReminderEmail(input: {
   body: string
   courseUrl: string
 }) {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <onboarding@resend.dev>'
-  if (!apiKey) return { ok: false, skipped: true, detail: 'RESEND_API_KEY is not configured' }
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: input.subject,
-      html: `
+  const from = process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
+  const result = await sendTransactionalEmail({
+    from,
+    to: [input.to],
+    subject: input.subject,
+    html: `
         <div style="margin:0;background:#f8fafc;padding:28px;font-family:Arial,sans-serif;color:#0f172a">
           <div style="margin:0 auto;max-width:640px;border:1px solid #dbeafe;border-radius:18px;background:#fff;overflow:hidden">
             <div style="background:#1D4ED8;padding:22px;color:#fff">
@@ -68,10 +60,8 @@ async function sendReminderEmail(input: {
           </div>
         </div>
       `,
-    }),
   })
-  const text = await res.text().catch(() => '')
-  return { ok: res.ok, skipped: false, detail: text, status: res.status }
+  return { ok: result.ok, skipped: result.provider === 'log', detail: result.responseText ?? String(result.error ?? ''), status: result.status }
 }
 
 async function authorized(request: Request) {
@@ -190,7 +180,7 @@ export async function POST(request: Request) {
             enrollmentId: enrollment.id,
             daysRemaining,
             expiresAt: enrollment.expires_at,
-            resendResponse: result.detail,
+            emailResponse: result.detail,
             status: result.status ?? null,
           },
         } as never)

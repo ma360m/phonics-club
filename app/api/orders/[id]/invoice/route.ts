@@ -12,6 +12,7 @@ export async function GET(
   const { id } = await params
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
+  const editToken = searchParams.get('editToken')
   const format = searchParams.get('format') ?? 'html'
 
   const serviceSupabase = await createServiceClient()
@@ -24,7 +25,16 @@ export async function GET(
   const user = await getSession()
   let authorized = false
 
+  const editTokenValid =
+    editToken &&
+    order.customer_edit_token &&
+    editToken === order.customer_edit_token &&
+    order.customer_edit_allowed_until &&
+    new Date(order.customer_edit_allowed_until).getTime() > Date.now()
+
   if (token && order.access_token && token === order.access_token) {
+    authorized = true
+  } else if (editTokenValid) {
     authorized = true
   } else if (user) {
     const supabase = await createClient()

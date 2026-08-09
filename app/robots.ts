@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { APP_URL } from '@/lib/constants'
+import { CANONICAL_URL } from '@/lib/constants'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin/', '/dashboard/', '/api/', '/checkout/', '/cart/', '/wishlist/', '/auth/'],
     },
-    sitemap: `${APP_URL}/sitemap.xml`,
+    sitemap: `${CANONICAL_URL}/sitemap.xml`,
   }
 }

@@ -84,9 +84,11 @@ export function getCustomerOrderStatusLabel(status: string, paymentMethod?: unkn
   return steps.find((step) => step.status === status)?.label ?? status.replace(/_/g, ' ')
 }
 
-export function canCustomerEditOrder(status: string, createdAt: string, now = Date.now()): boolean {
-  const editableStatuses = new Set(['pending', 'awaiting_payment', 'payment_submitted'])
+export function canCustomerEditOrder(status: string, createdAt: string, now = Date.now(), adminAllowedUntil?: string | null): boolean {
+  const editableStatuses = new Set(['pending', 'awaiting_payment', 'payment_submitted', 'payment_review'])
   const created = new Date(createdAt).getTime()
   if (!Number.isFinite(created) || !editableStatuses.has(status)) return false
-  return now - created <= 5 * 60 * 1000
+
+  const adminAllowed = adminAllowedUntil ? new Date(adminAllowedUntil).getTime() : Number.NaN
+  return now - created <= 10 * 60 * 1000 || (Number.isFinite(adminAllowed) && adminAllowed > now)
 }

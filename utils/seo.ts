@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { APP_NAME, APP_URL, APP_DESCRIPTION } from '@/lib/constants'
+import { APP_NAME, APP_DESCRIPTION, CANONICAL_URL } from '@/lib/constants'
+import { COMPANY } from '@/lib/company'
 import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { Product, Course, BlogPost } from '@/types/database'
@@ -25,7 +26,7 @@ function cleanSeoText(value: string) {
 function absoluteUrl(value?: string | null) {
   if (!value) return undefined
   if (/^https?:\/\//i.test(value)) return value
-  return `${APP_URL}${value.startsWith('/') ? value : `/${value}`}`
+  return `${CANONICAL_URL}${value.startsWith('/') ? value : `/${value}`}`
 }
 
 export function buildMetadata({
@@ -41,10 +42,13 @@ export function buildMetadata({
   image?: string
   type?: 'website' | 'article'
 }): Metadata {
-  const fullTitle = title ? `${title} | ${APP_NAME}` : `${APP_NAME} | Premium Phonics Education`
-  const url = `${APP_URL}${path}`
+  const fullTitle = title
+    ? `${title} | ${APP_NAME}`
+    : 'Phonics Club Pakistan | Jolly Phonics Training, Books & Literacy Courses'
+  const normalizedPath = path ? (path.startsWith('/') ? path : `/${path}`) : ''
+  const url = `${CANONICAL_URL}${normalizedPath}`
   const safeDescription = cleanSeoText(description)
-  const ogImage = absoluteUrl(image) || `${APP_URL}/og-default.png`
+  const ogImage = absoluteUrl(image) || `${CANONICAL_URL}/og-default.png`
 
   return {
     title: fullTitle,
@@ -54,15 +58,17 @@ export function buildMetadata({
     publisher: APP_NAME,
     category: 'education',
     keywords: DEFAULT_KEYWORDS,
-    metadataBase: new URL(APP_URL),
+    metadataBase: new URL(CANONICAL_URL),
     alternates: { canonical: url },
     icons: {
       icon: [
-        { url: '/logo.png', type: 'image/png', sizes: '512x512' },
-        { url: '/icon.svg', type: 'image/svg+xml' },
+        { url: '/favicon.ico', type: 'image/x-icon', sizes: 'any' },
+        { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+        { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+        { url: '/icon-192x192.png', type: 'image/png', sizes: '192x192' },
       ],
-      apple: [{ url: '/apple-icon.png', type: 'image/png' }],
-      shortcut: ['/logo.png'],
+      shortcut: [{ url: '/favicon.ico', type: 'image/x-icon' }],
+      apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
     },
     robots: {
       index: true,
@@ -93,15 +99,25 @@ export function buildMetadata({
 }
 
 export function organizationJsonLd() {
+  const sameAs = [COMPANY.social.instagram, COMPANY.social.facebook, COMPANY.social.youtube].filter(Boolean)
+
   return {
     '@context': 'https://schema.org',
-    '@type': 'EducationalOrganization',
-    '@id': `${APP_URL}/#organization`,
+    '@type': 'Organization',
+    '@id': `${CANONICAL_URL}/#organization`,
     name: APP_NAME,
+    legalName: COMPANY.legalName,
     alternateName: ['Phonics Club', 'Phonics Club Pakistan'],
-    url: APP_URL,
-    logo: `${APP_URL}/logo.png`,
+    url: CANONICAL_URL,
+    logo: {
+      '@type': 'ImageObject',
+      url: `${CANONICAL_URL}/logo.png`,
+      width: 373,
+      height: 291,
+    },
+    image: `${CANONICAL_URL}/og-default.png`,
     description: cleanSeoText(APP_DESCRIPTION),
+    foundingDate: String(COMPANY.founded),
     contactPoint: [
       {
         '@type': 'ContactPoint',
@@ -110,11 +126,7 @@ export function organizationJsonLd() {
         availableLanguage: ['English', 'Urdu'],
       },
     ],
-    sameAs: [
-      'https://www.instagram.com/phonics.club/',
-      'https://www.facebook.com/phonicsclub/',
-      'https://youtu.be/8Tjs_Z1I0cM',
-    ],
+    sameAs,
   }
 }
 
@@ -137,7 +149,7 @@ export function productJsonLd(product: Product) {
         product.stock > 0
           ? 'https://schema.org/InStock'
           : 'https://schema.org/OutOfStock',
-      url: `${APP_URL}/shop/${product.slug}`,
+      url: `${CANONICAL_URL}/shop/${product.slug}`,
     },
   }
 }
@@ -149,12 +161,12 @@ export function courseJsonLd(course: Course) {
     '@type': 'Course',
     name: course.title,
     description: course.description || course.excerpt,
-    provider: { '@type': 'Organization', name: APP_NAME, url: APP_URL },
+    provider: { '@type': 'Organization', name: APP_NAME, url: CANONICAL_URL },
     offers: {
       '@type': 'Offer',
       price,
       priceCurrency: course.currency ?? 'PKR',
-      url: `${APP_URL}/courses/${course.slug}`,
+      url: `${CANONICAL_URL}/courses/${course.slug}`,
       availability: course.published ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
     },
     educationalLevel: course.level,
@@ -177,11 +189,11 @@ export function articleJsonLd(post: BlogPost) {
     },
     publisher: {
       '@type': 'Organization',
-      '@id': `${APP_URL}/#organization`,
+      '@id': `${CANONICAL_URL}/#organization`,
       name: APP_NAME,
-      logo: { '@type': 'ImageObject', url: `${APP_URL}/logo.png` },
+      logo: { '@type': 'ImageObject', url: `${CANONICAL_URL}/logo.png`, width: 373, height: 291 },
     },
-    url: `${APP_URL}/blog/${post.slug}`,
+    url: `${CANONICAL_URL}/blog/${post.slug}`,
   }
 }
 
@@ -189,15 +201,15 @@ export function websiteJsonLd() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    '@id': `${APP_URL}/#website`,
+    '@id': `${CANONICAL_URL}/#website`,
     name: APP_NAME,
     alternateName: ['Phonics Club', 'Phonics Club Pakistan'],
-    url: APP_URL,
+    url: CANONICAL_URL,
     inLanguage: 'en',
-    publisher: { '@id': `${APP_URL}/#organization` },
+    publisher: { '@id': `${CANONICAL_URL}/#organization` },
     potentialAction: {
       '@type': 'SearchAction',
-      target: `${APP_URL}/shop?q={search_term_string}`,
+      target: `${CANONICAL_URL}/shop?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
     mainEntity: {
@@ -208,7 +220,7 @@ export function websiteJsonLd() {
         '@type': 'ListItem',
         position: index + 1,
         name: link.name,
-        url: `${APP_URL}${link.href}`,
+        url: `${CANONICAL_URL}${link.href}`,
       })),
     },
     hasPart: PRIMARY_SITE_LINKS.map((link, index) => ({
@@ -216,7 +228,7 @@ export function websiteJsonLd() {
       position: index + 1,
       name: link.name,
       description: link.description,
-      url: `${APP_URL}${link.href}`,
+      url: `${CANONICAL_URL}${link.href}`,
     })),
   }
 }

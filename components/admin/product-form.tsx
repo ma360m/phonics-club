@@ -113,6 +113,52 @@ export function ProductForm({
         </div>
       </div>
       <div className="rounded-2xl border bg-muted/30 p-4">
+        <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" name="stock_management_enabled" defaultChecked={product?.stock_management_enabled ?? true} /> Track stock
+          </label>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Low Stock Alert</Label>
+            <Input name="low_stock_threshold" type="number" min={0} step="1" defaultValue={product?.low_stock_threshold ?? 20} className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Backorder</Label>
+            <select name="backorder_policy" defaultValue={product?.backorder_policy ?? 'disabled'} className="w-full rounded-xl border bg-background px-3 py-2">
+              <option value="disabled">Disabled</option>
+              <option value="enabled">Enabled</option>
+              <option value="enabled_with_warning">Enabled with warning</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Max Backorder Qty</Label>
+            <Input name="max_backorder_quantity" type="number" min={0} step="1" defaultValue={product?.max_backorder_quantity ?? ''} placeholder="Optional" className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Max Purchase Qty</Label>
+            <Input name="max_purchase_quantity" type="number" min={1} step="1" defaultValue={product?.max_purchase_quantity ?? ''} placeholder="Optional" className="rounded-xl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Estimated Availability</Label>
+            <Input name="estimated_availability_date" type="date" defaultValue={product?.estimated_availability_date ?? ''} className="rounded-xl" />
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          <Label>Backorder / Low Stock Message</Label>
+          <Input
+            name="backorder_message"
+            defaultValue={product?.backorder_message ?? ''}
+            maxLength={240}
+            placeholder="Admin will confirm availability before processing."
+            className="rounded-xl"
+          />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Backorder-enabled items can be ordered even when stock is low. Customers will see that admin must confirm availability first.
+        </p>
+      </div>
+      <div className="rounded-2xl border bg-muted/30 p-4">
         <label className="flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" name="sale_enabled" defaultChecked={product?.sale_enabled ?? false} /> Mark product as sale item
         </label>

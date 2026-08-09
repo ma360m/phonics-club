@@ -3,6 +3,7 @@ import { invoiceFileBaseName } from '@/lib/invoice'
 import { formatDate, formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { APP_URL } from '@/lib/constants'
+import { sendTransactionalEmail } from '@/lib/email/mailer'
 
 interface EmailAttachment {
   filename: string
@@ -16,17 +17,12 @@ interface EmailPayload {
   attachments?: EmailAttachment[]
 }
 
-interface ResendEmailResult {
-  ok: boolean
-  status?: number
-  responseText?: string
-  error?: unknown
-}
-
 interface OrderEmailItem {
   name: string
   price: number
   quantity: number
+  stock_note?: string
+  stock_status?: string
 }
 
 interface OrderEmailShippingAddress {
@@ -53,6 +49,8 @@ interface OrderEmailOptions {
   exchangeRate?: number
   items: OrderEmailItem[]
   shippingAddress: OrderEmailShippingAddress | null
+  requiresAdminConfirmation?: boolean
+  adminConfirmationReason?: string | null
 }
 
 export interface LowStockEmailAlert {
@@ -179,6 +177,8 @@ function buildCustomerEmailHtml({
   displayCurrency,
   displayTotal,
   exchangeRate,
+  requiresAdminConfirmation,
+  adminConfirmationReason,
 }: {
   customerName: string
   invoiceNumber: string
@@ -190,13 +190,17 @@ function buildCustomerEmailHtml({
   displayCurrency?: string
   displayTotal?: number
   exchangeRate?: number
+  requiresAdminConfirmation?: boolean
+  adminConfirmationReason?: string | null
 }): string {
   const safeName = customerName.trim() || 'there'
   const body = `
     ${buildHeader(
       'Phonics Club',
-      'Your order is confirmed',
-      'Thank you for ordering official Phonics Club learning resources.'
+      requiresAdminConfirmation ? 'Your order has been received' : 'Your order is confirmed',
+      requiresAdminConfirmation
+        ? 'Some item stock is low or on backorder, so admin will confirm availability before processing.'
+        : 'Thank you for ordering official Phonics Club learning resources.'
     )}
     <tr>
       <td style="padding:30px;">
@@ -215,6 +219,10 @@ function buildCustomerEmailHtml({
           ${buildButton('Download Invoice', invoicePdfUrl, '#1D4ED8')}
           ${buildButton('View Invoice', invoiceHtmlUrl, '#FBBF24', '#111827')}
         </div>
+        ${requiresAdminConfirmation ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;color:#92400e;font-size:14px;line-height:1.6;margin:0 0 24px;padding:16px;">
+          <p style="font-weight:700;margin:0 0 6px;">Admin stock confirmation required</p>
+          <p style="margin:0;">We will confirm availability before processing this order.${adminConfirmationReason ? ` ${escapeHtml(adminConfirmationReason)}` : ''}</p>
+        </div>` : ''}
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:18px;">
           <p style="color:#111827;font-size:14px;font-weight:700;margin:0 0 8px;">Need help with your order?</p>
           <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0;">
@@ -248,6 +256,8 @@ function buildAdminEmailHtml({
   shippingAddress,
   adminOrderUrl,
   invoicePdfUrl,
+  requiresAdminConfirmation,
+  adminConfirmationReason,
 }: {
   customerName: string
   customerEmail: string
@@ -262,13 +272,15 @@ function buildAdminEmailHtml({
   shippingAddress: OrderEmailShippingAddress | null
   adminOrderUrl: string
   invoicePdfUrl: string
+  requiresAdminConfirmation?: boolean
+  adminConfirmationReason?: string | null
 }): string {
   const itemRows = items
     .map((item) => {
       const lineTotal = Number(item.price) * Number(item.quantity)
       return `
         <tr>
-          <td style="border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;padding:12px 0;">${escapeHtml(item.name)}</td>
+          <td style="border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;padding:12px 0;">${escapeHtml(item.name)}${item.stock_note ? `<br /><span style="color:#b45309;font-size:12px;font-weight:700;">${escapeHtml(item.stock_note)}</span>` : ''}</td>
           <td align="center" style="border-bottom:1px solid #e5e7eb;color:#4b5563;font-size:14px;padding:12px 8px;">${escapeHtml(item.quantity)}</td>
           <td align="right" style="border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:700;padding:12px 0;">${escapeHtml(formatPrice(lineTotal))}</td>
         </tr>
@@ -291,8 +303,13 @@ function buildAdminEmailHtml({
           ${buildDetailRow('Invoice number', invoiceNumber)}
           ${buildDetailRow('Payment status', formatStatus(paymentStatus))}
           ${buildDetailRow('Total', formatPrice(total))}
+          ${requiresAdminConfirmation ? buildDetailRow('Stock confirmation', 'Required') : ''}
           ${displayCurrency === 'USD' && displayTotal && exchangeRate ? buildDetailRow('Displayed at checkout', `${formatCurrency(displayTotal, 'USD', { freeLabel: false })} (1 USD = ${exchangeRate.toLocaleString('en-PK')} PKR)`) : ''}
         </table>
+        ${requiresAdminConfirmation ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;color:#92400e;font-size:14px;line-height:1.6;margin:0 0 24px;padding:16px;">
+          <p style="font-weight:700;margin:0 0 6px;">Low-stock/backorder review</p>
+          <p style="margin:0;">${escapeHtml(adminConfirmationReason ?? 'Review item availability before processing this order.')}</p>
+        </div>` : ''}
 
         <h2 style="color:#111827;font-size:16px;margin:0 0 12px;">Ordered items</h2>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
@@ -320,31 +337,6 @@ function buildAdminEmailHtml({
   return buildEmailShell(`New order ${invoiceNumber}`, body)
 }
 
-async function sendResendEmail(apiKey: string, from: string, payload: EmailPayload): Promise<ResendEmailResult> {
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        ...payload,
-      }),
-    })
-    const responseText = await res.text().catch(() => '')
-
-    return {
-      ok: res.ok,
-      status: res.status,
-      responseText,
-    }
-  } catch (error) {
-    return { ok: false, error }
-  }
-}
-
 export async function sendOrderConfirmationEmail(
   to: string,
   orderId: string,
@@ -352,9 +344,8 @@ export async function sendOrderConfirmationEmail(
   _invoiceHtml: string,
   options: OrderEmailOptions
 ): Promise<{ sent: boolean }> {
-  const apiKey = process.env.RESEND_API_KEY
   const emailFrom =
-    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <onboarding@resend.dev>'
+    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
   const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
   const baseUrl = getBaseUrl()
   const tokenParam = options?.accessToken ? `&token=${options.accessToken}` : ''
@@ -364,13 +355,6 @@ export async function sendOrderConfirmationEmail(
   const attachment = options?.pdfBase64
     ? [{ filename: `${invoiceFileBaseName(invoiceNumber, options.customerName)}.pdf`, content: options.pdfBase64 }]
     : undefined
-
-  if (!apiKey) {
-    console.info(`[Order email] To: ${to} and ${adminEmail} | Invoice: ${invoiceNumber} | Order: ${orderId}`)
-    console.error('Customer email failed', 'RESEND_API_KEY is not configured')
-    console.error('Admin email failed', 'RESEND_API_KEY is not configured')
-    return { sent: false }
-  }
 
   const customerEmail: EmailPayload = {
     to: [to],
@@ -386,6 +370,8 @@ export async function sendOrderConfirmationEmail(
       displayCurrency: options.displayCurrency,
       displayTotal: options.displayTotal,
       exchangeRate: options.exchangeRate,
+      requiresAdminConfirmation: options.requiresAdminConfirmation,
+      adminConfirmationReason: options.adminConfirmationReason,
     }),
     attachments: attachment,
   }
@@ -407,13 +393,15 @@ export async function sendOrderConfirmationEmail(
       shippingAddress: options.shippingAddress,
       adminOrderUrl,
       invoicePdfUrl,
+      requiresAdminConfirmation: options.requiresAdminConfirmation,
+      adminConfirmationReason: options.adminConfirmationReason,
     }),
     attachments: attachment,
   }
 
   const [customerResult, adminResult] = await Promise.all([
-    sendResendEmail(apiKey, emailFrom, customerEmail),
-    sendResendEmail(apiKey, emailFrom, adminEmailPayload),
+    sendTransactionalEmail({ from: emailFrom, ...customerEmail }),
+    sendTransactionalEmail({ from: emailFrom, ...adminEmailPayload }),
   ])
 
   if (customerResult.ok) {
@@ -421,7 +409,7 @@ export async function sendOrderConfirmationEmail(
   } else {
     console.error('Customer email failed', customerResult.error ?? {
       status: customerResult.status,
-      resendResponse: customerResult.responseText,
+      emailResponse: customerResult.responseText,
     })
   }
 
@@ -430,7 +418,7 @@ export async function sendOrderConfirmationEmail(
   } else {
     console.error('Admin email failed', adminResult.error ?? {
       status: adminResult.status,
-      resendResponse: adminResult.responseText,
+      emailResponse: adminResult.responseText,
     })
   }
 
@@ -444,15 +432,9 @@ export async function sendLowStockAlertEmail(
 ): Promise<{ sent: boolean }> {
   if (!alerts.length) return { sent: false }
 
-  const apiKey = process.env.RESEND_API_KEY
   const emailFrom =
-    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <onboarding@resend.dev>'
+    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
   const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
-
-  if (!apiKey) {
-    console.info(`[Low stock email] ${alerts.length} alert(s) for order ${orderId}`)
-    return { sent: false }
-  }
 
   const rows = alerts
     .map(
@@ -461,7 +443,8 @@ export async function sendLowStockAlertEmail(
     )
     .join('')
 
-  const sent = await sendResendEmail(apiKey, emailFrom, {
+  const sent = await sendTransactionalEmail({
+    from: emailFrom,
     to: [adminEmail],
     subject: `Low stock alert - Invoice ${invoiceNumber}`,
     html: `
@@ -483,7 +466,7 @@ export async function sendLowStockAlertEmail(
   if (!sent.ok) {
     console.error('[Low stock email] Failed', sent.error ?? {
       status: sent.status,
-      resendResponse: sent.responseText,
+      emailResponse: sent.responseText,
     })
   }
 

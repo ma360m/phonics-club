@@ -41,7 +41,7 @@ export function friendlyErrorMessage(error: unknown, fallback = 'Something went 
   }
 
   if (lower.includes('resend') || lower.includes('email') && lower.includes('api key')) {
-    return 'Order email could not be sent because email delivery is not configured. Add RESEND_API_KEY, ORDER_EMAIL_FROM, ORDER_ADMIN_EMAIL, and NEXT_PUBLIC_APP_URL in Vercel.'
+    return 'Order email could not be sent because email delivery is not configured. Add cPanel SMTP settings (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ORDER_EMAIL_FROM, ORDER_ADMIN_EMAIL) or RESEND_API_KEY, then redeploy.'
   }
 
   if (lower.includes('duplicate key') || lower.includes('23505') || lower.includes('already exists')) {
@@ -79,7 +79,7 @@ export function friendlyErrorMessage(error: unknown, fallback = 'Something went 
   }
 
   if (lower.includes('network') || lower.includes('fetch failed') || lower.includes('econn') || lower.includes('timeout')) {
-    return 'The server could not reach a required service. Check the Supabase, Cloudinary, Resend, or Vercel connection and try again.'
+    return 'The server could not reach a required service. Check the Supabase, Cloudinary, SMTP/Resend, or Vercel connection and try again.'
   }
 
   if (lower.includes('relation') && lower.includes('does not exist')) {

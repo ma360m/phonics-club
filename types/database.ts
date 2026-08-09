@@ -264,6 +264,12 @@ export interface Order {
   display_shipping_fee?: number | null
   display_discount_amount?: number | null
   display_total?: number | null
+  source?: string | null
+  requires_admin_confirmation?: boolean | null
+  admin_confirmation_reason?: string | null
+  customer_edit_token?: string | null
+  customer_edit_allowed_until?: string | null
+  customer_edit_enabled_at?: string | null
   items: OrderItem[]
   shipping_address: Record<string, string> | null
   notes: string | null
@@ -279,6 +285,9 @@ export interface OrderItem {
   image?: string
   discount_amount?: number
   discount_percent?: number
+  stock_status?: 'in_stock' | 'low_stock' | 'backorder' | 'out_of_stock'
+  stock_note?: string
+  stock_available?: number
 }
 
 export interface Trainer {
