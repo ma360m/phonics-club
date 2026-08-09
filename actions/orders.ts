@@ -59,6 +59,14 @@ function appBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL ?? APP_URL).replace(/\/$/, '')
 }
 
+function errorForLog(error: unknown) {
+  if (error instanceof Error) return { name: error.name, message: error.message }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return { message: String((error as { message?: unknown }).message) }
+  }
+  return { message: String(error ?? 'Unknown error') }
+}
+
 async function getAuthorizedCustomerOrder(orderId: string, token?: string, editToken?: string) {
   const serviceSupabase = await createServiceClient()
   const { data: order, error } = await serviceSupabase
@@ -270,7 +278,18 @@ export async function placeOrderAction(
   const guestCartJson = formData.get('guestCart') as string | null
   const resolvedCart = await resolveCartForCheckout(user?.id ?? null, guestCartJson)
 
-  if (!resolvedCart.length) return { success: false, error: 'Your cart is empty' }
+  console.info('Checkout submit received', {
+    checkoutRoute: '/checkout',
+    action: 'placeOrderAction',
+    hasUser: Boolean(user?.id),
+    guestCheckout: !user?.id,
+    cartItemCount: resolvedCart.length,
+  })
+
+  if (!resolvedCart.length) {
+    console.error('Order creation failed', { reason: 'empty_cart' })
+    return { success: false, error: 'Your cart is empty' }
+  }
 
   const parsed = checkoutSchema.safeParse({
     fullName: formData.get('fullName'),
@@ -286,6 +305,10 @@ export async function placeOrderAction(
   })
 
   if (!parsed.success) {
+    console.error('Order creation failed', {
+      reason: 'checkout_validation_failed',
+      issue: parsed.error.errors[0]?.message,
+    })
     return {
       success: false,
       error: friendlyErrorMessage(parsed.error.errors[0]?.message ?? 'Invalid form data', 'Checkout details are incomplete.'),
@@ -294,7 +317,10 @@ export async function placeOrderAction(
 
   let items: OrderItem[] = cartItemsToOrderItems(resolvedCart)
   const stockCheck = await validateAndAnnotateOrderStock(items)
-  if (stockCheck.error) return { success: false, error: stockCheck.error }
+  if (stockCheck.error) {
+    console.error('Order creation failed', { reason: 'stock_validation_failed', error: stockCheck.error })
+    return { success: false, error: stockCheck.error }
+  }
   items = stockCheck.items
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
@@ -311,7 +337,10 @@ export async function placeOrderAction(
 
   if (parsed.data.couponCode?.trim()) {
     const couponResult = await validateCoupon(parsed.data.couponCode.trim(), subtotal)
-    if (couponResult.error) return { success: false, error: couponResult.error }
+    if (couponResult.error) {
+      console.error('Order creation failed', { reason: 'coupon_validation_failed', error: couponResult.error })
+      return { success: false, error: couponResult.error }
+    }
     couponDiscountAmount = couponResult.discount
     couponDiscountPercent = Number(couponResult.discountPercent.toFixed(2))
     discountAmount += couponDiscountAmount
@@ -320,7 +349,10 @@ export async function placeOrderAction(
 
   if (parsed.data.memberId?.trim()) {
     const memberResult = await validateMemberDiscount(parsed.data.memberId, Math.max(0, subtotal - discountAmount))
-    if (memberResult.error) return { success: false, error: memberResult.error }
+    if (memberResult.error) {
+      console.error('Order creation failed', { reason: 'member_discount_validation_failed', error: memberResult.error })
+      return { success: false, error: memberResult.error }
+    }
     memberDiscountAmount = memberResult.discount
     memberDiscountPercent = Number(memberResult.discountPercent ?? 0)
     discountAmount += memberDiscountAmount
@@ -339,6 +371,7 @@ export async function placeOrderAction(
   const total = Math.max(0, subtotal + chargedShippingFee - discountAmount)
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
   if (!(await isPaymentMethodEnabled(paymentMethod, total))) {
+    console.error('Order creation failed', { reason: 'payment_method_disabled', paymentMethod, total })
     return { success: false, error: 'This payment method is currently unavailable. Please choose another payment method.' }
   }
   const receiptRequired = shopPaymentNeedsReceipt(paymentMethod)
@@ -354,6 +387,7 @@ export async function placeOrderAction(
   let receiptUpload: OrderReceiptUpload | null = null
   const receiptFile = formData.get('receipt') as File | null
   if (receiptRequired && receiptTiming === 'now' && (!receiptFile || receiptFile.size <= 0)) {
+    console.error('Order creation failed', { reason: 'required_receipt_missing', paymentMethod })
     return {
       success: false,
       error: 'Please upload a JPG, PNG, or PDF payment receipt for bank transfer orders.',
@@ -363,6 +397,7 @@ export async function placeOrderAction(
     try {
       receiptUpload = await uploadOrderReceiptFile(receiptFile, `orders/pending/${user?.id ?? `guest-${Date.now()}`}`)
     } catch (err) {
+      console.error('Order creation failed', { reason: 'receipt_upload_failed', error: errorForLog(err) })
       return { success: false, error: friendlyErrorMessage(err, 'Receipt upload failed.') }
     }
   }
@@ -419,6 +454,15 @@ export async function placeOrderAction(
   }
 
   const supabase = user ? await createClient() : await createServiceClient()
+  console.info('Order creation started', {
+    checkoutRoute: '/checkout',
+    action: 'placeOrderAction',
+    itemCount: items.length,
+    paymentMethod,
+    status,
+    total,
+    requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
+  })
   let { data: order, error } = await supabase
     .from('orders')
     .insert(orderPayload as never)
@@ -426,6 +470,9 @@ export async function placeOrderAction(
     .single()
 
   if (error && /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source/i.test(error.message)) {
+    console.error('Order creation insert failed; retrying without new optional columns', {
+      error: errorForLog(error),
+    })
     const legacyPayload = { ...orderPayload }
     delete legacyPayload.display_currency
     delete legacyPayload.exchange_rate
@@ -451,7 +498,17 @@ export async function placeOrderAction(
     error = retry.error
   }
 
-  if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be placed.') }
+  if (error || !order) {
+    console.error('Order creation failed', { reason: 'database_insert_failed', error: errorForLog(error) })
+    return { success: false, error: friendlyErrorMessage(error, 'Order could not be placed.') }
+  }
+
+  console.info('Order created successfully', {
+    orderId: order.id,
+    invoiceNumber,
+    status: order.status,
+    total: Number(order.total ?? total),
+  })
 
   if (receiptUpload) {
     receiptUrl = `/api/orders/${order.id}/receipt`
@@ -463,7 +520,9 @@ export async function placeOrderAction(
     order = { ...order, receipt_url: receiptUrl }
   }
 
+  console.info('Starting stock update', { orderId: order.id, invoiceNumber, itemCount: items.length })
   const lowStockAlerts = await applyStockChangesForOrder(order.id, items)
+  console.info('Stock update completed', { orderId: order.id, invoiceNumber, alertCount: lowStockAlerts.length })
 
   if (couponCode) {
     const couponClient = await createServiceClient()
@@ -492,30 +551,59 @@ export async function placeOrderAction(
     cookieStore.delete(GUEST_CART_COOKIE)
   }
 
-  const template = await getInvoiceTemplate()
-  const invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber } as never, template)
-  const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber } as never, template)
-  const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
+  let invoiceHtml = ''
+  let pdfBase64: string | undefined
+  try {
+    const template = await getInvoiceTemplate()
+    invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber } as never, template)
+    const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber } as never, template)
+    pdfBase64 = Buffer.from(pdfBytes).toString('base64')
+  } catch (invoiceError) {
+    console.error('Invoice generation for email failed; order will remain saved and emails will continue without attachment if possible', {
+      orderId: order.id,
+      invoiceNumber,
+      error: errorForLog(invoiceError),
+    })
+  }
 
-  await sendOrderConfirmationEmail(parsed.data.email, order.id, invoiceNumber, invoiceHtml, {
-    accessToken: accessToken ?? undefined,
-    pdfBase64,
-    customerName: parsed.data.fullName,
-    customerEmail: parsed.data.email,
-    customerPhone: shippingAddress.phone,
-    orderDate: order.created_at ?? new Date().toISOString(),
-    paymentStatus: order.status,
-    total: Number(order.total ?? total),
-    displayCurrency,
-    displayTotal: convertCurrency(total, displayCurrency, exchangeRate),
-    exchangeRate,
-    items,
-    shippingAddress,
-    requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
-    adminConfirmationReason: stockCheck.adminConfirmationReason,
-  })
+  try {
+    const emailResult = await sendOrderConfirmationEmail(parsed.data.email, order.id, invoiceNumber, invoiceHtml, {
+      accessToken: accessToken ?? undefined,
+      pdfBase64,
+      customerName: parsed.data.fullName,
+      customerEmail: parsed.data.email,
+      customerPhone: shippingAddress.phone,
+      orderDate: order.created_at ?? new Date().toISOString(),
+      paymentStatus: order.status,
+      total: Number(order.total ?? total),
+      displayCurrency,
+      displayTotal: convertCurrency(total, displayCurrency, exchangeRate),
+      exchangeRate,
+      items,
+      shippingAddress,
+      requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
+      adminConfirmationReason: stockCheck.adminConfirmationReason,
+    })
+    if (!emailResult.sent) {
+      console.error('Order email trigger completed with failures', { orderId: order.id, invoiceNumber })
+    }
+  } catch (emailError) {
+    console.error('Order email trigger failed; order remains saved', {
+      orderId: order.id,
+      invoiceNumber,
+      error: errorForLog(emailError),
+    })
+  }
 
-  await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
+  try {
+    await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
+  } catch (stockEmailError) {
+    console.error('Low stock email trigger failed; order remains saved', {
+      orderId: order.id,
+      invoiceNumber,
+      error: errorForLog(stockEmailError),
+    })
+  }
 
   revalidatePath('/dashboard')
   revalidatePath('/cart')

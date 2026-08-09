@@ -3,7 +3,7 @@ import { invoiceFileBaseName } from '@/lib/invoice'
 import { formatDate, formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { APP_URL } from '@/lib/constants'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { sendTransactionalEmail, type MailSendResult } from '@/lib/email/mailer'
 
 interface EmailAttachment {
   filename: string
@@ -143,6 +143,16 @@ function buildEmailShell(preheader: string, body: string): string {
       </body>
     </html>
   `
+}
+
+function mailFailureForLog(result: MailSendResult) {
+  const error = result.error
+  return {
+    provider: result.provider,
+    status: result.status,
+    responseText: result.responseText ? result.responseText.slice(0, 500) : undefined,
+    error: error instanceof Error ? { name: error.name, message: error.message } : error ? String(error) : undefined,
+  }
 }
 
 function buildHeader(eyebrow: string, title: string, copy: string): string {
@@ -399,27 +409,22 @@ export async function sendOrderConfirmationEmail(
     attachments: attachment,
   }
 
-  const [customerResult, adminResult] = await Promise.all([
-    sendTransactionalEmail({ from: emailFrom, ...customerEmail }),
-    sendTransactionalEmail({ from: emailFrom, ...adminEmailPayload }),
-  ])
+  console.info('Starting customer email', { orderId, invoiceNumber, recipientCount: customerEmail.to.length })
+  const customerResult = await sendTransactionalEmail({ from: emailFrom, ...customerEmail })
 
   if (customerResult.ok) {
-    console.log('Customer email sent successfully')
+    console.info('Customer email sent', { orderId, invoiceNumber, provider: customerResult.provider })
   } else {
-    console.error('Customer email failed', customerResult.error ?? {
-      status: customerResult.status,
-      emailResponse: customerResult.responseText,
-    })
+    console.error('Customer email failed', { orderId, invoiceNumber, ...mailFailureForLog(customerResult) })
   }
 
+  console.info('Starting admin email', { orderId, invoiceNumber, recipientCount: adminEmailPayload.to.length })
+  const adminResult = await sendTransactionalEmail({ from: emailFrom, ...adminEmailPayload })
+
   if (adminResult.ok) {
-    console.log('Admin email sent successfully')
+    console.info('Admin email sent', { orderId, invoiceNumber, provider: adminResult.provider })
   } else {
-    console.error('Admin email failed', adminResult.error ?? {
-      status: adminResult.status,
-      emailResponse: adminResult.responseText,
-    })
+    console.error('Admin email failed', { orderId, invoiceNumber, ...mailFailureForLog(adminResult) })
   }
 
   return { sent: customerResult.ok && adminResult.ok }
@@ -443,6 +448,7 @@ export async function sendLowStockAlertEmail(
     )
     .join('')
 
+  console.info('Starting low stock email', { orderId, invoiceNumber, alertCount: alerts.length })
   const sent = await sendTransactionalEmail({
     from: emailFrom,
     to: [adminEmail],
@@ -464,10 +470,9 @@ export async function sendLowStockAlertEmail(
   })
 
   if (!sent.ok) {
-    console.error('[Low stock email] Failed', sent.error ?? {
-      status: sent.status,
-      emailResponse: sent.responseText,
-    })
+    console.error('[Low stock email] Failed', { orderId, invoiceNumber, ...mailFailureForLog(sent) })
+  } else {
+    console.info('Low stock email sent', { orderId, invoiceNumber, provider: sent.provider })
   }
 
   return { sent: sent.ok }

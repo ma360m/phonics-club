@@ -17,7 +17,7 @@ export interface TransactionalEmailPayload {
 
 export interface MailSendResult {
   ok: boolean
-  provider?: 'smtp' | 'resend' | 'log'
+  provider?: 'smtp' | 'log'
   status?: number
   responseText?: string
   error?: unknown
@@ -30,6 +30,30 @@ function encodeHeader(value: string) {
 function parseEmailAddress(value: string) {
   const match = value.match(/<([^>]+)>/)
   return (match?.[1] ?? value).trim()
+}
+
+function smtpLogContext(payload: TransactionalEmailPayload) {
+  const smtpUser = process.env.SMTP_USER?.trim()
+  return {
+    smtpHost: process.env.SMTP_HOST?.trim() || '[missing]',
+    smtpPort: process.env.SMTP_PORT ?? '465',
+    smtpSecure: process.env.SMTP_SECURE ?? 'true',
+    smtpEhloDomain: process.env.SMTP_EHLO_DOMAIN || '[default]',
+    smtpUserDomain: smtpUser?.includes('@') ? smtpUser.split('@').pop() : smtpUser ? '[configured]' : '[missing]',
+    orderEmailFromConfigured: Boolean(process.env.ORDER_EMAIL_FROM?.trim()),
+    recipientCount: payload.to.length,
+    subject: payload.subject,
+  }
+}
+
+function missingSmtpSettings() {
+  return [
+    ['SMTP_HOST', process.env.SMTP_HOST],
+    ['SMTP_USER', process.env.SMTP_USER],
+    ['SMTP_PASSWORD', process.env.SMTP_PASSWORD],
+  ]
+    .filter(([, value]) => !String(value ?? '').trim())
+    .map(([key]) => key)
 }
 
 function chunkBase64(value: string) {
@@ -184,34 +208,19 @@ async function sendSmtpEmail(payload: Required<Pick<TransactionalEmailPayload, '
   }
 }
 
-async function sendResendEmail(apiKey: string, payload: Required<Pick<TransactionalEmailPayload, 'from'>> & TransactionalEmailPayload): Promise<MailSendResult> {
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-    const responseText = await res.text().catch(() => '')
-    return { ok: res.ok, provider: 'resend', status: res.status, responseText }
-  } catch (error) {
-    return { ok: false, provider: 'resend', error }
-  }
-}
-
 export async function sendTransactionalEmail(payload: TransactionalEmailPayload): Promise<MailSendResult> {
   const from = payload.from?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
   const fullPayload = { ...payload, from }
+  const missing = missingSmtpSettings()
 
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
-    return sendSmtpEmail(fullPayload)
+  if (missing.length) {
+    console.error('[Email SMTP] Missing SMTP configuration', {
+      ...smtpLogContext(payload),
+      missing,
+    })
+    return { ok: false, provider: 'log', error: `Missing SMTP configuration: ${missing.join(', ')}` }
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY
-  if (resendApiKey) return sendResendEmail(resendApiKey, fullPayload)
-
-  console.info(`[Email log] To: ${payload.to.join(', ')} | Subject: ${payload.subject}`)
-  return { ok: false, provider: 'log', error: 'No SMTP or Resend email transport configured.' }
+  console.info('[Email SMTP] Sending transactional email', smtpLogContext(payload))
+  return sendSmtpEmail(fullPayload)
 }

@@ -40,8 +40,8 @@ export function friendlyErrorMessage(error: unknown, fallback = 'Something went 
     return 'Cloudinary upload is not configured. Add NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET, or use the Supabase media uploader instead.'
   }
 
-  if (lower.includes('resend') || lower.includes('email') && lower.includes('api key')) {
-    return 'Order email could not be sent because email delivery is not configured. Add cPanel SMTP settings (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ORDER_EMAIL_FROM, ORDER_ADMIN_EMAIL) or RESEND_API_KEY, then redeploy.'
+  if (lower.includes('smtp') || lower.includes('email') && lower.includes('api key')) {
+    return 'Order email could not be sent because email delivery is not configured. Add cPanel SMTP settings (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ORDER_EMAIL_FROM, ORDER_ADMIN_EMAIL), then redeploy.'
   }
 
   if (lower.includes('duplicate key') || lower.includes('23505') || lower.includes('already exists')) {
@@ -79,7 +79,7 @@ export function friendlyErrorMessage(error: unknown, fallback = 'Something went 
   }
 
   if (lower.includes('network') || lower.includes('fetch failed') || lower.includes('econn') || lower.includes('timeout')) {
-    return 'The server could not reach a required service. Check the Supabase, Cloudinary, SMTP/Resend, or Vercel connection and try again.'
+    return 'The server could not reach a required service. Check the Supabase, Cloudinary, SMTP, or Vercel connection and try again.'
   }
 
   if (lower.includes('relation') && lower.includes('does not exist')) {
