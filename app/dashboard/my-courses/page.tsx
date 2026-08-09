@@ -7,6 +7,7 @@ import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, get
 import { getCourses } from '@/lib/data/queries'
 import { requestCourseCancellationAction } from '@/actions/enrollments'
 import { COMPANY_BANK_DETAILS } from '@/lib/company'
+import { COURSE_LICENSE_EMAIL_ADDRESS } from '@/lib/email/send-course-license-email'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -226,39 +227,59 @@ export default async function MyCoursesPage() {
                         </p>
                         <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
                         <p className="mt-2 font-medium text-[#1D4ED8]">
-                          You can pay now and upload the receipt later from this dashboard. Course access begins after admin approval.
+                          You can pay now and upload the receipt later from this dashboard. Admin approval sends a licence key from {COURSE_LICENSE_EMAIL_ADDRESS}; entering that key unlocks the course.
                         </p>
                       </div>
                     )}
                   <ul className="space-y-3">
-                    {payments.slice(0, 5).map((payment) => (
-                      <li key={payment.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-[#0F172A]">{payment.courses?.title ?? 'Course payment'}</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {payment.currency} {Number(payment.amount ?? 0).toLocaleString('en-PK')}
-                            </p>
+                    {payments.slice(0, 5).map((payment) => {
+                      const paidCourse = payment.courses as Course | undefined
+                      const paymentPageHref = paidCourse?.slug ? `/courses/${paidCourse.slug}/payment?paymentId=${payment.id}` : '/courses'
+
+                      return (
+                        <li key={payment.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-[#0F172A]">{paidCourse?.title ?? 'Course payment'}</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {payment.currency} {Number(payment.amount ?? 0).toLocaleString('en-PK')}
+                              </p>
+                            </div>
+                            <LmsStatusBadge tone={payment.status === 'paid' ? 'green' : payment.status === 'rejected' ? 'red' : 'gold'}>
+                              {payment.status}
+                            </LmsStatusBadge>
                           </div>
-                          <LmsStatusBadge tone={payment.status === 'paid' ? 'green' : payment.status === 'rejected' ? 'red' : 'gold'}>
-                            {payment.status}
-                          </LmsStatusBadge>
-                        </div>
-                        {['pending', 'processing', 'rejected'].includes(payment.status) && (
-                          <form action={submitPaymentReceiptFormAction} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                            <input type="hidden" name="payment_id" value={payment.id} />
-                            <input name="transaction_reference" placeholder="Transaction reference" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
-                            <input name="receipt" type="file" accept="image/*,.pdf" required className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
-                            <Button type="submit" size="sm" className="rounded-xl bg-[#1D4ED8]">Upload</Button>
-                          </form>
-                        )}
-                        {payment.status === 'submitted' && (
-                          <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
-                            Receipt received. Admin review normally starts after the slip is visible and can take from 30 minutes up to 24 days depending on verification.
-                          </p>
-                        )}
-                      </li>
-                    ))}
+                          {['pending', 'processing', 'rejected'].includes(payment.status) && (
+                            <form action={submitPaymentReceiptFormAction} encType="multipart/form-data" className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                              <input type="hidden" name="payment_id" value={payment.id} />
+                              <input name="transaction_reference" placeholder="Transaction reference" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                              <input name="receipt" type="file" accept="image/*,.pdf" required className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
+                              <Button type="submit" size="sm" className="rounded-xl bg-[#1D4ED8]">Upload</Button>
+                            </form>
+                          )}
+                          {payment.status === 'submitted' && (
+                            <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+                              Receipt received. Admin review starts after the screenshot is visible. Course access remains locked until admin approval and licence-key unlock.
+                            </p>
+                          )}
+                          {payment.status === 'paid' && !payment.license_unlocked_at && (
+                            <div className="mt-3 rounded-xl border border-[#BFDBFE] bg-white p-3 text-xs leading-5 text-slate-600">
+                              <p>
+                                Payment approved. Check your email from {COURSE_LICENSE_EMAIL_ADDRESS}, then enter the licence key to unlock the course.
+                              </p>
+                              <Button asChild size="sm" className="mt-3 rounded-xl bg-[#1D4ED8]">
+                                <Link href={paymentPageHref}>Enter Licence Key</Link>
+                              </Button>
+                            </div>
+                          )}
+                          {payment.status === 'paid' && payment.license_unlocked_at && (
+                            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-700">
+                              Licence key accepted. Course access is unlocked.
+                            </p>
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
                   </div>
                 ) : (

@@ -338,6 +338,8 @@ export interface Enrollment {
   last_accessed_at?: string | null
   access_extended_until?: string | null
   payment_id?: string | null
+  license_key?: string | null
+  license_unlocked_at?: string | null
   admin_notes?: string | null
   enrolled_at: string
   courses?: Course
@@ -794,6 +796,9 @@ export interface CoursePayment {
   verified_at: string | null
   rejected_at: string | null
   refunded_at: string | null
+  license_key?: string | null
+  license_emailed_at?: string | null
+  license_unlocked_at?: string | null
   approved_by: string | null
   admin_note: string | null
   rejection_reason: string | null

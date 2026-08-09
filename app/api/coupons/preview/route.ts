@@ -10,6 +10,8 @@ const previewCouponSchema = z.object({
   shipping: z.coerce.number().min(0).optional().default(0),
 }).refine((value) => Boolean(value.code || value.memberId), {
   message: 'Enter a coupon code or Member ID.',
+}).refine((value) => !(value.code && value.memberId), {
+  message: 'Use either a coupon code or Member ID, not both.',
 })
 
 export async function POST(request: Request) {
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
   const parsed = previewCouponSchema.safeParse(body)
 
   if (!parsed.success) {
-    return NextResponse.json({ valid: false, error: parsed.error.errors[0]?.message ?? 'Enter a valid discount code.' }, { status: 400 })
+    return NextResponse.json({ valid: false, error: parsed.error.issues[0]?.message ?? 'Enter a valid discount code.' }, { status: 400 })
   }
 
   const code = parsed.data.code?.trim().toUpperCase() || null

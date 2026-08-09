@@ -1,5 +1,4 @@
-import net from 'node:net'
-import tls from 'node:tls'
+import nodemailer, { type SendMailOptions } from 'nodemailer'
 
 export interface TransactionalEmailAttachment {
   filename: string
@@ -23,13 +22,31 @@ export interface MailSendResult {
   error?: unknown
 }
 
-function encodeHeader(value: string) {
-  return value.replace(/\r?\n/g, ' ').trim()
+interface CompleteTransactionalEmailPayload extends TransactionalEmailPayload {
+  from: string
 }
 
-function parseEmailAddress(value: string) {
-  const match = value.match(/<([^>]+)>/)
-  return (match?.[1] ?? value).trim()
+interface MimeLineRecord {
+  bytes: number
+  lineNumber: number
+  part: string
+  section: 'headers' | 'body' | 'boundary'
+  contentType?: string
+  transferEncoding?: string
+  contentDisposition?: string
+}
+
+export interface MimeLineDiagnostics {
+  maxLineBytes: number
+  linesOver998: number
+  linesOver2048: number
+  longestLine: MimeLineRecord
+}
+
+type HeaderMap = Record<string, string>
+
+function defaultFrom() {
+  return process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
 }
 
 function smtpLogContext(payload: TransactionalEmailPayload) {
@@ -42,6 +59,8 @@ function smtpLogContext(payload: TransactionalEmailPayload) {
     smtpUserDomain: smtpUser?.includes('@') ? smtpUser.split('@').pop() : smtpUser ? '[configured]' : '[missing]',
     orderEmailFromConfigured: Boolean(process.env.ORDER_EMAIL_FROM?.trim()),
     recipientCount: payload.to.length,
+    attachmentCount: payload.attachments?.length ?? 0,
+    rawHtmlMaxLineBytes: maxLineBytes(payload.html),
     subject: payload.subject,
   }
 }
@@ -56,161 +75,332 @@ function missingSmtpSettings() {
     .map(([key]) => key)
 }
 
-function chunkBase64(value: string) {
-  return value.match(/.{1,76}/g)?.join('\r\n') ?? value
+function maxLineBytes(value: string) {
+  return value
+    .split(/\r?\n/)
+    .reduce((max, line) => Math.max(max, Buffer.byteLength(line, 'utf8')), 0)
 }
 
-function buildMimeMessage(payload: Required<Pick<TransactionalEmailPayload, 'from'>> & TransactionalEmailPayload) {
-  const headers = [
-    `From: ${encodeHeader(payload.from)}`,
-    `To: ${payload.to.map(encodeHeader).join(', ')}`,
-    `Subject: ${encodeHeader(payload.subject)}`,
-    'MIME-Version: 1.0',
-    `Date: ${new Date().toUTCString()}`,
-  ]
-
-  if (!payload.attachments?.length) {
-    return [
-      ...headers,
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      payload.html,
-    ].join('\r\n')
-  }
-
-  const boundary = `phonicsclub-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const parts = [
-    ...headers,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    payload.html,
-  ]
-
-  for (const attachment of payload.attachments) {
-    parts.push(
-      `--${boundary}`,
-      `Content-Type: ${attachment.contentType ?? 'application/pdf'}; name="${encodeHeader(attachment.filename)}"`,
-      'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${encodeHeader(attachment.filename)}"`,
-      '',
-      chunkBase64(attachment.content),
-    )
-  }
-
-  parts.push(`--${boundary}--`, '')
-  return parts.join('\r\n')
+function decodeBase64Attachment(attachment: TransactionalEmailAttachment) {
+  return Buffer.from(attachment.content.replace(/\s/g, ''), 'base64')
 }
 
-function readSmtpResponse(socket: net.Socket | tls.TLSSocket): Promise<{ code: number; text: string }> {
-  return new Promise((resolve, reject) => {
-    let buffer = ''
-    const timeout = setTimeout(() => {
-      cleanup()
-      reject(new Error('SMTP response timed out.'))
-    }, 30000)
+function truncateUtf8(value: string, maxBytes: number) {
+  let result = ''
+  for (const char of value) {
+    if (Buffer.byteLength(`${result}${char}`, 'utf8') > maxBytes) break
+    result += char
+  }
+  return result
+}
 
-    function cleanup() {
-      clearTimeout(timeout)
-      socket.off('data', onData)
-      socket.off('error', onError)
+function safeAttachmentFilename(filename: string) {
+  const cleaned = filename.replace(/[\r\n"<>]+/g, '_').trim() || 'attachment'
+  const maxBytes = 120
+  if (Buffer.byteLength(cleaned, 'utf8') <= maxBytes) return cleaned
+
+  const extensionMatch = cleaned.match(/(\.[A-Za-z0-9]{1,10})$/)
+  const extension = extensionMatch?.[1] ?? ''
+  const base = extension ? cleaned.slice(0, -extension.length) : cleaned
+  const maxBaseBytes = Math.max(1, maxBytes - Buffer.byteLength(extension, 'utf8'))
+  return `${truncateUtf8(base, maxBaseBytes) || 'attachment'}${extension}`
+}
+
+function buildMailOptions(payload: CompleteTransactionalEmailPayload): SendMailOptions {
+  return {
+    from: payload.from,
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.html,
+    textEncoding: 'quoted-printable',
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    attachments: payload.attachments?.map((attachment) => ({
+      filename: safeAttachmentFilename(attachment.filename),
+      content: decodeBase64Attachment(attachment),
+      contentType: attachment.contentType ?? 'application/pdf',
+      contentTransferEncoding: 'base64',
+      contentDisposition: 'attachment',
+    })),
+  }
+}
+
+function describeMimePart(partIndex: number, headers: HeaderMap) {
+  const contentType = headers['content-type']
+  const contentDisposition = headers['content-disposition']
+  const transferEncoding = headers['content-transfer-encoding']
+  const contentTypeName = contentType?.split(';')[0]?.trim().toLowerCase()
+  const dispositionName = contentDisposition?.split(';')[0]?.trim().toLowerCase()
+
+  let part = partIndex === 0 ? 'message body' : `MIME part ${partIndex}`
+  if (contentTypeName) {
+    part = contentTypeName
+    if (dispositionName === 'attachment' || contentTypeName === 'application/pdf') {
+      part = `${contentTypeName} attachment`
+    } else if (contentTypeName.startsWith('text/')) {
+      part = `${contentTypeName} body`
+    }
+  }
+
+  return {
+    part,
+    contentType: contentTypeName,
+    transferEncoding: transferEncoding?.split(';')[0]?.trim().toLowerCase(),
+    contentDisposition: dispositionName,
+  }
+}
+
+function recordLine(
+  current: MimeLineRecord,
+  line: string,
+  lineNumber: number,
+  state: { longestLine: MimeLineRecord; linesOver998: number; linesOver2048: number },
+) {
+  const bytes = Buffer.byteLength(line, 'utf8')
+  if (bytes > 998) state.linesOver998 += 1
+  if (bytes > 2048) state.linesOver2048 += 1
+  if (bytes > state.longestLine.bytes) {
+    state.longestLine = {
+      ...current,
+      bytes,
+      lineNumber,
+    }
+  }
+}
+
+export function analyzeMimeLineLengths(message: Buffer | string): MimeLineDiagnostics {
+  const source = Buffer.isBuffer(message) ? message.toString('utf8') : message
+  const lines = source.split('\n')
+  const state = {
+    longestLine: {
+      bytes: 0,
+      lineNumber: 0,
+      part: 'empty message',
+      section: 'body' as const,
+    },
+    linesOver998: 0,
+    linesOver2048: 0,
+  }
+  let partIndex = 0
+  let headers: HeaderMap = {}
+  let lastHeader: string | null = null
+  let current: MimeLineRecord = {
+    bytes: 0,
+    lineNumber: 0,
+    part: 'message headers',
+    section: 'headers',
+  }
+
+  lines.forEach((rawLine, index) => {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+    const lineNumber = index + 1
+
+    if (line.startsWith('--')) {
+      recordLine(
+        { bytes: 0, lineNumber, part: 'MIME boundary', section: 'boundary' },
+        line,
+        lineNumber,
+        state,
+      )
+
+      if (!line.endsWith('--')) {
+        partIndex += 1
+        headers = {}
+        lastHeader = null
+        current = {
+          bytes: 0,
+          lineNumber,
+          part: `MIME part ${partIndex} headers`,
+          section: 'headers',
+        }
+      }
+      return
     }
 
-    function onError(error: Error) {
-      cleanup()
-      reject(error)
+    recordLine(current, line, lineNumber, state)
+
+    if (current.section !== 'headers') return
+
+    if (line === '') {
+      current = {
+        bytes: 0,
+        lineNumber,
+        section: 'body',
+        ...describeMimePart(partIndex, headers),
+      }
+      lastHeader = null
+      return
     }
 
-    function onData(chunk: Buffer) {
-      buffer += chunk.toString('utf8')
-      const lines = buffer.split(/\r?\n/).filter(Boolean)
-      const lastLine = lines[lines.length - 1]
-      if (!lastLine || !/^\d{3}\s/.test(lastLine)) return
-
-      cleanup()
-      resolve({ code: Number(lastLine.slice(0, 3)), text: buffer })
+    if (/^\s/.test(line) && lastHeader) {
+      headers[lastHeader] = `${headers[lastHeader]} ${line.trim()}`
+      return
     }
 
-    socket.on('data', onData)
-    socket.on('error', onError)
+    const headerMatch = line.match(/^([^:]+):\s*(.*)$/)
+    if (headerMatch) {
+      lastHeader = headerMatch[1].toLowerCase()
+      headers[lastHeader] = headerMatch[2].trim()
+    }
   })
-}
 
-async function smtpCommand(socket: net.Socket | tls.TLSSocket, command: string, expected: number | number[]) {
-  socket.write(`${command}\r\n`)
-  const response = await readSmtpResponse(socket)
-  const expectedCodes = Array.isArray(expected) ? expected : [expected]
-  if (!expectedCodes.includes(response.code)) {
-    throw new Error(`SMTP command failed (${response.code}): ${response.text}`)
+  return {
+    maxLineBytes: state.longestLine.bytes,
+    linesOver998: state.linesOver998,
+    linesOver2048: state.linesOver2048,
+    longestLine: state.longestLine,
   }
-  return response
 }
 
-async function sendSmtpEmail(payload: Required<Pick<TransactionalEmailPayload, 'from'>> & TransactionalEmailPayload): Promise<MailSendResult> {
+async function inspectGeneratedMime(payload: CompleteTransactionalEmailPayload): Promise<MimeLineDiagnostics> {
+  const transport = nodemailer.createTransport({
+    streamTransport: true,
+    buffer: true,
+    newline: 'windows',
+  })
+  const info = await transport.sendMail(buildMailOptions(payload))
+  const message = (info as { message?: Buffer | string }).message ?? ''
+  return analyzeMimeLineLengths(message)
+}
+
+export async function inspectTransactionalEmailMime(
+  payload: TransactionalEmailPayload,
+): Promise<MimeLineDiagnostics> {
+  return inspectGeneratedMime({ ...payload, from: payload.from?.trim() || defaultFrom() })
+}
+
+function mimeLineDiagnosticsForLog(diagnostics: MimeLineDiagnostics) {
+  return {
+    maxLineBytes: diagnostics.maxLineBytes,
+    linesOver998: diagnostics.linesOver998,
+    linesOver2048: diagnostics.linesOver2048,
+    longestLine: {
+      bytes: diagnostics.longestLine.bytes,
+      lineNumber: diagnostics.longestLine.lineNumber,
+      part: diagnostics.longestLine.part,
+      section: diagnostics.longestLine.section,
+      contentType: diagnostics.longestLine.contentType,
+      transferEncoding: diagnostics.longestLine.transferEncoding,
+      contentDisposition: diagnostics.longestLine.contentDisposition,
+    },
+  }
+}
+
+function parseSmtpStatus(responseText?: string) {
+  const match = responseText?.match(/\b([245]\d{2})\b/)
+  return match ? Number(match[1]) : undefined
+}
+
+function sanitizeSmtpResponse(responseText?: string) {
+  return responseText?.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+}
+
+function errorForLog(error: unknown) {
+  if (error instanceof Error) {
+    const details = error as Error & {
+      code?: unknown
+      command?: unknown
+      responseCode?: unknown
+      response?: unknown
+    }
+    return {
+      name: error.name,
+      message: error.message,
+      code: details.code,
+      command: details.command,
+      responseCode: details.responseCode,
+      response: typeof details.response === 'string' ? sanitizeSmtpResponse(details.response) : undefined,
+    }
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return { message: String((error as { message?: unknown }).message) }
+  }
+  return { message: String(error ?? 'Unknown error') }
+}
+
+async function checkMimeLineLengths(payload: CompleteTransactionalEmailPayload): Promise<MailSendResult | null> {
+  try {
+    const diagnostics = await inspectGeneratedMime(payload)
+    const logDetails = mimeLineDiagnosticsForLog(diagnostics)
+
+    if (diagnostics.linesOver2048 > 0) {
+      console.error('[Email MIME] Generated email has SMTP-invalid line lengths', {
+        ...smtpLogContext(payload),
+        ...logDetails,
+      })
+      return {
+        ok: false,
+        provider: 'smtp',
+        error: 'Generated email MIME contains a line longer than 2048 bytes.',
+      }
+    }
+
+    if (diagnostics.linesOver998 > 0) {
+      console.warn('[Email MIME] Generated email has lines over the SMTP 998-byte recommendation', {
+        ...smtpLogContext(payload),
+        ...logDetails,
+      })
+      return null
+    }
+
+    console.info('[Email MIME] Line-length check passed', {
+      ...smtpLogContext(payload),
+      ...logDetails,
+    })
+    return null
+  } catch (error) {
+    console.error('[Email MIME] Line-length inspection failed', {
+      ...smtpLogContext(payload),
+      error: errorForLog(error),
+    })
+    return null
+  }
+}
+
+async function sendSmtpEmail(payload: CompleteTransactionalEmailPayload): Promise<MailSendResult> {
   const host = process.env.SMTP_HOST?.trim()
   const user = process.env.SMTP_USER?.trim()
   const password = process.env.SMTP_PASSWORD
-  if (!host || !user || !password) return { ok: false, provider: 'smtp', error: 'SMTP_HOST, SMTP_USER, and SMTP_PASSWORD are required.' }
+  if (!host || !user || !password) {
+    return { ok: false, provider: 'smtp', error: 'SMTP_HOST, SMTP_USER, and SMTP_PASSWORD are required.' }
+  }
 
   const port = Number(process.env.SMTP_PORT ?? 465)
   const secure = String(process.env.SMTP_SECURE ?? (port === 465 ? 'true' : 'false')).toLowerCase() === 'true'
-  const fromAddress = parseEmailAddress(payload.from)
-  let socket: net.Socket | tls.TLSSocket | null = null
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    name: process.env.SMTP_EHLO_DOMAIN || 'phonicsclub.com',
+    auth: {
+      user,
+      pass: password,
+    },
+    tls: {
+      servername: host,
+    },
+  })
 
   try {
-    socket = secure
-      ? tls.connect({ host, port, servername: host })
-      : net.connect({ host, port })
-
-    await new Promise<void>((resolve, reject) => {
-      socket?.once(secure ? 'secureConnect' : 'connect', resolve)
-      socket?.once('error', reject)
-    })
-    if (!socket) throw new Error('SMTP socket could not be opened.')
-    await readSmtpResponse(socket)
-    await smtpCommand(socket, `EHLO ${process.env.SMTP_EHLO_DOMAIN || 'phonicsclub.com'}`, 250)
-
-    if (!secure && String(process.env.SMTP_STARTTLS ?? 'true').toLowerCase() !== 'false') {
-      await smtpCommand(socket, 'STARTTLS', 220)
-      socket = tls.connect({ socket, host, servername: host })
-      await new Promise<void>((resolve, reject) => {
-        socket?.once('secureConnect', resolve)
-        socket?.once('error', reject)
-      })
-      if (!socket) throw new Error('SMTP TLS socket could not be opened.')
-      await smtpCommand(socket, `EHLO ${process.env.SMTP_EHLO_DOMAIN || 'phonicsclub.com'}`, 250)
+    const info = await transporter.sendMail(buildMailOptions(payload))
+    const responseText = sanitizeSmtpResponse(typeof info.response === 'string' ? info.response : undefined)
+    return {
+      ok: true,
+      provider: 'smtp',
+      status: parseSmtpStatus(responseText),
+      responseText,
     }
-
-    await smtpCommand(socket, 'AUTH LOGIN', 334)
-    await smtpCommand(socket, Buffer.from(user).toString('base64'), 334)
-    await smtpCommand(socket, Buffer.from(password).toString('base64'), 235)
-    await smtpCommand(socket, `MAIL FROM:<${fromAddress}>`, 250)
-    for (const recipient of payload.to) {
-      await smtpCommand(socket, `RCPT TO:<${parseEmailAddress(recipient)}>`, [250, 251])
-    }
-    await smtpCommand(socket, 'DATA', 354)
-    socket.write(`${buildMimeMessage(payload).replace(/^\./gm, '..')}\r\n.\r\n`)
-    await readSmtpResponse(socket)
-    await smtpCommand(socket, 'QUIT', 221).catch(() => undefined)
-    socket.end()
-    return { ok: true, provider: 'smtp' }
   } catch (error) {
-    try {
-      socket?.destroy()
-    } catch {
-      // ignore socket cleanup errors
-    }
+    console.error('[Email SMTP] Send failed', {
+      ...smtpLogContext(payload),
+      error: errorForLog(error),
+    })
     return { ok: false, provider: 'smtp', error }
   }
 }
 
 export async function sendTransactionalEmail(payload: TransactionalEmailPayload): Promise<MailSendResult> {
-  const from = payload.from?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
-  const fullPayload = { ...payload, from }
+  const fullPayload = { ...payload, from: payload.from?.trim() || defaultFrom() }
   const missing = missingSmtpSettings()
 
   if (missing.length) {
@@ -221,6 +411,9 @@ export async function sendTransactionalEmail(payload: TransactionalEmailPayload)
     return { ok: false, provider: 'log', error: `Missing SMTP configuration: ${missing.join(', ')}` }
   }
 
-  console.info('[Email SMTP] Sending transactional email', smtpLogContext(payload))
+  const mimeFailure = await checkMimeLineLengths(fullPayload)
+  if (mimeFailure) return mimeFailure
+
+  console.info('[Email SMTP] Sending transactional email', smtpLogContext(fullPayload))
   return sendSmtpEmail(fullPayload)
 }

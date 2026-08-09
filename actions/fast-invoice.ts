@@ -297,7 +297,7 @@ export async function placeFastInvoiceOrderAction(
     display_shipping_fee: convertCurrency(chargedShippingFee, displayCurrency, exchangeRate),
     display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
-    source: 'fast_invoice',
+    source: 'api',
     requires_admin_confirmation: stockCheck.requiresAdminConfirmation,
     admin_confirmation_reason: stockCheck.adminConfirmationReason,
   }

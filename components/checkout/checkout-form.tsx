@@ -235,6 +235,16 @@ export function CheckoutForm({
     setReviewReady(false)
   }
 
+  function updateCouponCode(value: string) {
+    setCouponCode(value)
+    if (value.trim()) setMemberId('')
+  }
+
+  function updateMemberId(value: string) {
+    setMemberId(value)
+    if (value.trim()) setCouponCode('')
+  }
+
   function firstInvalidControl() {
     return formRef.current?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
       'input:not([type="hidden"]):invalid, select:invalid, textarea:invalid',
@@ -472,6 +482,7 @@ export function CheckoutForm({
             name="fullName"
             required
             minLength={2}
+            maxLength={120}
             value={details.fullName}
             onChange={(event) => updateDetails('fullName', event.target.value)}
             className="rounded-lg"
@@ -556,7 +567,7 @@ export function CheckoutForm({
               name="couponCode"
               placeholder="Coupon code"
               value={couponCode}
-              onChange={(event) => setCouponCode(event.target.value)}
+              onChange={(event) => updateCouponCode(event.target.value)}
               className="rounded-lg"
             />
             <div>
@@ -564,7 +575,7 @@ export function CheckoutForm({
                 name="memberId"
                 placeholder="Member ID (optional)"
                 value={memberId}
-                onChange={(event) => setMemberId(event.target.value)}
+                onChange={(event) => updateMemberId(event.target.value)}
                 className="rounded-lg"
               />
               <button
@@ -599,7 +610,7 @@ export function CheckoutForm({
                   : couponPreview?.error ?? 'Coupon could not be checked.'}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">Enter a coupon code or Member ID to preview the discount before reviewing your invoice.</p>
+            <p className="text-xs text-muted-foreground">Enter one coupon code or one Member ID to preview the discount before reviewing your invoice.</p>
           )}
           {showMemberHelp && (
             <p className="rounded-lg bg-muted p-3 text-sm">

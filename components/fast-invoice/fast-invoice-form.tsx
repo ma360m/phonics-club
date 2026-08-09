@@ -89,6 +89,7 @@ export function FastInvoiceForm({
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
   const [couponChecking, setCouponChecking] = useState(false)
   const [previewReady, setPreviewReady] = useState(false)
+  const memberDiscountLocked = Boolean(requiredMemberId?.trim())
 
   const invoiceItems = selectedItems.flatMap((item) => {
     const product = productMap.get(item.productId)
@@ -194,6 +195,17 @@ export function FastInvoiceForm({
   function updateQuantity(productId: string, quantity: number) {
     setSelectedItems((current) => current.map((item) => item.productId === productId ? { ...item, quantity } : item))
     setPreviewReady(false)
+  }
+
+  function updateCouponCode(value: string) {
+    setCouponCode(value)
+    if (value.trim()) setMemberId('')
+  }
+
+  function updateMemberId(value: string) {
+    if (memberDiscountLocked) return
+    setMemberId(value)
+    if (value.trim()) setCouponCode('')
   }
 
   function removeItem(productId: string) {
@@ -328,7 +340,7 @@ export function FastInvoiceForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="fast-name">Full Name *</Label>
-            <Input id="fast-name" name="fullName" required minLength={2} className="rounded-xl" />
+            <Input id="fast-name" name="fullName" required minLength={2} maxLength={120} className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-email">Email *</Label>
@@ -354,7 +366,14 @@ export function FastInvoiceForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-coupon">Coupon Code</Label>
-            <Input id="fast-coupon" name="couponCode" value={couponCode} onChange={(event) => setCouponCode(event.target.value)} className="rounded-xl" />
+            <Input
+              id="fast-coupon"
+              name="couponCode"
+              value={couponCode}
+              disabled={memberDiscountLocked}
+              onChange={(event) => updateCouponCode(event.target.value)}
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-member">Member ID</Label>
@@ -362,8 +381,8 @@ export function FastInvoiceForm({
               id="fast-member"
               name="memberId"
               value={memberId}
-              readOnly={Boolean(requiredMemberId)}
-              onChange={(event) => setMemberId(event.target.value)}
+              readOnly={memberDiscountLocked}
+              onChange={(event) => updateMemberId(event.target.value)}
               className="rounded-xl font-mono"
             />
           </div>

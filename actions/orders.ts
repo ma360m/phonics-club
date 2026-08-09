@@ -6,7 +6,7 @@ import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession, requireAdmin } from '@/lib/auth'
-import { checkoutSchema, normalizePhone } from '@/lib/validations/checkout'
+import { checkoutBaseSchema, checkoutSchema, normalizePhone } from '@/lib/validations/checkout'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { canCustomerEditOrder } from '@/lib/order-status'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
@@ -38,7 +38,7 @@ const orderReceiptSchema = z.object({
   }),
 })
 
-const customerOrderEditSchema = checkoutSchema
+const customerOrderEditSchema = checkoutBaseSchema
   .pick({
     fullName: true,
     email: true,

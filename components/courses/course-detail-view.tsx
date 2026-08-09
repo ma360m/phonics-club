@@ -181,7 +181,9 @@ function EnrollmentCard({
           )}
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          Enrollment and payment checks use the existing Phonics Club course flow.
+          {price > 0
+            ? 'Paid courses open a payment page first. Upload your payment screenshot, then enter the licence key emailed from noreply@phonicsclub.com after admin approval.'
+            : 'Enrollment and access checks use the Phonics Club course flow.'}
         </p>
       </div>
 

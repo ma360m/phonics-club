@@ -14,6 +14,7 @@ import { buildCertificatePdf } from '@/lib/certificate-pdf'
 import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { APP_URL } from '@/lib/constants'
+import { sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
 
@@ -41,6 +42,27 @@ function addDays(date: Date, days: number) {
   const next = new Date(date)
   next.setDate(next.getDate() + days)
   return next
+}
+
+function normalizeLicenseKey(value: unknown) {
+  return String(value ?? '').trim().toUpperCase().replace(/\s+/g, '-')
+}
+
+function compactLicenseKey(value: unknown) {
+  return normalizeLicenseKey(value).replace(/[^A-Z0-9]/g, '')
+}
+
+function generateCourseLicenseKey(courseId: string, userId: string) {
+  const random = crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
+  return [
+    'PC',
+    new Date().getFullYear(),
+    courseId.replace(/-/g, '').slice(0, 4).toUpperCase(),
+    userId.replace(/-/g, '').slice(0, 4).toUpperCase(),
+    random.slice(0, 4),
+    random.slice(4, 8),
+    random.slice(8, 12),
+  ].join('-')
 }
 
 export async function markLessonCompleteAction(
@@ -203,10 +225,18 @@ export async function createCourseCheckoutAction(
     }
 
     const idempotencyKey = `course:${courseId}:user:${user.id}:manual`
-    const { data: payment, error: paymentError } = await supabase
+    const paymentPagePath = `/courses/${currentCourse.slug}/payment`
+    const { data: existingPayment } = await supabase
       .from('course_payments')
-      .upsert(
-        {
+      .select('*')
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle()
+
+    let payment = existingPayment
+    if (!payment) {
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('course_payments')
+        .insert({
           user_id: user.id,
           course_id: courseId,
           amount: price,
@@ -215,13 +245,15 @@ export async function createCourseCheckoutAction(
           payment_method: 'manual_bank_transfer',
           provider: 'manual',
           idempotency_key: idempotencyKey,
-        } as never,
-        { onConflict: 'idempotency_key' },
-      )
-      .select('*')
-      .single()
+        } as never)
+        .select('*')
+        .single()
 
-    if (paymentError) return { success: false, error: paymentError.message }
+      if (paymentError) return { success: false, error: paymentError.message }
+      payment = newPayment
+    }
+
+    if (!payment) return { success: false, error: 'Payment could not be created' }
 
     const { data: enrollment, error: enrollmentError } = await supabase
       .from('enrollments')
@@ -229,10 +261,11 @@ export async function createCourseCheckoutAction(
         {
           user_id: user.id,
           course_id: courseId,
-          progress: 0,
+          progress: existingEnrollment?.progress ?? 0,
           status: 'pending',
           payment_status: payment.status,
           payment_id: payment.id,
+          license_key: payment.license_key ?? null,
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -242,17 +275,27 @@ export async function createCourseCheckoutAction(
     if (enrollmentError) return { success: false, error: enrollmentError.message }
 
     await supabase.from('course_payments').update({ enrollment_id: enrollment.id } as never).eq('id', payment.id)
-    await supabase.from('course_payment_events').insert({
-      payment_id: payment.id,
-      course_id: courseId,
-      user_id: user.id,
-      new_status: payment.status,
-      event_type: 'checkout_created',
-      payload: { amount: price, currency: currentCourse.currency ?? 'PKR' },
-    } as never)
+    if (!existingPayment) {
+      await supabase.from('course_payment_events').insert({
+        payment_id: payment.id,
+        course_id: courseId,
+        user_id: user.id,
+        new_status: payment.status,
+        event_type: 'checkout_created',
+        payload: { amount: price, currency: currentCourse.currency ?? 'PKR' },
+      } as never)
+    }
 
     revalidatePath('/dashboard/my-courses')
-    return { success: true, data: { paymentId: payment.id, enrollmentId: enrollment.id, redirectTo: '/dashboard/my-courses?tab=payments' } }
+    revalidatePath(paymentPagePath)
+    return {
+      success: true,
+      data: {
+        paymentId: payment.id,
+        enrollmentId: enrollment.id,
+        redirectTo: `${paymentPagePath}?paymentId=${payment.id}`,
+      },
+    }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to start checkout.') }
   }
@@ -267,7 +310,7 @@ export async function submitCoursePaymentReceiptAction(
     const supabase = await getServiceSupabase()
     const { data: payment } = await supabase
       .from('course_payments')
-      .select('*')
+      .select('*, courses(slug)')
       .eq('id', paymentId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -310,29 +353,60 @@ export async function submitCoursePaymentReceiptAction(
     } as never)
 
     revalidatePath('/dashboard/my-courses')
+    const courseSlug = (payment.courses as { slug?: string } | null)?.slug
+    if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to submit receipt.') }
   }
 }
 
-export async function approveCoursePaymentAction(paymentId: string): Promise<ActionResult> {
+export async function submitCoursePaymentReceiptFormAction(
+  _state: ActionResult<{ redirectTo?: string }>,
+  formData: FormData
+): Promise<ActionResult<{ redirectTo?: string }>> {
+  const paymentId = String(formData.get('payment_id') ?? '')
+  if (!paymentId) return { success: false, error: 'Payment is missing' }
+
+  const result = await submitCoursePaymentReceiptAction(paymentId, formData)
+  if (!result.success) return { success: false, error: result.error }
+  return { success: true, data: { redirectTo: String(formData.get('redirect_to') ?? '') || undefined } }
+}
+
+export async function unlockCourseWithLicenseKeyFormAction(
+  _state: ActionResult<{ redirectTo?: string }>,
+  formData: FormData
+): Promise<ActionResult<{ redirectTo?: string }>> {
   try {
-    const admin = await import('@/lib/auth').then((mod) => mod.requireAdmin())
+    const user = await requireCurrentUser()
+    const paymentId = String(formData.get('payment_id') ?? '')
+    const submittedKey = normalizeLicenseKey(formData.get('license_key'))
+    if (!paymentId) return { success: false, error: 'Payment is missing' }
+    if (!submittedKey) return { success: false, error: 'Enter the licence key sent by admin.' }
+
     const supabase = await getServiceSupabase()
-    const { data: payment } = await supabase.from('course_payments').select('*, courses(*)').eq('id', paymentId).maybeSingle()
+    const { data: payment } = await supabase
+      .from('course_payments')
+      .select('*, courses(*)')
+      .eq('id', paymentId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
     if (!payment) return { success: false, error: 'Payment not found' }
-    if (payment.status === 'paid') return { success: true }
+    if (payment.status !== 'paid') return { success: false, error: 'Admin must confirm the payment before this key can unlock the course.' }
+    if (!payment.license_key) return { success: false, error: 'Admin has not issued a licence key yet.' }
+    if (compactLicenseKey(submittedKey) !== compactLicenseKey(payment.license_key)) {
+      return { success: false, error: 'That licence key does not match this course payment.' }
+    }
 
     const course = payment.courses as Course
     const now = new Date()
     const expiresAt = addDays(now, Number(course.access_duration_days ?? 90)).toISOString()
-
     const { data: enrollment, error: enrollmentError } = await supabase
       .from('enrollments')
       .upsert(
         {
-          user_id: payment.user_id,
+          user_id: user.id,
           course_id: payment.course_id,
           progress: 0,
           status: 'active',
@@ -342,6 +416,84 @@ export async function approveCoursePaymentAction(paymentId: string): Promise<Act
           activated_at: now.toISOString(),
           expires_at: expiresAt,
           last_accessed_at: now.toISOString(),
+          license_key: payment.license_key,
+          license_unlocked_at: now.toISOString(),
+        } as never,
+        { onConflict: 'user_id,course_id' },
+      )
+      .select('id')
+      .single()
+
+    if (enrollmentError) return { success: false, error: enrollmentError.message }
+
+    await supabase
+      .from('course_payments')
+      .update({ enrollment_id: enrollment.id, license_unlocked_at: now.toISOString() } as never)
+      .eq('id', payment.id)
+
+    await supabase.from('course_payment_events').insert({
+      payment_id: payment.id,
+      course_id: payment.course_id,
+      user_id: user.id,
+      previous_status: payment.status,
+      new_status: 'paid',
+      event_type: 'license_key_unlocked',
+      payload: { enrollmentId: enrollment.id },
+    } as never)
+
+    revalidatePath('/dashboard/my-courses')
+    revalidatePath(`/courses/${course.slug}`)
+    revalidatePath(`/courses/${course.slug}/payment`)
+    revalidatePath(`/course/${course.id}/learn`)
+    return { success: true, data: { redirectTo: `/course/${course.id}/learn` } }
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to unlock this course.') }
+  }
+}
+
+export async function approveCoursePaymentAction(
+  paymentId: string,
+  options: { licenseKey?: string } = {},
+): Promise<ActionResult> {
+  try {
+    const admin = await import('@/lib/auth').then((mod) => mod.requireAdmin())
+    const supabase = await getServiceSupabase()
+    const { data: payment } = await supabase
+      .from('course_payments')
+      .select('*, courses(*), profiles(email, full_name)')
+      .eq('id', paymentId)
+      .maybeSingle()
+    if (!payment) return { success: false, error: 'Payment not found' }
+
+    const course = payment.courses as Course
+    const now = new Date()
+    const licenseKey = normalizeLicenseKey(options.licenseKey) || payment.license_key || generateCourseLicenseKey(payment.course_id, payment.user_id)
+    const existingEnrollment = payment.enrollment_id
+      ? await supabase.from('enrollments').select('*').eq('id', payment.enrollment_id).maybeSingle()
+      : await supabase
+          .from('enrollments')
+          .select('*')
+          .eq('user_id', payment.user_id)
+          .eq('course_id', payment.course_id)
+          .maybeSingle()
+    const keepActive = isEnrollmentActive(existingEnrollment.data as never)
+
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from('enrollments')
+      .upsert(
+        {
+          user_id: payment.user_id,
+          course_id: payment.course_id,
+          progress: existingEnrollment.data?.progress ?? 0,
+          status: keepActive ? existingEnrollment.data?.status ?? 'active' : 'pending',
+          payment_status: 'paid',
+          payment_id: payment.id,
+          purchase_date: existingEnrollment.data?.purchase_date ?? null,
+          activated_at: existingEnrollment.data?.activated_at ?? null,
+          expires_at: existingEnrollment.data?.expires_at ?? null,
+          last_accessed_at: existingEnrollment.data?.last_accessed_at ?? null,
+          license_key: licenseKey,
+          license_unlocked_at: existingEnrollment.data?.license_unlocked_at ?? null,
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -356,9 +508,31 @@ export async function approveCoursePaymentAction(paymentId: string): Promise<Act
         enrollment_id: enrollment.id,
         verified_at: now.toISOString(),
         approved_by: admin.id,
+        license_key: licenseKey,
       } as never)
       .eq('id', paymentId)
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
+
+    const profile = payment.profiles as { email?: string | null; full_name?: string | null } | null
+    let licenseEmailSent = false
+    let licenseEmailFrom: string | null = null
+    if (profile?.email && !payment.license_emailed_at) {
+      const emailResult = await sendCourseLicenseEmail({
+        to: profile.email,
+        studentName: profile.full_name,
+        course,
+        paymentId,
+        licenseKey,
+      })
+      licenseEmailSent = emailResult.sent
+      licenseEmailFrom = emailResult.from
+      if (emailResult.sent) {
+        await supabase
+          .from('course_payments')
+          .update({ license_emailed_at: new Date().toISOString() } as never)
+          .eq('id', paymentId)
+      }
+    }
 
     await supabase.from('course_payment_events').insert({
       payment_id: paymentId,
@@ -368,10 +542,12 @@ export async function approveCoursePaymentAction(paymentId: string): Promise<Act
       new_status: 'paid',
       event_type: 'manual_payment_approved',
       actor_id: admin.id,
+      payload: { licenseEmailSent, licenseEmailFrom },
     } as never)
 
     revalidatePath('/admin/course-payments')
     revalidatePath('/dashboard/my-courses')
+    revalidatePath(`/courses/${course.slug}/payment`)
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to approve payment.') }
@@ -382,7 +558,7 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
   try {
     const admin = await import('@/lib/auth').then((mod) => mod.requireAdmin())
     const supabase = await getServiceSupabase()
-    const { data: payment } = await supabase.from('course_payments').select('*').eq('id', paymentId).maybeSingle()
+    const { data: payment } = await supabase.from('course_payments').select('*, courses(slug)').eq('id', paymentId).maybeSingle()
     if (!payment) return { success: false, error: 'Payment not found' }
 
     const { error } = await supabase
@@ -413,6 +589,9 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
     } as never)
 
     revalidatePath('/admin/course-payments')
+    const courseSlug = (payment.courses as { slug?: string } | null)?.slug
+    if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
+    revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to reject payment.') }

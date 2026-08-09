@@ -24,14 +24,15 @@ export function generateInvoiceNumber(): string {
   return `INV_${date}_${rand}`
 }
 
-function invoiceFileSegment(value: unknown): string {
+function invoiceFileSegment(value: unknown, maxLength = 80): string {
   return String(value ?? '')
     .replace(/[^a-zA-Z0-9_-]+/g, '_')
     .replace(/^_+|_+$/g, '')
+    .slice(0, maxLength)
 }
 
 export function invoiceFileBaseName(invoiceNumber: string, customerName?: unknown): string {
-  const invoiceSegment = invoiceFileSegment(invoiceNumber) || 'invoice'
+  const invoiceSegment = invoiceFileSegment(invoiceNumber, 40) || 'invoice'
   const customerSegment = invoiceFileSegment(customerName).toUpperCase()
   return customerSegment ? `${invoiceSegment}_${customerSegment}` : invoiceSegment
 }

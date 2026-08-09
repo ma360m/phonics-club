@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { LmsEmptyState, LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
 import { formatPrice } from '@/utils/format'
-import { ExternalLink, FileSearch, ShieldCheck, XCircle } from 'lucide-react'
+import { ExternalLink, FileSearch, KeyRound, Mail, ShieldCheck, XCircle } from 'lucide-react'
 
 function paymentTone(status: string): 'blue' | 'red' | 'gold' | 'green' {
   if (status === 'paid') return 'green'
@@ -31,7 +31,7 @@ export default async function AdminCoursePaymentsPage({
       <LmsPageHeader
         eyebrow="Course Payments"
         title="Payment review"
-        description="Verify manual transfers, preview uploaded receipts and activate course access after confirmation."
+        description="Verify manual transfers, preview uploaded receipts, issue licence keys and let customers unlock course access after confirmation."
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -61,6 +61,7 @@ export default async function AdminCoursePaymentsPage({
                 </div>
                 <h2 className="text-lg font-bold text-[#0F172A]">{payment.courses?.title ?? 'Course payment'}</h2>
                 <p className="mt-1 text-sm text-slate-500">{payment.profiles?.full_name ?? payment.profiles?.email ?? 'Student record'}</p>
+                <p className="mt-1 text-xs text-slate-500">{payment.profiles?.email ?? 'No email on profile'}</p>
 
                 {payment.receipt_path ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm text-slate-600">
@@ -83,18 +84,47 @@ export default async function AdminCoursePaymentsPage({
                     No receipt has been uploaded yet.
                   </div>
                 )}
+
+                {payment.license_key && (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    <p className="flex items-center gap-2 font-semibold text-emerald-900">
+                      <KeyRound className="h-4 w-4" />
+                      Licence key issued
+                    </p>
+                    <p className="mt-2 break-all font-mono text-xs font-bold tracking-wide">{payment.license_key}</p>
+                    <p className="mt-2 flex items-center gap-2 text-xs">
+                      <Mail className="h-3.5 w-3.5" />
+                      {payment.license_emailed_at
+                        ? `Emailed ${new Date(payment.license_emailed_at).toLocaleString('en-PK')}`
+                        : 'Email not recorded. Send manually if SMTP is not configured.'}
+                    </p>
+                    <p className="mt-1 text-xs">
+                      {payment.license_unlocked_at
+                        ? `Customer unlocked access ${new Date(payment.license_unlocked_at).toLocaleString('en-PK')}.`
+                        : 'Waiting for the customer to enter the licence key.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Amount</p>
                 <p className="mt-2 text-2xl font-bold text-[#1D4ED8]">{formatPrice(Number(payment.amount ?? 0))}</p>
                 <div className="mt-4 space-y-2">
-                  {['submitted', 'processing', 'pending'].includes(payment.status) && (
-                    <form action={approveCoursePaymentFormAction}>
+                  {(['submitted', 'processing', 'pending'].includes(payment.status) || (payment.status === 'paid' && !payment.license_key)) && (
+                    <form action={approveCoursePaymentFormAction} className="space-y-2">
                       <input type="hidden" name="payment_id" value={payment.id} />
+                      <input
+                        name="license_key"
+                        placeholder="Licence key, or leave blank"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                      />
+                      <p className="text-xs leading-5 text-slate-600">
+                        Blank keys are generated automatically and emailed to the student from noreply@phonicsclub.com.
+                      </p>
                       <Button type="submit" size="sm" className="w-full rounded-xl bg-emerald-600">
                         <ShieldCheck className="mr-2 h-4 w-4" />
-                        Approve
+                        {payment.status === 'paid' ? 'Issue Key' : 'Approve & Issue Key'}
                       </Button>
                     </form>
                   )}

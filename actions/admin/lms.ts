@@ -466,7 +466,9 @@ export async function getAdminCoursePayments(status?: string) {
 }
 
 export async function approveCoursePaymentFormAction(formData: FormData): Promise<void> {
-  const result = await approveCoursePaymentAction(String(formData.get('payment_id')))
+  const result = await approveCoursePaymentAction(String(formData.get('payment_id')), {
+    licenseKey: text(formData, 'license_key') || undefined,
+  })
   if (!result.success) throw toError(result.error, 'Course payment could not be approved.')
 }
 

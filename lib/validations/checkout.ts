@@ -17,8 +17,8 @@ const pakistanPhone = z
     { message: 'Enter a valid Pakistan mobile number (e.g. 0300 8079480 or +92 300 8079480)' }
   )
 
-export const checkoutSchema = z.object({
-  fullName: z.string().trim().min(2, 'Enter your full name.'),
+export const checkoutBaseSchema = z.object({
+  fullName: z.string().trim().min(2, 'Enter your full name.').max(120, 'Enter a shorter full name.'),
   email: z.string().trim().email('Enter a valid email address.'),
   phone: pakistanPhone,
   address: z.string().trim().min(5, 'Enter a complete delivery address.'),
@@ -30,6 +30,16 @@ export const checkoutSchema = z.object({
   }),
   couponCode: z.string().trim().optional(),
   memberId: z.string().trim().optional(),
+})
+
+export const checkoutSchema = checkoutBaseSchema.superRefine((value, ctx) => {
+  if (value.couponCode?.trim() && value.memberId?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['couponCode'],
+      message: 'Use either a coupon code or Member ID, not both.',
+    })
+  }
 })
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>
