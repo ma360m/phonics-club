@@ -3,16 +3,17 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ShoppingCart } from 'lucide-react'
-import { CART_UPDATED_EVENT } from '@/lib/guest-cart-client'
+import { CART_UPDATED_EVENT, getGuestCartCount } from '@/lib/guest-cart-client'
 
 export function CartBadge() {
   const [count, setCount] = useState(0)
 
   function refreshCount() {
+    setCount(getGuestCartCount())
     fetch('/api/cart/count')
       .then((r) => r.json())
       .then((d) => setCount(d.count ?? 0))
-      .catch(() => setCount(0))
+      .catch(() => setCount(getGuestCartCount()))
   }
 
   useEffect(() => {

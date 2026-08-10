@@ -29,6 +29,7 @@ import type { ActionResult, OrderItem } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
 const MAX_CUSTOMER_ITEM_QUANTITY = 999
+const MAX_BULK_INVOICE_ORDER_COUNT = 200
 
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
@@ -267,6 +268,26 @@ function calculateEditedOrderTotals(
     total,
     displayCurrency,
     displayExchangeRate,
+  }
+}
+
+function buildSequentialInvoiceNumbers(startingInvoiceNumber: string, count: number) {
+  const cleanStartingNumber = startingInvoiceNumber.trim()
+  const match = cleanStartingNumber.match(/^(.*?)(\d+)$/)
+  if (!match) {
+    return { error: 'Starting invoice number must end with a number, for example INV_689.' }
+  }
+
+  const [, prefix, numericPart] = match
+  const firstNumber = Number(numericPart)
+  if (!Number.isSafeInteger(firstNumber) || firstNumber < 0) {
+    return { error: 'Starting invoice number is not valid.' }
+  }
+
+  return {
+    invoiceNumbers: Array.from({ length: count }, (_, index) =>
+      `${prefix}${String(firstNumber + index).padStart(numericPart.length, '0')}`,
+    ),
   }
 }
 
@@ -929,6 +950,48 @@ export async function updateOrderInvoiceNumberAction(orderId: string, invoiceNum
   return { success: true }
 }
 
+export async function bulkUpdateOrderInvoiceNumbersAction(
+  orderIds: string[],
+  startingInvoiceNumber: string,
+): Promise<ActionResult<{ updated: number; firstInvoiceNumber: string; lastInvoiceNumber: string }>> {
+  await requireAdmin()
+
+  const uniqueOrderIds = Array.from(new Set(orderIds.map((orderId) => orderId.trim()).filter(Boolean)))
+  if (!uniqueOrderIds.length) return { success: false, error: 'Select at least one invoice.' }
+  if (uniqueOrderIds.length > MAX_BULK_INVOICE_ORDER_COUNT) {
+    return { success: false, error: `Select ${MAX_BULK_INVOICE_ORDER_COUNT} invoices or fewer at a time.` }
+  }
+
+  const invalidOrderId = uniqueOrderIds.find((orderId) => !z.string().uuid().safeParse(orderId).success)
+  if (invalidOrderId) return { success: false, error: 'One selected invoice is invalid. Refresh Orders and try again.' }
+
+  const sequence = buildSequentialInvoiceNumbers(startingInvoiceNumber, uniqueOrderIds.length)
+  if (sequence.error || !sequence.invoiceNumbers) {
+    return { success: false, error: sequence.error ?? 'Invoice numbers could not be prepared.' }
+  }
+
+  const supabase = await createClient()
+  for (let index = 0; index < uniqueOrderIds.length; index += 1) {
+    const { error } = await supabase
+      .from('orders')
+      .update({ invoice_number: sequence.invoiceNumbers[index] } as never)
+      .eq('id', uniqueOrderIds[index])
+
+    if (error) return { success: false, error: friendlyErrorMessage(error, 'Invoice numbers could not be updated.') }
+  }
+
+  revalidatePath('/admin/orders')
+  revalidatePath('/admin/orders/invoice-numbering')
+  return {
+    success: true,
+    data: {
+      updated: uniqueOrderIds.length,
+      firstInvoiceNumber: sequence.invoiceNumbers[0],
+      lastInvoiceNumber: sequence.invoiceNumbers[sequence.invoiceNumbers.length - 1],
+    },
+  }
+}
+
 export async function allowCustomerInvoiceEditAction(orderId: string): Promise<ActionResult<{ editUrl: string; allowedUntil: string }>> {
   await requireAdmin()
 
@@ -989,6 +1052,20 @@ export async function updateOrderInvoiceNumberFormAction(formData: FormData): Pr
   const invoiceNumber = String(formData.get('invoiceNumber'))
   const result = await updateOrderInvoiceNumberAction(orderId, invoiceNumber)
   if (!result.success) throw new Error(result.error)
+}
+
+export async function bulkUpdateOrderInvoiceNumbersFormAction(formData: FormData): Promise<void> {
+  const orderIds = formData.getAll('orderId').map((value) => String(value ?? ''))
+  const startingInvoiceNumber = String(formData.get('startingInvoiceNumber') ?? '')
+  const result = await bulkUpdateOrderInvoiceNumbersAction(orderIds, startingInvoiceNumber)
+  if (!result.success) throw new Error(result.error)
+
+  const returnTo = String(formData.get('returnTo') ?? '')
+  const safeReturnTo = returnTo.startsWith('/admin/orders/invoice-numbering')
+    ? returnTo
+    : '/admin/orders/invoice-numbering'
+  const separator = safeReturnTo.includes('?') ? '&' : '?'
+  redirect(`${safeReturnTo}${separator}updated=${result.data?.updated ?? orderIds.length}`)
 }
 
 export async function deleteOrderAction(orderId: string): Promise<ActionResult> {

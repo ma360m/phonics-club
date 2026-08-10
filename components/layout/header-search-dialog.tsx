@@ -41,8 +41,8 @@ const searchTargets = [
 
 const quickLinks = [
   { ...PRIMARY_SITE_LINKS[0], icon: ShoppingBag },
-  { ...PRIMARY_SITE_LINKS[1], icon: BookOpen },
-  { ...PRIMARY_SITE_LINKS[2], icon: GraduationCap },
+  { ...PRIMARY_SITE_LINKS[1], icon: GraduationCap },
+  { ...PRIMARY_SITE_LINKS[2], icon: BookOpen },
   { ...PRIMARY_SITE_LINKS[3], icon: Info },
   { ...PRIMARY_SITE_LINKS[4], icon: Contact },
 ]

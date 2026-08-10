@@ -273,8 +273,8 @@ SET excerpt = 'Discover effective phonics teaching strategies from one of our ea
 WHERE slug = 'jolly-phonics-2017-training-video';
 
 UPDATE site_content
-SET content = replace(content::text, 'phonics' || 'club@gmail.com', 'phonicscclub@gmail.com')::jsonb
-WHERE content::text ILIKE '%' || 'phonics' || 'club@gmail.com' || '%';
+SET content = replace(content::text, 'phonicsclub' || '@gmail.com', 'support@phonicsclub.com')::jsonb
+WHERE content::text ILIKE '%' || 'phonicsclub' || '@gmail.com' || '%';
 
 UPDATE site_content
 SET content =

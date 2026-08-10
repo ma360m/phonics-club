@@ -686,7 +686,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   ],
   contact: {
     phones: ['0300-8079480', '0302-2220448'],
-    emails: ['info@phonicsclub.com', 'phonicscclub@gmail.com'],
+    emails: ['info@phonicsclub.com', 'support@phonicsclub.com'],
   },
   cta: {
     title: 'Ready to Transform Literacy Education?',
@@ -811,7 +811,7 @@ export const DEFAULT_POLICIES: Record<string, PolicyContent> = {
       { title: 'Sharing Information', body: ['We never sell personal information. Information may be shared only with trusted third parties where necessary, including courier companies, payment processors, hosting providers, analytics providers, security providers, or authorities where legally required.'] },
       { title: 'Cookies and Analytics', body: ['Our website may use cookies to remember preferences, keep users signed in, improve functionality, and understand website usage. You may disable cookies through your browser settings.'] },
       { title: 'Changes to this Policy', body: ['We may update this Privacy Policy from time to time. Any updates become effective when published on this page.'] },
-      { title: 'Contact Us', body: ['For questions regarding this Privacy Policy, contact info@phonicsclub.com or phonicscclub@gmail.com.'] },
+      { title: 'Contact Us', body: ['For questions regarding this Privacy Policy, contact info@phonicsclub.com or support@phonicsclub.com.'] },
     ],
   },
   terms_policy: {
@@ -847,7 +847,7 @@ export const DEFAULT_POLICIES: Record<string, PolicyContent> = {
       { title: 'Processing Time', body: ['Orders are prepared after payment verification and stock confirmation. Processing times may vary during holidays, high-demand periods, or courier delays.'] },
       { title: 'Shipping Charges', body: ['Shipping charges are shown at checkout where applicable. Customers are responsible for entering a complete and accurate delivery address and phone number.'] },
       { title: 'Delivery Issues', body: ['If a parcel is delayed, returned, damaged, or marked delivered but not received, contact Phonics Club with your order number so the team can coordinate with the courier.'] },
-      { title: 'Contact Us', body: ['For shipping questions, contact info@phonicsclub.com or phonicsclub@gmail.com with your order number and delivery details.'] },
+      { title: 'Contact Us', body: ['For shipping questions, contact info@phonicsclub.com or support@phonicsclub.com with your order number and delivery details.'] },
     ],
   },
   cookies_policy: {

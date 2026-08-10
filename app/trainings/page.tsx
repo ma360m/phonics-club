@@ -1,6 +1,7 @@
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { TrainingRegistrationForm } from '@/components/training/training-registration-form'
 import { WebinarCarousel } from '@/components/training/webinar-carousel'
+import { EagerTrainingVideo } from '@/components/training/eager-training-video'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY, TRAINING_CALENDAR_2026, ONLINE_WEBINARS, WEEKLY_PLAN } from '@/lib/company'
@@ -49,13 +50,8 @@ export default async function TrainingsPage() {
 
       <section className="relative overflow-hidden bg-[#0F172A] text-white">
         {websiteVideos.trainingsHeroVideoUrl ? (
-          <video
+          <EagerTrainingVideo
             src={websiteVideos.trainingsHeroVideoUrl}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : null}
@@ -106,14 +102,9 @@ export default async function TrainingsPage() {
             {websiteVideos.trainingsOnsiteVideoUrl ? (
               <div className="overflow-hidden rounded-2xl border border-[#CBD5E1] bg-white shadow-sm">
                 <div className="aspect-video bg-[#0F172A]">
-                  <video
+                  <EagerTrainingVideo
                     src={websiteVideos.trainingsOnsiteVideoUrl}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
                     controls
-                    preload="auto"
                     className="h-full w-full object-cover sm:object-contain"
                   />
                 </div>

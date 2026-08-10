@@ -20,7 +20,7 @@ It combines:
 | **AI assistant** | Floating chatbot for courses, products, pricing, and support |
 
 **Company:** Phonics Club Pvt Ltd · Pakistan, LHR  
-**Contact:** phonicscclub@gmail.com · +92 300 8079480 · +92 3022220448  
+**Contact:** support@phonicsclub.com · +92 300 8079480 · +92 3022220448  
 **Social:** [Instagram](https://www.instagram.com/phonics.club/) · [Facebook](https://www.facebook.com/phonicsclub/) · [YouTube](https://youtu.be/8Tjs_Z1I0cM)
 
 ---
@@ -360,7 +360,7 @@ Homepage **Trust Badges** section:
 # App
 NEXT_PUBLIC_APP_URL=https://www.phonicsclub.com
 NEXT_PUBLIC_APP_NAME=PHONICS CLUB
-ADMIN_EMAIL=phonicsclub@gmail.com
+ADMIN_EMAIL=support@phonicsclub.com
 
 # Supabase (required for production)
 NEXT_PUBLIC_SUPABASE_URL=

@@ -26,7 +26,7 @@ No hardcoded `http://`, `localhost`, temporary `vercel.app`, old WordPress expor
 | `app/manifest.ts` | No web app manifest was available to reinforce site name and icons. | Added a manifest with Phonics Club name, theme color, and logo icons. |
 | `lib/primary-site-links.ts`, `components/layout/footer.tsx`, `components/layout/header-search-dialog.tsx` | Preferred sitelinks were not managed from one shared source and were not the first footer navigation group. | Added a shared primary site links list and made the footer/search dialog expose Shop, Courses, Trainings, About Us, and Contact Us in that exact order. |
 | `README.md` | Setup examples used `http://localhost:3000` for public app URL and Supabase callback. | Changed launch examples to `https://www.phonicsclub.com` and official callback. |
-| `PROJECT-OVERVIEW.md` | Env example used `http://localhost:3000` and an incorrect admin email spelling. | Changed to `https://www.phonicsclub.com` and `phonicsclub@gmail.com`. |
+| `PROJECT-OVERVIEW.md` | Env example used `http://localhost:3000` and an incorrect admin email spelling. | Changed to `https://www.phonicsclub.com` and `support@phonicsclub.com`. |
 | `docs/phonics-club-launch-record.md` | Redirect checklist included localhost callback in public launch checklist. | Removed localhost callback from launch checklist. |
 
 ## Missing Pages Created
