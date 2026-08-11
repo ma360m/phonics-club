@@ -373,7 +373,6 @@ export async function createCourseCheckoutAction(
           status: 'pending',
           payment_status: payment.status,
           payment_id: payment.id,
-          license_key: payment.license_key ?? null,
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -541,8 +540,6 @@ export async function unlockCourseWithLicenseKeyFormAction(
           activated_at: now.toISOString(),
           expires_at: expiresAt,
           last_accessed_at: now.toISOString(),
-          license_key: payment.license_key,
-          license_unlocked_at: now.toISOString(),
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -628,8 +625,6 @@ export async function approveCoursePaymentAction(
           activated_at: existingEnrollment.data?.activated_at ?? null,
           expires_at: existingEnrollment.data?.expires_at ?? null,
           last_accessed_at: existingEnrollment.data?.last_accessed_at ?? null,
-          license_key: licenseKey,
-          license_unlocked_at: existingEnrollment.data?.license_unlocked_at ?? null,
         } as never,
         { onConflict: 'user_id,course_id' },
       )

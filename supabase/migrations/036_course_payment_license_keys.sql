@@ -25,3 +25,5 @@ COMMENT ON COLUMN public.enrollments.license_key IS
 
 COMMENT ON COLUMN public.enrollments.license_unlocked_at IS
   'Timestamp when the licence key activated the enrollment.';
+
+NOTIFY pgrst, 'reload schema';

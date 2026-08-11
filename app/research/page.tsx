@@ -73,7 +73,7 @@ export default async function ResearchPage() {
       ) : null}
 
       <section className="bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-none px-4 py-14 sm:px-6 lg:px-8">
           <div className="space-y-6">
             {content.projects.map((project, index) => (
               <article key={project.title} className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">

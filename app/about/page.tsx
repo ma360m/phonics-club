@@ -252,21 +252,21 @@ export default async function AboutPage() {
           <h2 className="text-3xl font-bold">Journey and Milestones</h2>
           <div className="mt-10 space-y-6">
             {content.milestones.map((milestone) => (
-              <article key={milestone.year} className="grid w-full gap-4 rounded-lg border bg-card p-5 md:grid-cols-[120px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(220px,0.35fr)_minmax(0,1fr)]">
+              <article key={milestone.year} className="grid w-full gap-4 rounded-lg border bg-card p-5 md:grid-cols-[120px_1fr]">
                 <div>
                   <p className="text-3xl font-bold text-[#D30000]">{milestone.year}</p>
                 </div>
-                <div className="min-w-0">
+                <div>
                   <h3 className="text-xl font-bold">{milestone.title}</h3>
+                  <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                    {milestone.items.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1D4ED8]" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="grid min-w-0 gap-x-8 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 md:col-start-2 xl:col-start-auto 2xl:grid-cols-3">
-                  {milestone.items.map((item) => (
-                    <li key={item} className="flex min-w-0 gap-2">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1D4ED8]" />
-                      <span className="min-w-0">{item}</span>
-                    </li>
-                  ))}
-                </ul>
               </article>
             ))}
           </div>

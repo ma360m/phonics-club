@@ -84,7 +84,9 @@ export async function sendCourseEnrollmentInvoiceEmail({
                   <td style="padding:30px;">
                     <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">Hi ${escapeHtml(safeName)},</p>
                     <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 22px;">
-                      Please complete the manual payment and upload a clear payment screenshot from your course payment page. Admin approval is required before access is unlocked.
+                      Please complete the manual payment and upload a clear payment screenshot from your course payment page. If you need help, contact us at
+                      <a href="tel:+923084432015" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0308 4432015</a> or
+                      <a href="tel:+923008079480" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0300 8079480</a>.
                     </p>
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
                       ${detailRow('Invoice number', invoiceNumber)}
@@ -93,6 +95,11 @@ export async function sendCourseEnrollmentInvoiceEmail({
                       ${detailRow('Status', 'Pending payment confirmation')}
                     </table>
                     ${primaryButton('Open Payment Page', paymentUrl)}
+                    <p style="color:#4b5563;font-size:13px;line-height:1.7;margin:20px 0 0;">
+                      Already paid? Submit the screenshot on the payment page. Having issue with payment? Call
+                      <a href="tel:+923084432015" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0308 4432015</a> or
+                      <a href="tel:+923008079480" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0300 8079480</a>.
+                    </p>
                   </td>
                 </tr>
                 <tr>

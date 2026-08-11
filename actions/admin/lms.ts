@@ -25,6 +25,14 @@ function firstText(...values: unknown[]) {
   return ''
 }
 
+function coursePaymentFormError(message?: string | null) {
+  const clean = firstText(message)
+  if (/license_key|license_emailed_at|license_unlocked_at|schema cache/i.test(clean)) {
+    return 'Database needs the course licence SQL migration. Run supabase/migrations/036_course_payment_license_keys.sql in Supabase, then reload the schema cache.'
+  }
+  return clean || 'Course payment could not be updated.'
+}
+
 function num(formData: FormData, key: string, fallback = 0) {
   const value = Number(formData.get(key))
   return Number.isFinite(value) ? value : fallback
@@ -510,14 +518,14 @@ export async function approveCoursePaymentFormAction(formData: FormData): Promis
     resendEmail: formData.get('resend_license_email') === 'on',
   })
   if (!result.success) {
-    redirect(`/admin/course-payments?approveError=${encodeURIComponent(result.error ?? 'Course payment could not be approved.')}`)
+    redirect(`/admin/course-payments?approveError=${encodeURIComponent(coursePaymentFormError(result.error))}`)
   }
 }
 
 export async function rejectCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await rejectCoursePaymentAction(String(formData.get('payment_id')), text(formData, 'reason'))
   if (!result.success) {
-    redirect(`/admin/course-payments?approveError=${encodeURIComponent(result.error ?? 'Course payment could not be rejected.')}`)
+    redirect(`/admin/course-payments?approveError=${encodeURIComponent(coursePaymentFormError(result.error))}`)
   }
 }
 
