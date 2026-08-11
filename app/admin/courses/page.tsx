@@ -262,7 +262,7 @@ export default async function AdminCoursesPage({
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
               return (
                 <article key={course.id} className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">
-                  <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(0,1fr)_auto] xl:items-center">
+                  <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(0,1fr)_minmax(max-content,auto)] xl:items-center">
                     <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-[#EFF6FF] xl:aspect-square">
                       {imageUrl ? (
                         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
@@ -285,16 +285,16 @@ export default async function AdminCoursesPage({
                         <span className="text-xs text-slate-500">{formatCourseCategory(course.category)}</span>
                       </div>
                       <h3 className="truncate text-lg font-bold text-[#0F172A]">{course.title}</h3>
-                      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-                        <span className="inline-flex items-center gap-2">
+                      <div className="mt-3 grid gap-x-8 gap-y-2 text-sm text-slate-600 sm:grid-cols-3 xl:flex xl:flex-wrap xl:items-center">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
                           <Users className="h-4 w-4 text-[#1D4ED8]" />
                           {studentCount} students
                         </span>
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
                           <GraduationCap className="h-4 w-4 text-[#1D4ED8]" />
                           {averageCompletion}% complete
                         </span>
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
                           {course.archived ? (
                             <Archive className="h-4 w-4 text-[#8B1E2D]" />
                           ) : course.unlisted ? (
@@ -311,7 +311,7 @@ export default async function AdminCoursesPage({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
                       <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
                         <Link href={`/courses/${course.slug}`}>
                           <Eye className="mr-2 h-4 w-4" />

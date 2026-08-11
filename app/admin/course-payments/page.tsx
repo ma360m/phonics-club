@@ -28,14 +28,14 @@ function paymentStudentEmail(payment: any) {
 export default async function AdminCoursePaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{ status?: string; approveError?: string }>
 }) {
-  const { status = 'all' } = await searchParams
+  const { status = 'all', approveError = '' } = await searchParams
   const payments = await getAdminCoursePayments(status)
   const statuses = ['all', 'pending', 'processing', 'submitted', 'paid', 'rejected', 'refunded']
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="w-full max-w-none">
       <LmsPageHeader
         eyebrow="Course Payments"
         title="Payment review"
@@ -58,6 +58,12 @@ export default async function AdminCoursePaymentsPage({
         ))}
       </div>
 
+      {approveError ? (
+        <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          {approveError}
+        </p>
+      ) : null}
+
       <div className="space-y-4">
         {payments.map((payment: any) => {
           const studentName = paymentStudentName(payment)
@@ -67,7 +73,7 @@ export default async function AdminCoursePaymentsPage({
 
           return (
             <article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
                 <div>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <LmsStatusBadge tone={paymentTone(payment.status)}>{payment.status}</LmsStatusBadge>

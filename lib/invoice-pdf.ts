@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
-import { shopPaymentLabel } from '@/lib/payment-methods'
+import { shopPaymentLabel, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 
@@ -151,6 +151,7 @@ export async function buildInvoicePdf(
     ...COMPANY_BANK_DETAILS,
     ...(template?.bankDetails ?? {}),
   }
+  const showBankDetails = shopPaymentNeedsReceipt(order.payment_method)
   const footerNote =
     template?.footer ??
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
@@ -206,6 +207,7 @@ export async function buildInvoicePdf(
       addr?.fullName ?? '',
       addr?.email ?? '',
       order.phone ?? addr?.phone ?? '',
+      order.member_id ? `Member ID: ${order.member_id}` : '',
       `${addr?.address ?? ''}${addr?.city ? `, ${addr.city}` : ''}`,
       addr?.country ?? 'Pakistan',
     ].filter(Boolean)) {
@@ -322,13 +324,6 @@ export async function buildInvoicePdf(
     ])
   }
   totalsRows.push(['Shipping Fee', formatPrice(summary.shipping), false])
-  if (order.member_id) {
-    totalsRows.push([
-      `Member ID${Number(order.member_discount_percent ?? 0) > 0 ? ` ${formatDiscountPercent(Number(order.member_discount_percent))}` : ''}`,
-      order.member_id,
-      false,
-    ])
-  }
   totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
   if (order.display_currency === 'USD' && order.display_total && order.exchange_rate) {
     if (order.display_subtotal) {
@@ -357,8 +352,8 @@ export async function buildInvoicePdf(
     `Account Number: ${bankDetails.accountNumber}`,
   ].concat(bankDetails.iban ? [`IBAN: ${bankDetails.iban}`] : [])
   const instructionLines = bankDetails.instructions ? wrapText(bankDetails.instructions, 72) : []
-  const bankBoxHeight = 34 + bankLines.length * 12 + instructionLines.length * 10 + 14
-  const requiredSummarySpace = 18 + totalsRows.length * totalsRowHeight + 28 + bankBoxHeight + 91
+  const bankBoxHeight = showBankDetails ? 34 + bankLines.length * 12 + instructionLines.length * 10 + 14 : 0
+  const requiredSummarySpace = 18 + totalsRows.length * totalsRowHeight + (showBankDetails ? 28 + bankBoxHeight : 12) + 91
 
   if (y < requiredSummarySpace) {
     page = addInvoicePage()
@@ -378,28 +373,30 @@ export async function buildInvoicePdf(
     drawCellText(page, value, totalsX + totalsLabelWidth, rowBottom, totalsValueWidth, totalsRowHeight, strong ? 10.5 : 9, rowFont, 'right', color)
   })
 
-  y -= totalsRows.length * totalsRowHeight + 28
-  if (y < bankBoxHeight + 91) y = bankBoxHeight + 91
-  const bankBoxTop = y + 14
-  page.drawRectangle({
-    x: margin,
-    y: bankBoxTop - bankBoxHeight,
-    width: width - margin * 2,
-    height: bankBoxHeight,
-    borderColor: rgb(0.62, 0.68, 0.75),
-    borderWidth: 1,
-    color: rgb(0.97, 0.98, 0.99),
-  })
+  y -= totalsRows.length * totalsRowHeight + (showBankDetails ? 28 : 12)
+  if (showBankDetails) {
+    if (y < bankBoxHeight + 91) y = bankBoxHeight + 91
+    const bankBoxTop = y + 14
+    page.drawRectangle({
+      x: margin,
+      y: bankBoxTop - bankBoxHeight,
+      width: width - margin * 2,
+      height: bankBoxHeight,
+      borderColor: rgb(0.62, 0.68, 0.75),
+      borderWidth: 1,
+      color: rgb(0.97, 0.98, 0.99),
+    })
 
-  page.drawText('Bank Details', { x: margin + 14, y, size: 10, font: fontBold })
-  y -= 16
-  for (const line of bankLines) {
-    page.drawText(line, { x: margin + 14, y, size: 9, font })
-    y -= 12
-  }
-  for (const line of instructionLines) {
-    page.drawText(line, { x: margin + 14, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
-    y -= 10
+    page.drawText('Bank Details', { x: margin + 14, y, size: 10, font: fontBold })
+    y -= 16
+    for (const line of bankLines) {
+      page.drawText(line, { x: margin + 14, y, size: 9, font })
+      y -= 12
+    }
+    for (const line of instructionLines) {
+      page.drawText(line, { x: margin + 14, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
+      y -= 10
+    }
   }
 
   y = 80

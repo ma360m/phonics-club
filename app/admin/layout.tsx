@@ -8,7 +8,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex h-screen min-h-screen overflow-hidden bg-background">
       <AdminSidebar isAdmin={isAdminRole(profile.role)} roleLabel={isAdminRole(profile.role) ? 'Admin' : 'Instructor'} />
-      <main id="admin-scroll-root" className="flex-1 overflow-y-scroll p-6 scroll-smooth [scrollbar-gutter:stable] lg:p-8">
+      <main id="admin-scroll-root" className="min-w-0 w-full flex-1 overflow-y-scroll p-6 scroll-smooth [scrollbar-gutter:stable] lg:p-8">
         {children}
       </main>
       <AdminBackToTop />

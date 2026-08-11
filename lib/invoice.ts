@@ -1,7 +1,7 @@
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
-import { shopPaymentLabel } from '@/lib/payment-methods'
+import { shopPaymentLabel, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 
@@ -70,6 +70,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     ...COMPANY_BANK_DETAILS,
     ...(template?.bankDetails ?? {}),
   }
+  const showBankDetails = shopPaymentNeedsReceipt(order.payment_method)
   const tagline = invoiceTagline(template?.tagline)
   const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
   const exchangeRate = Number(order.exchange_rate ?? 0)
@@ -81,7 +82,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     order.coupon_code || order.member_id
       ? [
           order.coupon_code ? `Coupon ${escapeHtml(order.coupon_code)}${Number(order.coupon_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.coupon_discount_percent))})` : ''}` : null,
-          order.member_id ? `Member ID ${escapeHtml(order.member_id)}${Number(order.member_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.member_discount_percent))})` : ''}` : null,
+          order.member_id ? `Member discount${Number(order.member_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.member_discount_percent))})` : ''}` : null,
         ].filter(Boolean).join(' + ')
       : formatDiscountPercent(summary.discountPercent)
   const usdSummary =
@@ -142,6 +143,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <p style="margin:4px 0">${escapeHtml(addr?.fullName ?? '')}</p>
         <p style="margin:4px 0">${escapeHtml(addr?.email ?? '')}</p>
         <p style="margin:4px 0">${escapeHtml(order.phone ?? addr?.phone ?? '')}</p>
+        ${order.member_id ? `<p style="margin:4px 0"><strong>Member ID:</strong> ${escapeHtml(order.member_id)}</p>` : ''}
         <p style="margin:4px 0">${escapeHtml(addr?.address ?? '')}${addr?.city ? `, ${escapeHtml(addr.city)}` : ''}</p>
         <p style="margin:4px 0">${escapeHtml(addr?.country ?? 'Pakistan')}</p>
       </div>
@@ -165,21 +167,20 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>
         ${summary.shippingDiscount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Waived${order.shipping_discount_reason ? ` (${escapeHtml(order.shipping_discount_reason)})` : ''}</span><strong>-${formatPrice(summary.shippingDiscount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
-        ${order.member_id ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Member ID</span><strong>${escapeHtml(order.member_id)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
         ${displayCurrency && exchangeRate && displayTotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;background:#f8fafc;color:#64748b;font-size:12px"><span>Displayed at checkout</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p><p style="margin:0;padding:0 12px 10px;background:#f8fafc;color:#64748b;font-size:12px">Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR</p>` : ''}
       </div>
     </div>
     ${usdSummary}
 
-    <div style="border:1.5px solid #94A3B8;background:#f8fafc;padding:16px;border-radius:8px;margin-bottom:24px">
+    ${showBankDetails ? `<div style="border:1.5px solid #94A3B8;background:#f8fafc;padding:16px;border-radius:8px;margin-bottom:24px">
       <p style="margin:0 0 8px;font-weight:bold;color:#111827">Bank Details</p>
       <p style="margin:4px 0"><strong>Bank:</strong> ${escapeHtml(bankDetails.bankName)}</p>
       <p style="margin:4px 0"><strong>Account Title:</strong> ${escapeHtml(bankDetails.accountTitle)}</p>
       <p style="margin:4px 0"><strong>Account Number:</strong> ${escapeHtml(bankDetails.accountNumber)}</p>
       ${bankDetails.iban ? `<p style="margin:4px 0"><strong>IBAN:</strong> ${escapeHtml(bankDetails.iban)}</p>` : ''}
       ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px">${escapeHtml(bankDetails.instructions)}</p>` : ''}
-    </div>
+    </div>` : ''}
 
     <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">
       <p style="margin:0"><strong>Shipping Notice:</strong> ${escapeHtml(footerNote)}</p>

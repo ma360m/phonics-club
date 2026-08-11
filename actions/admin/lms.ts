@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { canManageCourseId, requireManagedCourse } from '@/lib/admin/course-scope'
@@ -508,12 +509,16 @@ export async function approveCoursePaymentFormAction(formData: FormData): Promis
     forceNewLicenseKey: formData.get('force_new_license_key') === 'on',
     resendEmail: formData.get('resend_license_email') === 'on',
   })
-  if (!result.success) throw toError(result.error, 'Course payment could not be approved.')
+  if (!result.success) {
+    redirect(`/admin/course-payments?approveError=${encodeURIComponent(result.error ?? 'Course payment could not be approved.')}`)
+  }
 }
 
 export async function rejectCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await rejectCoursePaymentAction(String(formData.get('payment_id')), text(formData, 'reason'))
-  if (!result.success) throw toError(result.error, 'Course payment could not be rejected.')
+  if (!result.success) {
+    redirect(`/admin/course-payments?approveError=${encodeURIComponent(result.error ?? 'Course payment could not be rejected.')}`)
+  }
 }
 
 export async function extendEnrollmentAccessFormAction(formData: FormData): Promise<void> {

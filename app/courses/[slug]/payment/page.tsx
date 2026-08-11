@@ -114,8 +114,9 @@ export default async function CoursePaymentPage({
   ])
   const access = getCourseAccessState(enrollment as never)
   const active = access.active
-  const coursePaymentOptions = enabledPaymentMethods.length
-    ? enabledPaymentMethods
+  const enabledCoursePaymentMethods = enabledPaymentMethods.filter((method) => method.method === 'bank_transfer')
+  const coursePaymentOptions = enabledCoursePaymentMethods.length
+    ? enabledCoursePaymentMethods
     : DEFAULT_PAYMENT_METHOD_SETTINGS.filter((method) => method.method === 'bank_transfer')
   const canUploadReceipt = ['pending', 'processing', 'rejected'].includes(payment.status)
   const waitingForReview = payment.status === 'submitted' || payment.status === 'processing'
@@ -160,7 +161,7 @@ export default async function CoursePaymentPage({
                 <div>
                   <h2 className="text-2xl font-bold tracking-normal text-[#0F172A]">Payment Options</h2>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Use the same manual payment options shown at checkout. Online courses require a screenshot/receipt before admin review.
+                    Online courses use bank transfer with screenshot/receipt upload before admin review.
                   </p>
                 </div>
                 <p className="shrink-0 rounded-xl bg-[#EFF6FF] px-4 py-2 text-lg font-bold text-[#1D4ED8]">
@@ -168,7 +169,7 @@ export default async function CoursePaymentPage({
                 </p>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3">
                 {coursePaymentOptions.map((method) => {
                   const isBank = method.method === 'bank_transfer'
                   return (
@@ -182,30 +183,40 @@ export default async function CoursePaymentPage({
                         <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isBank ? 'bg-white text-[#1D4ED8]' : 'bg-white text-slate-500'}`}>
                           <CreditCard className="h-4 w-4" aria-hidden="true" />
                         </span>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-semibold text-[#0F172A]">{method.displayName}</h3>
                           <p className="mt-1 text-sm leading-6 text-slate-600">{method.customerInstructions}</p>
-                          {!method.proofUploadRequired && (
-                            <p className="mt-2 text-xs font-medium text-slate-500">
-                              For online course unlocks, use a method that produces uploadable payment proof.
-                            </p>
-                          )}
+                          <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm text-slate-700 sm:grid-cols-2">
+                            <div className="min-w-0">
+                              <dt className="inline font-medium text-[#0F172A]">Bank: </dt>
+                              <dd className="inline break-words">{bankDetails.bankName}</dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="inline font-medium text-[#0F172A]">Account: </dt>
+                              <dd className="inline break-words">{bankDetails.accountTitle}</dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="inline font-medium text-[#0F172A]">A/C No: </dt>
+                              <dd className="inline break-words">{bankDetails.accountNumber}</dd>
+                            </div>
+                            {bankDetails.iban ? (
+                              <div className="min-w-0">
+                                <dt className="inline font-medium text-[#0F172A]">IBAN: </dt>
+                                <dd className="inline break-all">{bankDetails.iban}</dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                          <p className="mt-4 text-sm leading-6 text-slate-600">
+                            Need help? Contact{' '}
+                            <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] hover:underline">0308 4432015</a>
+                            {' '}or{' '}
+                            <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] hover:underline">0300 8079480</a>.
+                          </p>
                         </div>
                       </div>
                     </article>
                   )
                 })}
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
-                <h3 className="font-semibold text-[#0F172A]">Bank Transfer Details</h3>
-                <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                  <p><span className="font-medium text-[#0F172A]">Bank:</span> {bankDetails.bankName}</p>
-                  <p><span className="font-medium text-[#0F172A]">Account:</span> {bankDetails.accountTitle}</p>
-                  <p><span className="font-medium text-[#0F172A]">A/C No:</span> {bankDetails.accountNumber}</p>
-                  {bankDetails.iban ? <p><span className="font-medium text-[#0F172A]">IBAN:</span> {bankDetails.iban}</p> : null}
-                </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{bankDetails.instructions}</p>
               </div>
             </section>
 

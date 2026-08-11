@@ -26,13 +26,13 @@ export function PaymentReceiptUploadForm({
 
       <h2 className="text-lg font-bold">Upload Payment Receipt</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        If you selected Cash on Delivery but paid by bank transfer, upload the receipt here.
+        Upload your bank transfer receipt here.
       </p>
-      <p className="mt-3 rounded-xl bg-[#EFF6FF] px-3 py-2 text-sm text-[#1D4ED8]">
+      <p className="mt-3 rounded-xl bg-[#EFF6FF] px-3 py-2 text-sm text-slate-600">
         Having issue with payment? Contact us at{' '}
-        <a href="tel:+923084432015" className="font-semibold underline underline-offset-4">0308 4432015</a>
+        <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0308 4432015</a>
         {' '}or{' '}
-        <a href="tel:03008079480" className="font-semibold underline underline-offset-4">0300 8079480</a>.
+        <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0300 8079480</a>.
       </p>
 
       {state.error && (

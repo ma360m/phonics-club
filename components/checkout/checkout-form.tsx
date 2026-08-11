@@ -638,9 +638,31 @@ export function CheckoutForm({
                   onChange={() => setPaymentMethod(option.value)}
                   className="mt-1"
                 />
-                <span>
+                <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{option.title}</span>
                   <span className="mt-1 block text-sm text-muted-foreground">{option.description}</span>
+                  {option.value === 'bank_transfer' && paymentMethod === option.value && (
+                    <span className="mt-4 grid gap-x-5 gap-y-2 text-sm text-slate-700 sm:grid-cols-2">
+                      <span className="min-w-0">
+                        <span className="font-medium text-[#0F172A]">Bank: </span>
+                        <span className="break-words">{bankDetails.bankName}</span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="font-medium text-[#0F172A]">Account: </span>
+                        <span className="break-words">{bankDetails.accountTitle}</span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="font-medium text-[#0F172A]">A/C No: </span>
+                        <span className="break-words">{bankDetails.accountNumber}</span>
+                      </span>
+                      {bankDetails.iban ? (
+                        <span className="min-w-0">
+                          <span className="font-medium text-[#0F172A]">IBAN: </span>
+                          <span className="break-all">{bankDetails.iban}</span>
+                        </span>
+                      ) : null}
+                    </span>
+                  )}
                 </span>
               </label>
             )) : (
@@ -650,26 +672,16 @@ export function CheckoutForm({
             )}
           </div>
 
-          <p className="rounded-lg bg-[#EFF6FF] px-4 py-3 text-sm text-[#1D4ED8]">
+          <p className="rounded-lg bg-[#EFF6FF] px-4 py-3 text-sm text-slate-600">
             Having issue with payment? Contact us at{' '}
-            <a href="tel:+923084432015" className="font-semibold underline underline-offset-4">0308 4432015</a>
+            <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0308 4432015</a>
             {' '}or{' '}
-            <a href="tel:03008079480" className="font-semibold underline underline-offset-4">0300 8079480</a>.
+            <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0300 8079480</a>.
           </p>
 
           {receiptRequired && (
             <div className="space-y-4 rounded-lg bg-muted/50 p-4 text-sm">
-              <div className="space-y-2">
-                <p className="font-semibold">
-                  {paymentMethod === 'bank_transfer' ? 'Bank Account Details' : `${paymentOptions.find((option) => option.value === paymentMethod)?.title} Details`}
-                </p>
-                <p className="break-words">Bank: {bankDetails.bankName}</p>
-                <p className="break-words">Account: {bankDetails.accountTitle}</p>
-                <p className="break-words">A/C No: {bankDetails.accountNumber}</p>
-                {bankDetails.iban ? <p className="break-words">IBAN: {bankDetails.iban}</p> : null}
-                <p className="break-words text-muted-foreground">{bankDetails.instructions}</p>
-              </div>
-
+              <p className="font-semibold">Payment receipt</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label
                   className={`cursor-pointer rounded-lg border bg-background p-3 ${
