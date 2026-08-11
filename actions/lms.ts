@@ -14,7 +14,7 @@ import { buildCertificatePdf } from '@/lib/certificate-pdf'
 import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { APP_URL } from '@/lib/constants'
-import { sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
+import { sendCourseEnrollmentInvoiceEmail, sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
 
@@ -63,6 +63,114 @@ function generateCourseLicenseKey(courseId: string, userId: string) {
     random.slice(4, 8),
     random.slice(8, 12),
   ].join('-')
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    const clean = String(value ?? '').trim()
+    if (clean) return clean
+  }
+  return ''
+}
+
+function courseInvoiceNumber(paymentId: string) {
+  return `COURSE-${new Date().getFullYear()}-${paymentId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+}
+
+async function ensureCourseInvoice(
+  supabase: Awaited<ReturnType<typeof getServiceSupabase>>,
+  payment: { id: string; user_id: string; course_id: string; amount: number | string | null; currency?: string | null },
+) {
+  const { data: existing, error: existingError } = await supabase
+    .from('course_invoices')
+    .select('*')
+    .eq('payment_id', payment.id)
+    .order('issued_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existingError) {
+    console.error('[Course invoice] Could not load invoice', { paymentId: payment.id, error: existingError.message })
+    return null
+  }
+  if (existing) return existing as { invoice_number: string }
+
+  const { data: invoice, error } = await supabase
+    .from('course_invoices')
+    .insert({
+      payment_id: payment.id,
+      course_id: payment.course_id,
+      user_id: payment.user_id,
+      invoice_number: courseInvoiceNumber(payment.id),
+      amount: Number(payment.amount ?? 0),
+      currency: payment.currency ?? 'PKR',
+    } as never)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('[Course invoice] Could not create invoice', { paymentId: payment.id, error: error.message })
+    return null
+  }
+
+  return invoice as { invoice_number: string }
+}
+
+async function sendEnrollmentInvoiceEmailIfNeeded({
+  supabase,
+  payment,
+  course,
+  to,
+  studentName,
+}: {
+  supabase: Awaited<ReturnType<typeof getServiceSupabase>>
+  payment: any
+  course: Course
+  to?: string | null
+  studentName?: string | null
+}) {
+  const invoice = await ensureCourseInvoice(supabase, payment)
+  if (!invoice || !to) return { sent: false, invoiceNumber: invoice?.invoice_number ?? null }
+
+  const metadata = objectRecord(payment.metadata)
+  if (metadata.courseInvoiceEmailedAt) {
+    return { sent: false, invoiceNumber: invoice.invoice_number }
+  }
+
+  try {
+    const emailResult = await sendCourseEnrollmentInvoiceEmail({
+      to,
+      studentName,
+      course,
+      paymentId: payment.id,
+      invoiceNumber: invoice.invoice_number,
+      amount: Number(payment.amount ?? 0),
+      currency: payment.currency ?? 'PKR',
+    })
+
+    if (emailResult.sent) {
+      const nextMetadata = {
+        ...metadata,
+        courseInvoiceNumber: invoice.invoice_number,
+        courseInvoiceEmailedAt: new Date().toISOString(),
+        courseInvoiceEmailFrom: emailResult.from,
+      }
+      const { error } = await supabase
+        .from('course_payments')
+        .update({ metadata: nextMetadata } as never)
+        .eq('id', payment.id)
+      if (error) console.error('[Course invoice] Could not record invoice email', { paymentId: payment.id, error: error.message })
+    }
+
+    return { sent: emailResult.sent, invoiceNumber: invoice.invoice_number }
+  } catch (error) {
+    console.error('[Course invoice] Invoice email failed', { paymentId: payment.id, error })
+    return { sent: false, invoiceNumber: invoice.invoice_number }
+  }
 }
 
 export async function markLessonCompleteAction(
@@ -275,6 +383,18 @@ export async function createCourseCheckoutAction(
     if (enrollmentError) return { success: false, error: enrollmentError.message }
 
     await supabase.from('course_payments').update({ enrollment_id: enrollment.id } as never).eq('id', payment.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', user.id)
+      .maybeSingle()
+    const invoiceEmail = await sendEnrollmentInvoiceEmailIfNeeded({
+      supabase,
+      payment,
+      course: currentCourse,
+      to: firstString((profile as { email?: string | null } | null)?.email, user.email),
+      studentName: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+    })
     if (!existingPayment) {
       await supabase.from('course_payment_events').insert({
         payment_id: payment.id,
@@ -282,7 +402,12 @@ export async function createCourseCheckoutAction(
         user_id: user.id,
         new_status: payment.status,
         event_type: 'checkout_created',
-        payload: { amount: price, currency: currentCourse.currency ?? 'PKR' },
+        payload: {
+          amount: price,
+          currency: currentCourse.currency ?? 'PKR',
+          invoiceNumber: invoiceEmail.invoiceNumber,
+          invoiceEmailSent: invoiceEmail.sent,
+        },
       } as never)
     }
 
@@ -458,14 +583,22 @@ export async function approveCoursePaymentAction(
   try {
     const admin = await import('@/lib/auth').then((mod) => mod.requireAdmin())
     const supabase = await getServiceSupabase()
-    const { data: payment } = await supabase
+    const { data: payment, error: paymentError } = await supabase
       .from('course_payments')
-      .select('*, courses(*), profiles(email, full_name)')
+      .select('*')
       .eq('id', paymentId)
       .maybeSingle()
+    if (paymentError) return { success: false, error: friendlyErrorMessage(paymentError, 'Payment could not be loaded.') }
     if (!payment) return { success: false, error: 'Payment not found' }
 
-    const course = payment.courses as Course
+    const [{ data: course, error: courseError }, { data: profile }] = await Promise.all([
+      supabase.from('courses').select('*').eq('id', payment.course_id).maybeSingle(),
+      supabase.from('profiles').select('email, full_name').eq('id', payment.user_id).maybeSingle(),
+    ])
+    if (courseError) return { success: false, error: friendlyErrorMessage(courseError, 'Course could not be loaded.') }
+    if (!course) return { success: false, error: 'Course not found' }
+
+    const currentCourse = course as Course
     const now = new Date()
     const customLicenseKey = normalizeLicenseKey(options.licenseKey)
     const licenseKey = customLicenseKey || (options.forceNewLicenseKey || !payment.license_key
@@ -516,24 +649,53 @@ export async function approveCoursePaymentAction(
       .eq('id', paymentId)
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
-    const profile = payment.profiles as { email?: string | null; full_name?: string | null } | null
+    const invoice = await ensureCourseInvoice(supabase, payment)
+    const studentProfile = profile as { email?: string | null; full_name?: string | null } | null
+    const paymentMetadata = objectRecord(payment.metadata)
+    const studentEmail = firstString(
+      studentProfile?.email,
+      paymentMetadata.studentEmail,
+      paymentMetadata.student_email,
+      paymentMetadata.customerEmail,
+      paymentMetadata.email,
+    )
+    const studentName = firstString(
+      studentProfile?.full_name,
+      paymentMetadata.studentName,
+      paymentMetadata.student_name,
+      paymentMetadata.customerName,
+      studentEmail,
+    )
     let licenseEmailSent = false
     let licenseEmailFrom: string | null = null
-    if (profile?.email && (options.resendEmail || !payment.license_emailed_at)) {
-      const emailResult = await sendCourseLicenseEmail({
-        to: profile.email,
-        studentName: profile.full_name,
-        course,
-        paymentId,
-        licenseKey,
-      })
-      licenseEmailSent = emailResult.sent
-      licenseEmailFrom = emailResult.from
-      if (emailResult.sent) {
-        await supabase
-          .from('course_payments')
-          .update({ license_emailed_at: new Date().toISOString() } as never)
-          .eq('id', paymentId)
+    if (studentEmail && (options.resendEmail || !payment.license_emailed_at)) {
+      try {
+        const emailResult = await sendCourseLicenseEmail({
+          to: studentEmail,
+          studentName,
+          course: currentCourse,
+          paymentId,
+          licenseKey,
+          amount: Number(payment.amount ?? 0),
+          currency: payment.currency ?? 'PKR',
+          invoiceNumber: invoice?.invoice_number ?? String(paymentMetadata.courseInvoiceNumber ?? ''),
+        })
+        licenseEmailSent = emailResult.sent
+        licenseEmailFrom = emailResult.from
+        if (emailResult.sent) {
+          const { error: emailRecordError } = await supabase
+            .from('course_payments')
+            .update({ license_emailed_at: new Date().toISOString() } as never)
+            .eq('id', paymentId)
+          if (emailRecordError) {
+            console.error('[Course payment] Could not record licence email timestamp', {
+              paymentId,
+              error: emailRecordError.message,
+            })
+          }
+        }
+      } catch (emailError) {
+        console.error('[Course payment] Licence email failed after approval', { paymentId, error: emailError })
       }
     }
 
@@ -545,12 +707,16 @@ export async function approveCoursePaymentAction(
       new_status: 'paid',
       event_type: 'manual_payment_approved',
       actor_id: admin.id,
-      payload: { licenseEmailSent, licenseEmailFrom },
+      payload: {
+        licenseEmailSent,
+        licenseEmailFrom,
+        invoiceNumber: invoice?.invoice_number ?? null,
+      },
     } as never)
 
     revalidatePath('/admin/course-payments')
     revalidatePath('/dashboard/my-courses')
-    revalidatePath(`/courses/${course.slug}/payment`)
+    revalidatePath(`/courses/${currentCourse.slug}/payment`)
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to approve payment.') }

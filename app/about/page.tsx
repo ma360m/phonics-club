@@ -248,11 +248,11 @@ export default async function AboutPage() {
       ) : null}
 
       <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-none px-4 py-14 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold">Journey and Milestones</h2>
           <div className="mt-10 space-y-6">
             {content.milestones.map((milestone) => (
-              <article key={milestone.year} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-[120px_1fr]">
+              <article key={milestone.year} className="grid w-full gap-4 rounded-lg border bg-card p-5 md:grid-cols-[120px_1fr]">
                 <div>
                   <p className="text-3xl font-bold text-[#D30000]">{milestone.year}</p>
                 </div>

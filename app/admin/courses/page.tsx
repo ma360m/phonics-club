@@ -257,12 +257,12 @@ export default async function AdminCoursesPage({
             action={<Button asChild variant="outline" className="rounded-xl bg-white"><Link href="/admin/courses">Reset Filters</Link></Button>}
           />
         ) : (
-          <div className="space-y-3">
+          <div className="w-full max-w-none space-y-3">
             {visibleCourses.map(({ course, studentCount, averageCompletion }) => {
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
               return (
                 <article key={course.id} className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">
-                  <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(420px,1fr)_auto] xl:items-center">
+                  <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(0,1fr)_auto] xl:items-center">
                     <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-[#EFF6FF] xl:aspect-square">
                       {imageUrl ? (
                         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
@@ -285,7 +285,7 @@ export default async function AdminCoursesPage({
                         <span className="text-xs text-slate-500">{formatCourseCategory(course.category)}</span>
                       </div>
                       <h3 className="truncate text-lg font-bold text-[#0F172A]">{course.title}</h3>
-                      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3 xl:max-w-3xl">
+                      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
                         <span className="inline-flex items-center gap-2">
                           <Users className="h-4 w-4 text-[#1D4ED8]" />
                           {studentCount} students

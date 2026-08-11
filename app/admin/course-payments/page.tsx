@@ -150,7 +150,7 @@ export default async function AdminCoursePaymentsPage({
                             defaultChecked={!payment.license_emailed_at}
                             className="mt-0.5 h-4 w-4 rounded border-slate-300"
                           />
-                          <span>Email the licence key to the student.</span>
+                          <span>Email payment confirmation and the licence key to the student.</span>
                         </label>
                         <Button type="submit" size="sm" className="w-full rounded-xl bg-emerald-600">
                           <ShieldCheck className="mr-2 h-4 w-4" />
