@@ -176,6 +176,7 @@ function EnrollmentCard({
             <EnrollButton
               courseId={course.id}
               courseSlug={course.slug}
+              isPaid={price > 0}
               className="h-11 w-full rounded-xl bg-[#8B1E2D] text-white hover:bg-[#8B1E2D]/90"
             />
           )}

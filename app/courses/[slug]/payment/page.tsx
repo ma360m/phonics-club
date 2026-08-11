@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { createCourseCheckoutAction } from '@/actions/lms'
 import { getSession } from '@/lib/auth'
 import { getCourseBySlug } from '@/lib/data/queries'
+import { ensureChildrenPhonicsCourseInstalledBySlug } from '@/lib/data/children-phonics-install'
+import { isChildrenPhonicsCourseSlug } from '@/lib/data/children-phonics-courses'
 import { getCourseAccessState, getCoursePrice, getUserEnrollment, isCourseFree } from '@/lib/lms'
 import { getEnabledPaymentMethodSettings, DEFAULT_PAYMENT_METHOD_SETTINGS } from '@/lib/payment-method-settings'
 import { getBankDetails } from '@/lib/site-content'
@@ -83,8 +85,16 @@ export default async function CoursePaymentPage({
   const returnPath = `/courses/${slug}/payment${paymentId ? `?paymentId=${paymentId}` : ''}`
   if (!user) redirect(`/auth/login?redirect=${encodeURIComponent(returnPath)}`)
 
-  const course = await getCourseBySlug(slug)
+  let course = await getCourseBySlug(slug)
   if (!course) notFound()
+
+  if (isChildrenPhonicsCourseSlug(slug)) {
+    const installedCourse = await ensureChildrenPhonicsCourseInstalledBySlug(slug, { requireService: true })
+    if (installedCourse) course = installedCourse
+    if (!installedCourse && course.id.startsWith('course-jp-')) {
+      redirect(`/courses/${slug}?enrollError=${encodeURIComponent('Ask an admin to install this children course from Admin Courses first.')}`)
+    }
+  }
 
   if (getCoursePrice(course) <= 0 || isCourseFree(course)) {
     redirect(`/courses/${slug}/enroll`)

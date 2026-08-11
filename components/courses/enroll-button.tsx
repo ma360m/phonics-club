@@ -9,10 +9,12 @@ import { toast } from 'sonner'
 export function EnrollButton({
   courseId,
   courseSlug,
+  isPaid = false,
   className,
 }: {
   courseId: string
   courseSlug?: string
+  isPaid?: boolean
   className?: string
 }) {
   const [pending, startTransition] = useTransition()
@@ -20,8 +22,8 @@ export function EnrollButton({
 
   function handleEnroll() {
     startTransition(async () => {
-      if (courseSlug) {
-        router.push(`/courses/${courseSlug}/enroll`)
+      if (courseSlug && isPaid) {
+        router.push(`/courses/${courseSlug}/payment`)
         return
       }
 
