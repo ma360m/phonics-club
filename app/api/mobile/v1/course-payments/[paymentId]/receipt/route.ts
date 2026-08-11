@@ -75,6 +75,8 @@ export async function POST(
         receipt_mime_type: uploaded.mimeType,
         receipt_size_bytes: uploaded.sizeBytes,
         submitted_at: now,
+        registration_expired_at: null,
+        payment_workflow_status: 'slip_uploaded',
       } as never)
       .eq('id', payment.id)
       .eq('user_id', context.user.id)

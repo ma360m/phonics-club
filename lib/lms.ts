@@ -226,7 +226,312 @@ function modulesFromCurriculum(course: Course): CourseModuleWithLessons[] {
   }))
 }
 
-function normalizeModules(rows: CourseModuleRow[], course: Course): CourseModuleWithLessons[] {
+const GROUPS_1_3_COURSE_SLUG = 'jolly-phonics-sounds-groups-1-3'
+
+const GROUPS_1_3_MODULES = [
+  {
+    title: 'Sound Group 1 — s, a, t, i, p, n',
+    description: 'Children learn s, a, t, i, p, and n through the existing sound-group lesson structure.',
+  },
+  {
+    title: 'Sound Group 2 — c/k, e, h, r, m, d',
+    description: 'Children practise the /k/ sound spellings with e, h, r, m, and d.',
+  },
+  {
+    title: 'Sound Group 3 — g, o, u, l, f, b',
+    description: 'Children continue with g, o, u, l, f, and b before the review module.',
+  },
+  {
+    title: 'Groups 1–3 Blending and Segmenting Review',
+    description: 'Children review Groups 1-3 sounds through blending and segmenting practice before the final quiz.',
+  },
+] as const
+
+const GROUPS_1_3_LEGACY_MODULE_SORTS = [
+  [2, 3],
+  [4, 5],
+  [6, 7],
+  [8, 9],
+]
+
+const GROUPS_1_3_LESSON_PRIORITY = new Map([
+  ['Sound s', 1],
+  ['Sound a', 2],
+  ['Sound t', 3],
+  ['Sound i', 4],
+  ['Sound p', 5],
+  ['Sound n', 6],
+  ['Group 1 Flashcard Review', 7],
+  ['Group 1 Formation Practice', 8],
+  ['Group 1 Listening Game', 9],
+  ['Group 1 Blending Practice', 10],
+  ['Group 1 Segmenting Practice', 11],
+  ['Group 1 Checkpoint', 12],
+  ['Group 1 Practice and Review', 13],
+  ['Sound c/k', 1],
+  ['Sound e', 2],
+  ['Sound h', 3],
+  ['Sound r', 4],
+  ['Sound m', 5],
+  ['Sound d', 6],
+  ['Group 2 Flashcard Review', 7],
+  ['Group 2 Formation Practice', 8],
+  ['Group 2 Listening Game', 9],
+  ['Groups 1-2 Blending', 10],
+  ['Groups 1-2 Segmenting', 11],
+  ['Group 2 Checkpoint', 12],
+  ['Group 2 Practice and Review', 13],
+  ['Sound g', 1],
+  ['Sound o', 2],
+  ['Sound u', 3],
+  ['Sound l', 4],
+  ['Sound f', 5],
+  ['Sound b', 6],
+  ['Group 3 Flashcard Review', 7],
+  ['Group 3 Formation Practice', 8],
+  ['Group 3 Listening Game', 9],
+  ['Groups 1-3 Blending', 10],
+  ['Groups 1-3 Segmenting', 11],
+  ['Group 3 Checkpoint', 12],
+  ['Group 3 Practice and Review', 13],
+  ['Groups 1-3 Blending Activities', 1],
+  ['Groups 1-3 Segmenting Activities', 2],
+  ['Groups 1-3 Review', 3],
+])
+
+const GROUPS_1_3_REMOVED_LESSON_TITLES = new Set(['Welcome Video', 'How Activities Work', 'Sound k'])
+
+function normalizeGroups13LessonTitle(lesson: CourseLesson): CourseLesson {
+  if (lesson.title === 'Sound c') {
+    return {
+      ...lesson,
+      title: 'Sound c/k',
+      description: 'Content required: teach the /k/ sound with c and k spellings while adding approved media.',
+    }
+  }
+  if (lesson.title === 'Final Review and Assessment') {
+    return {
+      ...lesson,
+      title: 'Groups 1-3 Review',
+      description: 'Content required: add recognition, listening, matching, formation, blending and segmenting checks.',
+    }
+  }
+  return lesson
+}
+
+function orderGroups13Lessons(lessons: CourseLesson[]): CourseLesson[] {
+  return lessons
+    .filter((lesson) => !GROUPS_1_3_REMOVED_LESSON_TITLES.has(lesson.title))
+    .map(normalizeGroups13LessonTitle)
+    .sort((a, b) => {
+      const priorityA = GROUPS_1_3_LESSON_PRIORITY.get(a.title) ?? 100 + (a.sort_order ?? 0)
+      const priorityB = GROUPS_1_3_LESSON_PRIORITY.get(b.title) ?? 100 + (b.sort_order ?? 0)
+      return priorityA - priorityB || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.title.localeCompare(b.title)
+    })
+    .map((lesson, index) => ({ ...lesson, sort_order: index + 1 }))
+}
+
+function hasDesiredGroups13Modules(modules: CourseModuleWithLessons[]) {
+  return (
+    modules.length === GROUPS_1_3_MODULES.length &&
+    GROUPS_1_3_MODULES.every((module, index) => modules[index]?.title === module.title)
+  )
+}
+
+function normalizeGroups13Modules(modules: CourseModuleWithLessons[], course: Course): CourseModuleWithLessons[] {
+  if (course.slug !== GROUPS_1_3_COURSE_SLUG || !modules.length) return modules
+
+  if (hasDesiredGroups13Modules(modules)) {
+    return modules.map((module, index) => ({
+      ...module,
+      description: GROUPS_1_3_MODULES[index].description,
+      sort_order: index + 1,
+      lessons: orderGroups13Lessons(module.lessons),
+    }))
+  }
+
+  const moduleBySort = new Map(modules.map((module) => [module.sort_order, module]))
+
+  return GROUPS_1_3_MODULES.map((targetModule, index) => {
+    const sourceModules = GROUPS_1_3_LEGACY_MODULE_SORTS[index]
+      .map((sortOrder) => moduleBySort.get(sortOrder))
+      .filter((module): module is CourseModuleWithLessons => Boolean(module))
+    const baseModule = sourceModules[0] ?? modules[index]
+    const fallbackModule: CourseModuleWithLessons = {
+      id: `curriculum-${course.id}-${index}`,
+      course_id: course.id,
+      title: targetModule.title,
+      description: targetModule.description,
+      sort_order: index + 1,
+      created_at: course.created_at,
+      updated_at: course.updated_at,
+      lessons: [],
+    }
+
+    return {
+      ...(baseModule ?? fallbackModule),
+      title: targetModule.title,
+      description: targetModule.description,
+      sort_order: index + 1,
+      lessons: orderGroups13Lessons(sourceModules.flatMap((module) => module.lessons)),
+    }
+  })
+}
+
+const GROUPS_4_7_COURSE_SLUG = 'jolly-phonics-sounds-groups-4-7'
+
+const GROUPS_4_7_MODULES = [
+  {
+    title: 'Sound Group 4 — ai, j, oa, ie, ee, or',
+    description: 'Children explore ai, j, oa, ie, ee, and or through the existing sound-group lesson structure.',
+  },
+  {
+    title: 'Sound Group 5 — z, w, ng, v, oo (moon), oo (book)',
+    description: 'Children develop confidence with z, w, ng, v, oo as in moon, and oo as in book.',
+  },
+  {
+    title: 'Sound Group 6 — y, x, ch, sh, th (unvoiced), th (voiced)',
+    description: 'Children practise y, x, ch, sh, and the two th sounds in the existing lesson structure.',
+  },
+  {
+    title: 'Sound Group 7 — qu, ou, oi, ue, er, ar',
+    description: 'Children complete the final Jolly Phonics sound group: qu, ou, oi, ue, er, and ar.',
+  },
+  {
+    title: 'Groups 4–7 Blending and Segmenting Review',
+    description: 'Children review Groups 4-7 sounds through blending and segmenting practice before the final quiz.',
+  },
+] as const
+
+const GROUPS_4_7_LEGACY_MODULE_SORTS = [
+  [2, 3],
+  [4, 5],
+  [6, 7],
+  [8, 9],
+  [10, 11],
+]
+
+const GROUPS_4_7_LESSON_PRIORITY = new Map([
+  ['Sound ai', 1],
+  ['Sound j', 2],
+  ['Sound oa', 3],
+  ['Sound ie', 4],
+  ['Sound ee', 5],
+  ['Sound or', 6],
+  ['Group 4 Practice and Review', 7],
+  ['Sound z', 1],
+  ['Sound w', 2],
+  ['Sound ng', 3],
+  ['Sound v', 4],
+  ['Sound oo (moon)', 5],
+  ['Sound oo (book)', 6],
+  ['Group 5 Practice and Review', 7],
+  ['Sound y', 1],
+  ['Sound x', 2],
+  ['Sound ch', 3],
+  ['Sound sh', 4],
+  ['Sound th (unvoiced)', 5],
+  ['Sound th (voiced)', 6],
+  ['Group 6 Practice and Review', 7],
+  ['Sound qu', 1],
+  ['Sound ou', 2],
+  ['Sound oi', 3],
+  ['Sound ue', 4],
+  ['Sound er', 5],
+  ['Sound ar', 6],
+  ['Group 7 Practice and Review', 7],
+  ['Groups 4-7 Blending Activities', 1],
+  ['Groups 4-7 Segmenting Activities', 2],
+  ['Groups 4-7 Review', 3],
+])
+
+const GROUPS_4_7_REMOVED_LESSON_TITLES = new Set(['Welcome Back', 'Final Assessment'])
+
+function normalizeGroups47LessonTitle(lesson: CourseLesson): CourseLesson {
+  if (lesson.title === 'Sound oo (long)') {
+    return {
+      ...lesson,
+      title: 'Sound oo (moon)',
+      description: 'Content required: keep this oo sound separate from oo_book and add distinct pronunciation examples.',
+    }
+  }
+  if (lesson.title === 'Sound oo (short)') {
+    return {
+      ...lesson,
+      title: 'Sound oo (book)',
+      description: 'Content required: keep this oo sound separate from oo_moon and add distinct pronunciation examples.',
+    }
+  }
+  if (lesson.title === 'Complete 42-Sound Review') {
+    return {
+      ...lesson,
+      title: 'Groups 4-7 Review',
+      description: 'Content required: add comprehensive Groups 4-7 review activities.',
+    }
+  }
+  return lesson
+}
+
+function orderGroups47Lessons(lessons: CourseLesson[]): CourseLesson[] {
+  return lessons
+    .filter((lesson) => !GROUPS_4_7_REMOVED_LESSON_TITLES.has(lesson.title))
+    .map(normalizeGroups47LessonTitle)
+    .sort((a, b) => {
+      const priorityA = GROUPS_4_7_LESSON_PRIORITY.get(a.title) ?? 100 + (a.sort_order ?? 0)
+      const priorityB = GROUPS_4_7_LESSON_PRIORITY.get(b.title) ?? 100 + (b.sort_order ?? 0)
+      return priorityA - priorityB || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.title.localeCompare(b.title)
+    })
+    .map((lesson, index) => ({ ...lesson, sort_order: index + 1 }))
+}
+
+function hasDesiredGroups47Modules(modules: CourseModuleWithLessons[]) {
+  return (
+    modules.length === GROUPS_4_7_MODULES.length &&
+    GROUPS_4_7_MODULES.every((module, index) => modules[index]?.title === module.title)
+  )
+}
+
+function normalizeGroups47Modules(modules: CourseModuleWithLessons[], course: Course): CourseModuleWithLessons[] {
+  if (course.slug !== GROUPS_4_7_COURSE_SLUG || !modules.length) return modules
+
+  if (hasDesiredGroups47Modules(modules)) {
+    return modules.map((module, index) => ({
+      ...module,
+      description: GROUPS_4_7_MODULES[index].description,
+      sort_order: index + 1,
+      lessons: orderGroups47Lessons(module.lessons),
+    }))
+  }
+
+  const moduleBySort = new Map(modules.map((module) => [module.sort_order, module]))
+
+  return GROUPS_4_7_MODULES.map((targetModule, index) => {
+    const sourceModules = GROUPS_4_7_LEGACY_MODULE_SORTS[index]
+      .map((sortOrder) => moduleBySort.get(sortOrder))
+      .filter((module): module is CourseModuleWithLessons => Boolean(module))
+    const baseModule = sourceModules[0] ?? modules[index]
+    const fallbackModule: CourseModuleWithLessons = {
+      id: `curriculum-${course.id}-${index}`,
+      course_id: course.id,
+      title: targetModule.title,
+      description: targetModule.description,
+      sort_order: index + 1,
+      created_at: course.created_at,
+      updated_at: course.updated_at,
+      lessons: [],
+    }
+
+    return {
+      ...(baseModule ?? fallbackModule),
+      title: targetModule.title,
+      description: targetModule.description,
+      sort_order: index + 1,
+      lessons: orderGroups47Lessons(sourceModules.flatMap((module) => module.lessons)),
+    }
+  })
+}
+
+export function normalizeCourseModulesForDisplay(rows: CourseModuleRow[], course: Course): CourseModuleWithLessons[] {
   const modules = rows
     .map((row) => {
       const lessons = [...((row.course_lessons ?? row.lessons ?? []) as CourseLesson[])]
@@ -235,7 +540,8 @@ function normalizeModules(rows: CourseModuleRow[], course: Course): CourseModule
     })
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
-  return modules.length ? modules : modulesFromCurriculum(course)
+  if (!modules.length) return modulesFromCurriculum(course)
+  return normalizeGroups47Modules(normalizeGroups13Modules(modules, course), course)
 }
 
 export async function getCourseById(
@@ -274,7 +580,7 @@ export async function getCourseModules(course: Course): Promise<CourseModuleWith
       .order('sort_order', { ascending: true })
 
     if (error) return modulesFromCurriculum(course)
-    return normalizeModules((data ?? []) as CourseModuleRow[], course)
+    return normalizeCourseModulesForDisplay((data ?? []) as CourseModuleRow[], course)
   } catch {
     return modulesFromCurriculum(course)
   }
@@ -582,7 +888,7 @@ export async function getCourseWishlist(userId: string): Promise<CourseWishlistI
 export async function getQuizForCourse(
   courseId: string,
   userId: string,
-  options?: { includeUnpublished?: boolean; includeAttempts?: boolean },
+  options?: { includeUnpublished?: boolean; includeAttempts?: boolean; quizId?: string },
 ): Promise<QuizForCourse | null> {
   if (!isSupabaseConfigured()) return null
 
@@ -592,6 +898,7 @@ export async function getQuizForCourse(
       : await createClient()
 
     let quizQuery = supabase.from('course_quizzes').select('*').eq('course_id', courseId)
+    if (options?.quizId) quizQuery = quizQuery.eq('id', options.quizId)
     if (!options?.includeUnpublished) quizQuery = quizQuery.eq('published', true)
     const { data: quiz } = await quizQuery.order('sort_order', { ascending: true }).limit(1).maybeSingle()
 

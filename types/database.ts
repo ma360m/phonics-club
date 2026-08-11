@@ -8,6 +8,11 @@ export type CoursePaymentStatus =
   | 'cancelled'
   | 'rejected'
   | 'refunded'
+export type CoursePaymentWorkflowStatus =
+  | 'pending_payment'
+  | 'slip_uploaded'
+  | 'payment_verified'
+  | 'licence_issued'
 export type CourseEnrollmentStatus = 'pending' | 'active' | 'completed' | 'expired' | 'cancelled' | 'refunded'
 export type AssignmentSubmissionStatus =
   | 'draft'
@@ -653,6 +658,7 @@ export interface CourseResource {
 export interface CourseQuiz {
   id: string
   course_id: string
+  module_id?: string | null
   lesson_id: string | null
   title: string
   description: string | null
@@ -796,6 +802,11 @@ export interface CoursePayment {
   verified_at: string | null
   rejected_at: string | null
   refunded_at: string | null
+  registration_expires_at?: string | null
+  registration_expired_at?: string | null
+  payment_workflow_status?: CoursePaymentWorkflowStatus
+  payment_pending_reminder_sent_at?: string | null
+  payment_pending_reminder_event_id?: string | null
   license_key?: string | null
   license_emailed_at?: string | null
   license_unlocked_at?: string | null

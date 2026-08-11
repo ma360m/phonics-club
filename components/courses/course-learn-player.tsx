@@ -99,6 +99,37 @@ function lessonHasQuiz(lesson: CourseLesson, quizzes: CourseQuiz[]) {
   return lesson.lesson_type === 'quiz' || quizzes.some((quiz) => quiz.lesson_id === lesson.id)
 }
 
+function getModuleLessons(lessons: LessonWithModule[], moduleId: string | undefined) {
+  return lessons.filter((lesson) => lesson.moduleId === moduleId)
+}
+
+function isLastLessonInModule(lesson: LessonWithModule, lessons: LessonWithModule[]) {
+  const moduleLessons = getModuleLessons(lessons, lesson.moduleId)
+  return moduleLessons[moduleLessons.length - 1]?.id === lesson.id
+}
+
+function getQuizzesForLesson(lesson: LessonWithModule | undefined, lessons: LessonWithModule[], quizzes: CourseQuiz[]) {
+  if (!lesson) return []
+  const isFinalLesson = lesson.globalIndex === lessons.length - 1
+  return quizzes.filter((quiz) => {
+    if (quiz.lesson_id) return quiz.lesson_id === lesson.id
+    if (quiz.module_id) return quiz.module_id === lesson.moduleId && isLastLessonInModule(lesson, lessons)
+    return isFinalLesson
+  })
+}
+
+function lessonHasPlacedQuiz(lesson: LessonWithModule, lessons: LessonWithModule[], quizzes: CourseQuiz[]) {
+  return lesson.lesson_type === 'quiz' || getQuizzesForLesson(lesson, lessons, quizzes).length > 0
+}
+
+function quizHref(courseId: string, quizId: string | undefined, previewMode: boolean) {
+  const params = new URLSearchParams()
+  if (quizId) params.set('quizId', quizId)
+  if (previewMode) params.set('preview', 'admin')
+  const query = params.toString()
+  return `/course/${courseId}/quiz${query ? `?${query}` : ''}`
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
@@ -188,7 +219,7 @@ export function CourseLearnPlayer({
   const [completed, setCompleted] = useState(initialCompleted)
   const [progress, setProgress] = useState(initialProgress)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [detailsCollapsed, setDetailsCollapsed] = useState(false)
+  const [detailsCollapsed, setDetailsCollapsed] = useState(true)
   const [mobileCurriculumOpen, setMobileCurriculumOpen] = useState(false)
   const [completionBurst, setCompletionBurst] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -203,9 +234,16 @@ export function CourseLearnPlayer({
   const activeLessonResources = resources.filter((resource) => resource.lesson_id === activeLesson?.id)
   const courseResources = resources.filter((resource) => !resource.lesson_id)
   const activeResources = [...activeLessonResources, ...courseResources]
-  const activeLessonQuizzes = quizzes.filter((quiz) => quiz.lesson_id === activeLesson?.id)
-  const courseQuizzes = quizzes.filter((quiz) => !quiz.lesson_id)
-  const lessonQuizzes = activeLessonQuizzes.length ? activeLessonQuizzes : courseQuizzes
+  const lessonQuizzes = getQuizzesForLesson(activeLesson, lessons, quizzes)
+  const quizRequiredLessons = activeLesson && lessonQuizzes.length
+    ? lessonQuizzes.some((quiz) => !quiz.lesson_id && !quiz.module_id)
+      ? lessons
+      : lessonQuizzes.some((quiz) => !quiz.lesson_id && quiz.module_id)
+        ? getModuleLessons(lessons, activeLesson.moduleId)
+        : []
+    : []
+  const lockedQuizLessonCount = previewMode ? 0 : quizRequiredLessons.filter((lesson) => !completed.has(lesson.id)).length
+  const quizLocked = lockedQuizLessonCount > 0
   const completedCount = lessons.filter((lesson) => completed.has(lesson.id)).length
   const sourceUrl = activeLesson ? lessonSourceUrl(activeLesson) : null
   const showInfoPanel = Boolean(
@@ -403,6 +441,8 @@ export function CourseLearnPlayer({
       courseId={course.id}
       sourceUrl={sourceUrl}
       previewMode={previewMode}
+      quizLocked={quizLocked}
+      lockedQuizLessonCount={lockedQuizLessonCount}
       collapsed={detailsCollapsed}
       onToggleCollapsed={() => setDetailsCollapsed((value) => !value)}
     />
@@ -415,9 +455,9 @@ export function CourseLearnPlayer({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="ghost" size="sm" className="h-8 rounded-xl px-2 text-slate-600 hover:text-[#1D4ED8]">
-                <Link href={previewMode ? '/admin/courses' : '/dashboard/my-courses'}>
+                <Link href="/">
                   <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-                  {previewMode ? 'Admin Courses' : 'My Courses'}
+                  Back to Website
                 </Link>
               </Button>
               <Badge variant="outline" className="rounded-full border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]">
@@ -502,7 +542,7 @@ export function CourseLearnPlayer({
                   )}
                 </div>
                 <Badge className="w-fit rounded-full bg-[#EFF6FF] text-[#1D4ED8] hover:bg-[#EFF6FF]">
-                  <LessonTypeIcon lesson={activeLesson} hasQuiz={lessonHasQuiz(activeLesson, quizzes)} className="mr-1" />
+                  <LessonTypeIcon lesson={activeLesson} hasQuiz={lessonHasPlacedQuiz(activeLesson, lessons, quizzes)} className="mr-1" />
                   {formatLessonType(activeLesson.lesson_type)}
                 </Badge>
               </div>
@@ -515,6 +555,8 @@ export function CourseLearnPlayer({
               sourceUrl={sourceUrl}
               courseId={course.id}
               quizzes={lessonQuizzes}
+              quizLocked={quizLocked}
+              lockedQuizLessonCount={lockedQuizLessonCount}
               contentRequired={contentRequired}
               previewMode={previewMode}
             />
@@ -639,7 +681,7 @@ function CurriculumSidebar({
             const locked = isLocked(index)
             const active = activeLessonId === lesson.id
             const done = completed.has(lesson.id)
-            const hasQuiz = lessonHasQuiz(lesson, quizzes)
+            const hasQuiz = lessonHasPlacedQuiz(lesson, lessons, quizzes)
             return (
               <button
                 key={lesson.id}
@@ -712,7 +754,7 @@ function CurriculumSidebar({
                     const locked = isLocked(index)
                     const active = activeLessonId === lesson.id
                     const done = completed.has(lesson.id)
-                    const hasQuiz = lessonHasQuiz(lesson, quizzes)
+                    const hasQuiz = lessonWithModule ? lessonHasPlacedQuiz(lessonWithModule, lessons, quizzes) : lessonHasQuiz(lesson, quizzes)
                     return (
                       <li key={lesson.id}>
                         <button
@@ -769,6 +811,8 @@ function LessonContent({
   sourceUrl,
   courseId,
   quizzes,
+  quizLocked,
+  lockedQuizLessonCount,
   contentRequired,
   previewMode,
 }: {
@@ -778,6 +822,8 @@ function LessonContent({
   sourceUrl: string | null
   courseId: string
   quizzes: CourseQuiz[]
+  quizLocked: boolean
+  lockedQuizLessonCount: number
   contentRequired: boolean
   previewMode: boolean
 }) {
@@ -785,6 +831,7 @@ function LessonContent({
   const showVideo = lesson.lesson_type === 'video' || Boolean(videoUrl)
   const showQuiz = lesson.lesson_type === 'quiz' || quizzes.length > 0
   const showExternal = lesson.lesson_type === 'external_link' || lesson.lesson_type === 'live_class'
+  const primaryQuiz = quizzes[0]
 
   return (
     <div className="space-y-0">
@@ -861,15 +908,27 @@ function LessonContent({
                   Quiz
                 </p>
                 <h3 className="mt-1 text-lg font-bold text-[#0F172A]">
-                  {quizzes[0]?.title ?? 'Course quiz'}
+                  {primaryQuiz?.title ?? 'Course quiz'}
                 </h3>
-                {quizzes[0]?.description && <p className="mt-1 text-sm leading-6 text-slate-600">{quizzes[0].description}</p>}
+                {primaryQuiz?.description && <p className="mt-1 text-sm leading-6 text-slate-600">{primaryQuiz.description}</p>}
+                {quizLocked && (
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Complete {lockedQuizLessonCount} remaining lesson{lockedQuizLessonCount === 1 ? '' : 's'} to unlock this quiz.
+                  </p>
+                )}
               </div>
-              <Button asChild className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
-                <Link href={previewMode ? `/course/${courseId}/quiz?preview=admin` : `/course/${courseId}/quiz`}>
-                  Launch Quiz
-                </Link>
-              </Button>
+              {quizLocked ? (
+                <Button type="button" disabled className="rounded-xl bg-slate-300 text-slate-600 hover:bg-slate-300">
+                  <Lock className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Locked
+                </Button>
+              ) : (
+                <Button asChild className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+                  <Link href={quizHref(courseId, primaryQuiz?.id, previewMode)}>
+                    Launch Quiz
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1153,6 +1212,8 @@ function LessonInfoPanel({
   courseId,
   sourceUrl,
   previewMode,
+  quizLocked,
+  lockedQuizLessonCount,
   collapsed,
   onToggleCollapsed,
 }: {
@@ -1163,6 +1224,8 @@ function LessonInfoPanel({
   courseId: string
   sourceUrl: string | null
   previewMode: boolean
+  quizLocked: boolean
+  lockedQuizLessonCount: number
   collapsed: boolean
   onToggleCollapsed: () => void
 }) {
@@ -1231,14 +1294,19 @@ function LessonInfoPanel({
               {resources.length} attached resource{resources.length === 1 ? '' : 's'}
             </p>
           )}
-          {quizzes.length > 0 && (
+          {quizzes.length > 0 && (quizLocked ? (
+            <Button type="button" variant="outline" disabled className="w-full justify-start rounded-xl border-slate-200 bg-white">
+              <Lock className="mr-2 h-4 w-4" aria-hidden="true" />
+              {lockedQuizLessonCount} lesson{lockedQuizLessonCount === 1 ? '' : 's'} left
+            </Button>
+          ) : (
             <Button asChild variant="outline" className="w-full justify-start rounded-xl border-slate-200 bg-white">
-              <Link href={previewMode ? `/course/${courseId}/quiz?preview=admin` : `/course/${courseId}/quiz`}>
+              <Link href={quizHref(courseId, quizzes[0]?.id, previewMode)}>
                 <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" />
                 Open Quiz
               </Link>
             </Button>
-          )}
+          ))}
           {sourceUrl && (
             <Button asChild variant="outline" className="w-full justify-start rounded-xl border-slate-200 bg-white">
               <a href={sourceUrl} target="_blank" rel="noreferrer">

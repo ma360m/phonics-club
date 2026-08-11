@@ -125,6 +125,113 @@ export async function sendCourseEnrollmentInvoiceEmail({
   return { sent: result.ok, result, from }
 }
 
+export async function sendCoursePaymentPendingReminderEmail({
+  to,
+  studentName,
+  course,
+  paymentId,
+  amount,
+  currency,
+  requestExpiry,
+}: {
+  to: string
+  studentName?: string | null
+  course: Course
+  paymentId: string
+  amount: number
+  currency?: string | null
+  requestExpiry: Date
+}) {
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
+  const safeName = studentName?.trim() || 'Student'
+  const amountLabel = formatPrice(Number(amount ?? course.discounted_price ?? course.price ?? 0), currency ?? course.currency ?? 'PKR')
+  const expiryLabel = requestExpiry.toLocaleString('en-PK', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Karachi',
+  })
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Action Required: Complete Your Course Registration</title>
+      </head>
+      <body style="margin:0;padding:0;background:#f3f6fb;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6fb;width:100%;">
+          <tr>
+            <td align="center" style="padding:28px 14px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+                <tr>
+                  <td style="background:#0F172A;color:#ffffff;padding:30px;">
+                    <p style="font-size:13px;font-weight:800;letter-spacing:.08em;margin:0 0 14px;text-transform:uppercase;">Phonics Club registration</p>
+                    <h1 style="font-size:28px;line-height:1.2;margin:0;">Action Required: Complete Your Course Registration</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:30px;">
+                    <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">Dear ${escapeHtml(safeName)},</p>
+                    <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 18px;">
+                      Thank you for registering for ${escapeHtml(course.title)} with Phonics Club.
+                    </p>
+                    <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 20px;">
+                      Your registration is currently pending because we have not yet received your payment slip/receipt.
+                      Please complete the payment process to avoid expiry of your registration request.
+                    </p>
+                    <p style="font-size:15px;font-weight:700;line-height:1.7;margin:0 0 10px;">To complete your registration:</p>
+                    <ol style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 22px;padding-left:22px;">
+                      <li>Pay the course fee of ${escapeHtml(amountLabel)}.</li>
+                      <li>Log in to your Phonics Club account and upload your payment slip/receipt.</li>
+                      <li>Your payment will be reviewed and verified by our team.</li>
+                      <li>After successful verification, your Course Licence will be generated and sent to your registered email address.</li>
+                      <li>Your course will then be unlocked for access.</li>
+                    </ol>
+                    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;color:#9a3412;font-size:14px;line-height:1.7;margin:0 0 22px;padding:16px;">
+                      <strong>Important:</strong><br />
+                      Registration alone does not provide access to the course. Your Course Licence can only be issued after
+                      your payment slip has been uploaded and your payment has been successfully verified.
+                    </div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
+                      ${detailRow('Course', course.title)}
+                      ${detailRow('Amount', amountLabel)}
+                      ${detailRow('Status', 'Payment Pending')}
+                      ${detailRow('Request Expiry', expiryLabel)}
+                    </table>
+                    ${primaryButton('Upload Payment Slip', paymentUrl)}
+                    <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:20px 0 0;">
+                      If you have already made the payment, please upload your payment slip as soon as possible.
+                    </p>
+                    <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:12px 0 0;">
+                      For assistance, contact us at <a href="tel:+923210007079" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0321-0007079</a>.
+                    </p>
+                    <p style="color:#111827;font-size:14px;line-height:1.7;margin:22px 0 0;">
+                      Regards,<br />
+                      <strong>Phonics Club Team</strong><br />
+                      Empowering Literacy Through Synthetic Phonics
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `
+
+  const result = await sendTransactionalEmail({
+    from,
+    to: [to],
+    subject: 'Action Required: Complete Your Course Registration',
+    html,
+  })
+
+  return { sent: result.ok, result, from }
+}
+
 export async function sendCourseLicenseEmail({
   to,
   studentName,
@@ -145,7 +252,7 @@ export async function sendCourseLicenseEmail({
   invoiceNumber?: string | null
 }) {
   const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
-  const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
+  const courseUrl = `${baseUrl()}/course/${course.id}/learn`
   const safeName = studentName?.trim() || 'Student'
   const amountLabel = formatPrice(Number(amount ?? course.discounted_price ?? course.price ?? 0), currency ?? course.currency ?? 'PKR')
 
@@ -173,7 +280,7 @@ export async function sendCourseLicenseEmail({
                   <td style="padding:30px;">
                     <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">Hi ${escapeHtml(safeName)},</p>
                     <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 22px;">
-                      Your payment has been confirmed. Use the licence key below on your course payment page to unlock the course.
+                      Your payment has been confirmed and your course access has been unlocked. Keep the licence key below for your records.
                     </p>
                     <div style="background:#f8fafc;border:1px dashed #93c5fd;border-radius:14px;padding:18px;text-align:center;margin:0 0 24px;">
                       <p style="color:#6b7280;font-size:12px;font-weight:800;letter-spacing:.08em;margin:0 0 8px;text-transform:uppercase;">Licence key</p>
@@ -185,7 +292,7 @@ export async function sendCourseLicenseEmail({
                       ${detailRow('Payment status', 'Confirmed')}
                       ${detailRow('Amount paid', amountLabel)}
                     </table>
-                    ${primaryButton('Unlock Course', paymentUrl)}
+                    ${primaryButton('Open Course', courseUrl)}
                   </td>
                 </tr>
                 <tr>

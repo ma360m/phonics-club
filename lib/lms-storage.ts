@@ -24,11 +24,23 @@ export const LMS_ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'audio/aac',
+  'audio/m4a',
+  'audio/mp4',
+  'audio/mp3',
   'audio/mpeg',
+  'audio/ogg',
   'audio/wav',
+  'audio/wave',
+  'audio/webm',
+  'audio/x-m4a',
+  'audio/x-wav',
   'video/mp4',
+  'video/mov',
+  'video/quicktime',
   'video/webm',
   'application/zip',
+  'application/x-zip-compressed',
 ]
 
 export function safeObjectName(filename: string): string {
@@ -50,7 +62,7 @@ export function validateLmsFile(
   if (!file || file.size <= 0) throw new Error('Choose a file to upload.')
   if (file.size > maxBytes) throw new Error(`File must be ${Math.round(maxBytes / 1024 / 1024)}MB or smaller.`)
   if (file.type && !allowedMimeTypes.includes(file.type)) {
-    throw new Error('This file type is not allowed. Use PDF, Word, PowerPoint, Excel, JPG, PNG, WebP, MP3, WAV, MP4, WebM, or ZIP.')
+    throw new Error('This file type is not allowed. Use PDF, Office, JPG, PNG, WebP, MP3, WAV, M4A, AAC, OGG, MP4, MOV, WebM, or ZIP.')
   }
 }
 

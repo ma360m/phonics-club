@@ -150,7 +150,7 @@ export default async function CoursePaymentPage({
                   <h1 className="mt-2 text-3xl font-bold tracking-normal text-[#0F172A]">{courseRecord.title}</h1>
                   <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
                     Submit your payment screenshot here. Admin reviews the proof, then a licence key is emailed from{' '}
-                    <span className="font-semibold text-[#0F172A]">{COURSE_LICENSE_EMAIL_ADDRESS}</span>. The course stays locked until that key is entered.
+                    <span className="font-semibold text-[#0F172A]">{COURSE_LICENSE_EMAIL_ADDRESS}</span> and the course is unlocked after verification.
                   </p>
                 </div>
               </div>
@@ -233,7 +233,7 @@ export default async function CoursePaymentPage({
                     {active
                       ? 'Your licence key has unlocked this course. You can continue learning now.'
                       : readyForLicense
-                        ? `Admin approved the payment. Check the email sent from ${COURSE_LICENSE_EMAIL_ADDRESS}, then enter the licence key below.`
+                        ? `Admin approved the payment. Check the email sent from ${COURSE_LICENSE_EMAIL_ADDRESS}; if access is not active yet, enter the licence key below.`
                         : waitingForReview
                           ? 'Your screenshot has been submitted. Admin will confirm the payment before issuing a licence key.'
                           : lockedByRejection
@@ -279,7 +279,7 @@ export default async function CoursePaymentPage({
               <p className="mt-2 text-sm leading-7 text-slate-600">
                 {active
                   ? 'Your enrollment is active.'
-                  : 'The learning page will not open until payment is approved and the licence key is accepted.'}
+                  : 'The learning page will not open until payment is approved by admin.'}
               </p>
             </section>
 
@@ -290,7 +290,7 @@ export default async function CoursePaymentPage({
                   { title: 'Upload screenshot', body: 'Submit payment proof on this page.', icon: UploadCloud },
                   { title: 'Admin confirms', body: 'Admin reviews the receipt and approves or rejects it.', icon: ShieldCheck },
                   { title: 'Licence key email', body: `The key is emailed from ${COURSE_LICENSE_EMAIL_ADDRESS}.`, icon: Mail },
-                  { title: 'Course unlocks', body: 'Enter the key to open the course workspace.', icon: LockKeyhole },
+                  { title: 'Course unlocks', body: 'Approved payments unlock the course workspace.', icon: LockKeyhole },
                 ].map((step, index) => {
                   const state = stepState(index + 1, payment, active)
                   const Icon = step.icon

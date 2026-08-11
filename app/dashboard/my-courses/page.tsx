@@ -227,7 +227,7 @@ export default async function MyCoursesPage() {
                         </p>
                         <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
                         <p className="mt-2 font-medium text-[#1D4ED8]">
-                          You can pay now and upload the receipt later from this dashboard. Admin approval sends a licence key from {COURSE_LICENSE_EMAIL_ADDRESS}; entering that key unlocks the course.
+                          You can pay now and upload the receipt later from this dashboard. Admin approval sends a licence key from {COURSE_LICENSE_EMAIL_ADDRESS} and unlocks the course.
                         </p>
                       </div>
                     )}
@@ -265,7 +265,7 @@ export default async function MyCoursesPage() {
                           {payment.status === 'paid' && !payment.license_unlocked_at && (
                             <div className="mt-3 rounded-xl border border-[#BFDBFE] bg-white p-3 text-xs leading-5 text-slate-600">
                               <p>
-                                Payment approved. Check your email from {COURSE_LICENSE_EMAIL_ADDRESS}, then enter the licence key to unlock the course.
+                                Payment approved. Check your email from {COURSE_LICENSE_EMAIL_ADDRESS}. If access is not active yet, enter the licence key.
                               </p>
                               <Button asChild size="sm" className="mt-3 rounded-xl bg-[#1D4ED8]">
                                 <Link href={paymentPageHref}>Enter Licence Key</Link>

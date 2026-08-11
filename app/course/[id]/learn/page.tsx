@@ -1,8 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
-import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
+import { getProfile, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { canManageCourseId } from '@/lib/admin/course-scope'
 import { CourseLearnPlayer } from '@/components/courses/course-learn-player'
-import { LmsShell } from '@/components/lms/lms-shell'
 import {
   getCourseById,
   getCourseModules,
@@ -48,8 +47,8 @@ export default async function CourseLearnPage({
   ])
 
   return (
-    <main className="min-h-screen bg-[#F4F8FF]">
-      <LmsShell userName={profile?.full_name} userEmail={profile?.email} isAdmin={isAdminRole(profile?.role)} isLmsManager={isLmsManagerRole(profile?.role)}>
+    <main className="min-h-screen bg-[#F4F8FF] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1680px]">
         <CourseLearnPlayer
           course={course}
           modules={modules}
@@ -59,7 +58,7 @@ export default async function CourseLearnPage({
           initialProgress={enrollment?.progress ?? 0}
           previewMode={managerPreview}
         />
-      </LmsShell>
+      </div>
     </main>
   )
 }

@@ -15,6 +15,7 @@ import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lm
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { APP_URL } from '@/lib/constants'
 import { sendCourseEnrollmentInvoiceEmail, sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
+import { COURSE_REGISTRATION_REMINDER_DAYS, getCoursePaymentWorkflowStatus } from '@/lib/course-payment-workflow'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
 
@@ -342,6 +343,7 @@ export async function createCourseCheckoutAction(
 
     let payment = existingPayment
     if (!payment) {
+      const registrationExpiresAt = addDays(now, COURSE_REGISTRATION_REMINDER_DAYS).toISOString()
       const { data: newPayment, error: paymentError } = await supabase
         .from('course_payments')
         .insert({
@@ -353,12 +355,22 @@ export async function createCourseCheckoutAction(
           payment_method: 'manual_bank_transfer',
           provider: 'manual',
           idempotency_key: idempotencyKey,
+          registration_expires_at: registrationExpiresAt,
+          payment_workflow_status: 'pending_payment',
         } as never)
         .select('*')
         .single()
 
       if (paymentError) return { success: false, error: paymentError.message }
       payment = newPayment
+    } else if (!payment.registration_expires_at || !payment.payment_workflow_status) {
+      await supabase
+        .from('course_payments')
+        .update({
+          registration_expires_at: payment.registration_expires_at ?? addDays(new Date(payment.created_at), COURSE_REGISTRATION_REMINDER_DAYS).toISOString(),
+          payment_workflow_status: payment.payment_workflow_status ?? getCoursePaymentWorkflowStatus(payment),
+        } as never)
+        .eq('id', payment.id)
     }
 
     if (!payment) return { success: false, error: 'Payment could not be created' }
@@ -462,6 +474,8 @@ export async function submitCoursePaymentReceiptAction(
         receipt_mime_type: uploaded.mimeType,
         receipt_size_bytes: uploaded.sizeBytes,
         submitted_at: new Date().toISOString(),
+        registration_expired_at: null,
+        payment_workflow_status: 'slip_uploaded',
       } as never)
       .eq('id', paymentId)
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
@@ -540,6 +554,8 @@ export async function unlockCourseWithLicenseKeyFormAction(
           activated_at: now.toISOString(),
           expires_at: expiresAt,
           last_accessed_at: now.toISOString(),
+          license_key: payment.license_key,
+          license_unlocked_at: now.toISOString(),
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -550,7 +566,11 @@ export async function unlockCourseWithLicenseKeyFormAction(
 
     await supabase
       .from('course_payments')
-      .update({ enrollment_id: enrollment.id, license_unlocked_at: now.toISOString() } as never)
+      .update({
+        enrollment_id: enrollment.id,
+        license_unlocked_at: now.toISOString(),
+        payment_workflow_status: 'licence_issued',
+      } as never)
       .eq('id', payment.id)
 
     await supabase.from('course_payment_events').insert({
@@ -610,6 +630,10 @@ export async function approveCoursePaymentAction(
           .eq('course_id', payment.course_id)
           .maybeSingle()
     const keepActive = isEnrollmentActive(existingEnrollment.data as never)
+    const activationTime = now.toISOString()
+    const expiresAt = keepActive && existingEnrollment.data?.expires_at
+      ? existingEnrollment.data.expires_at
+      : addDays(now, Number(currentCourse.access_duration_days ?? 90)).toISOString()
 
     const { data: enrollment, error: enrollmentError } = await supabase
       .from('enrollments')
@@ -618,13 +642,15 @@ export async function approveCoursePaymentAction(
           user_id: payment.user_id,
           course_id: payment.course_id,
           progress: existingEnrollment.data?.progress ?? 0,
-          status: keepActive ? existingEnrollment.data?.status ?? 'active' : 'pending',
+          status: 'active',
           payment_status: 'paid',
           payment_id: payment.id,
-          purchase_date: existingEnrollment.data?.purchase_date ?? null,
-          activated_at: existingEnrollment.data?.activated_at ?? null,
-          expires_at: existingEnrollment.data?.expires_at ?? null,
-          last_accessed_at: existingEnrollment.data?.last_accessed_at ?? null,
+          purchase_date: existingEnrollment.data?.purchase_date ?? activationTime,
+          activated_at: keepActive ? existingEnrollment.data?.activated_at ?? activationTime : activationTime,
+          expires_at: expiresAt,
+          last_accessed_at: existingEnrollment.data?.last_accessed_at ?? activationTime,
+          license_key: licenseKey,
+          license_unlocked_at: activationTime,
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -640,6 +666,9 @@ export async function approveCoursePaymentAction(
         verified_at: now.toISOString(),
         approved_by: admin.id,
         license_key: licenseKey,
+        license_unlocked_at: activationTime,
+        registration_expired_at: null,
+        payment_workflow_status: 'licence_issued',
       } as never)
       .eq('id', paymentId)
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }

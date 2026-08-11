@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { canManageCourseId } from '@/lib/admin/course-scope'
 import { LmsShell } from '@/components/lms/lms-shell'
-import { getCourseById, getQuizForCourse, getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
+import { getCourseById, getCourseModules, getLessonProgress, getQuizForCourse, getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
 import { ChevronLeft, CircleAlert } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -22,12 +22,13 @@ export default async function QuizPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ preview?: string }>
+  searchParams?: Promise<{ preview?: string; quizId?: string }>
 }) {
   const user = await requireAuth()
   const profile = await getProfile()
   const { id } = await params
-  const previewRequested = (await searchParams)?.preview === 'admin'
+  const query = await searchParams
+  const previewRequested = query?.preview === 'admin'
   const managerPreview = previewRequested && isLmsManagerRole(profile?.role)
   const course = await getCourseById(id, { includeUnpublished: managerPreview })
   if (!course) notFound()
@@ -40,8 +41,25 @@ export default async function QuizPage({
   const quizBundle = await getQuizForCourse(id, user.id, {
     includeUnpublished: managerPreview,
     includeAttempts: !managerPreview,
+    quizId: query?.quizId,
   })
   const learnHref = managerPreview ? `/course/${course.id}/learn?preview=admin` : `/course/${course.id}/learn`
+
+  if (quizBundle && !managerPreview) {
+    const modules = await getCourseModules(course)
+    const progressItems = await getLessonProgress(user.id, id)
+    const lessons = modules.flatMap((module) => module.lessons)
+    const completedLessonIds = new Set(progressItems.filter((item) => item.completed).map((item) => item.lesson_id))
+    const requiredLessons = !quizBundle.quiz.lesson_id && quizBundle.quiz.module_id
+      ? lessons.filter((lesson) => lesson.module_id === quizBundle.quiz.module_id)
+      : !quizBundle.quiz.lesson_id
+        ? lessons
+        : []
+
+    if (requiredLessons.some((lesson) => !completedLessonIds.has(lesson.id))) {
+      redirect(learnHref)
+    }
+  }
 
   return (
     <main>

@@ -1,4 +1,5 @@
 import { getCoursePrice, isEnrollmentActive } from '@/lib/lms'
+import { COURSE_REGISTRATION_REMINDER_DAYS } from '@/lib/course-payment-workflow'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
@@ -137,6 +138,8 @@ export async function POST(request: Request) {
         payment_method: parsed.data.paymentMethodId || 'manual_bank_transfer',
         provider: 'manual',
         idempotency_key: idempotencyKey,
+        registration_expires_at: addDays(now, COURSE_REGISTRATION_REMINDER_DAYS).toISOString(),
+        payment_workflow_status: 'pending_payment',
         metadata: {
           source: 'mobile',
           displayCurrency,

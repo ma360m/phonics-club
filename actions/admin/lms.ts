@@ -5,9 +5,12 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { canManageCourseId, requireManagedCourse } from '@/lib/admin/course-scope'
+import { withChildrenPhonicsCourseUpdates } from '@/lib/data/children-phonics-courses'
+import { normalizeCourseModulesForDisplay } from '@/lib/lms'
 import { LMS_ALLOWED_MIME_TYPES, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { approveCoursePaymentAction, rejectCoursePaymentAction } from '@/actions/lms'
 import { toError } from '@/lib/friendly-error'
+import type { Course, CourseModuleRow } from '@/types/database'
 
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
@@ -85,6 +88,26 @@ function parseQuizQuestionForm(formData: FormData) {
   }
 }
 
+function parseQuizForm(courseId: string, formData: FormData) {
+  const lessonId = text(formData, 'lesson_id') || null
+  return {
+    course_id: courseId,
+    module_id: lessonId ? null : text(formData, 'module_id') || null,
+    lesson_id: lessonId,
+    title: text(formData, 'title'),
+    description: text(formData, 'description') || null,
+    passing_score: num(formData, 'passing_score', 70),
+    max_attempts: num(formData, 'max_attempts', 3),
+    timer_minutes: text(formData, 'timer_minutes') ? num(formData, 'timer_minutes', 0) : null,
+    randomize_questions: formData.get('randomize_questions') === 'on',
+    randomize_options: formData.get('randomize_options') === 'on',
+    show_explanations: formData.get('show_explanations') === 'on',
+    allow_review: formData.get('allow_review') === 'on',
+    published: formData.get('published') === 'on',
+    sort_order: num(formData, 'sort_order', 0),
+  }
+}
+
 async function assertQuizQuestionBelongsToCourse(
   supabase: Awaited<ReturnType<typeof createClient>>,
   questionId: string,
@@ -121,6 +144,10 @@ export async function getAdminCourseLms(courseId: string) {
   if (course.error) throw toError(course.error, 'Course builder could not load this course.')
   const lmsError = modules.error ?? resources.error ?? quizzes.error ?? assignments.error
   if (lmsError) throw toError(lmsError, 'Course builder could not load LMS content.')
+  const displayCourse = course.data ? withChildrenPhonicsCourseUpdates(course.data as Course) : null
+  const displayModules = displayCourse
+    ? normalizeCourseModulesForDisplay((modules.data ?? []) as CourseModuleRow[], displayCourse)
+    : []
   const quizIds = (quizzes.data ?? []).map((quiz: any) => quiz.id).filter(Boolean)
   const questions = quizIds.length
     ? await supabase.from('quiz_questions').select('*').in('quiz_id', quizIds).order('sort_order', { ascending: true })
@@ -128,8 +155,8 @@ export async function getAdminCourseLms(courseId: string) {
   if (questions.error) throw toError(questions.error, 'Quiz questions could not load.')
 
   return {
-    course: course.data,
-    modules: modules.data ?? [],
+    course: displayCourse,
+    modules: displayModules,
     resources: resources.data ?? [],
     quizzes: quizzes.data ?? [],
     questions: questions.data ?? [],
@@ -288,7 +315,7 @@ export async function uploadCourseResourceFormAction(courseId: string, formData:
   if (file && file.size > 0) {
     uploaded = await uploadLmsFile(LMS_BUCKETS.resources, file, `${courseId}/resources`, {
       allowedMimeTypes: LMS_ALLOWED_MIME_TYPES,
-      maxBytes: 100 * 1024 * 1024,
+      maxBytes: 500 * 1024 * 1024,
     })
   }
 
@@ -336,7 +363,7 @@ export async function updateCourseResourceFormAction(resourceId: string, courseI
   if (file && file.size > 0) {
     uploaded = await uploadLmsFile(LMS_BUCKETS.resources, file, `${courseId}/resources`, {
       allowedMimeTypes: LMS_ALLOWED_MIME_TYPES,
-      maxBytes: 100 * 1024 * 1024,
+      maxBytes: 500 * 1024 * 1024,
     })
   }
 
@@ -390,22 +417,24 @@ export async function deleteCourseResourceAction(resourceId: string, courseId: s
 export async function createCourseQuizFormAction(courseId: string, formData: FormData): Promise<void> {
   await requireManagedCourse(courseId)
   const supabase = await createClient()
-  const { error } = await supabase.from('course_quizzes').insert({
-    course_id: courseId,
-    lesson_id: text(formData, 'lesson_id') || null,
-    title: text(formData, 'title'),
-    description: text(formData, 'description') || null,
-    passing_score: num(formData, 'passing_score', 70),
-    max_attempts: num(formData, 'max_attempts', 3),
-    timer_minutes: text(formData, 'timer_minutes') ? num(formData, 'timer_minutes', 0) : null,
-    randomize_questions: formData.get('randomize_questions') === 'on',
-    randomize_options: formData.get('randomize_options') === 'on',
-    show_explanations: formData.get('show_explanations') === 'on',
-    allow_review: formData.get('allow_review') === 'on',
-    published: formData.get('published') === 'on',
-    sort_order: num(formData, 'sort_order', 0),
-  } as never)
+  const values = parseQuizForm(courseId, formData)
+  if (!values.title) throw toError('Quiz title is required', 'Quiz could not be added.')
+  const { error } = await supabase.from('course_quizzes').insert(values as never)
   if (error) throw toError(error, 'Quiz could not be added.')
+  revalidatePath(`/admin/courses/${courseId}/builder`)
+}
+
+export async function updateCourseQuizFormAction(quizId: string, courseId: string, formData: FormData): Promise<void> {
+  await requireManagedCourse(courseId)
+  const supabase = await createClient()
+  const values = parseQuizForm(courseId, formData)
+  if (!values.title) throw toError('Quiz title is required', 'Quiz could not be updated.')
+  const { error } = await supabase
+    .from('course_quizzes')
+    .update(values as never)
+    .eq('id', quizId)
+    .eq('course_id', courseId)
+  if (error) throw toError(error, 'Quiz could not be updated.')
   revalidatePath(`/admin/courses/${courseId}/builder`)
 }
 

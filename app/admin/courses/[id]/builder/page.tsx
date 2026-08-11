@@ -14,6 +14,7 @@ import {
   getAdminCourseLms,
   updateCourseLessonFormAction,
   updateCourseModuleFormAction,
+  updateCourseQuizFormAction,
   updateCourseResourceFormAction,
   updateQuizQuestionFormAction,
   uploadCourseResourceFormAction,
@@ -107,6 +108,22 @@ const QUIZ_QUESTION_TYPES = [
   ['fill_blank', 'Fill in the Blank'],
   ['short_answer', 'Short Answer'],
   ['long_answer', 'Long Answer'],
+]
+
+const RESOURCE_TYPES = [
+  ['file', 'General File'],
+  ['worksheet_pdf', 'Worksheet PDF'],
+  ['audio', 'Audio'],
+  ['blending_audio', 'Blending Audio'],
+  ['segmenting_audio', 'Segmenting Audio'],
+  ['pronunciation_audio', 'Pronunciation Audio'],
+  ['video', 'Video'],
+  ['song_video', 'Song Video'],
+  ['action_video', 'Action Video'],
+  ['formation_video', 'Formation Video'],
+  ['pdf', 'PDF'],
+  ['image', 'Image'],
+  ['link', 'External Link'],
 ]
 
 const LESSON_TOGGLES = [
@@ -769,15 +786,18 @@ function CompletionAnimationSelect({ defaultValue }: { defaultValue: string }) {
 }
 
 function CourseResources({ courseId, modules, resources }: { courseId: string; modules: any[]; resources: any[] }) {
+  const resourceAccept = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.webm,.mov'
+
   return (
     <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="mb-4 flex items-center gap-2">
         <FileUp className="h-5 w-5 text-[#1D4ED8]" />
-        <h3 className="text-lg font-bold text-[#0F172A]">PDFs and Resources</h3>
+        <h3 className="text-lg font-bold text-[#0F172A]">Uploads and Resources</h3>
       </div>
       <form action={uploadCourseResourceFormAction.bind(null, courseId)} className="grid gap-4 lg:grid-cols-3">
         {field('Title', <Input name="title" required className="rounded-xl" />)}
-        {field('File', <Input name="file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*,audio/*,video/mp4,video/webm" className="rounded-xl" />, 'PDF, Office, ZIP, image, audio or video resources use the existing LMS storage flow.')}
+        {field('Resource Type', <ResourceTypeSelect />)}
+        {field('File', <Input name="file" type="file" accept={resourceAccept} className="rounded-xl" />, 'Upload worksheets, PDFs, images, MP3/WAV/M4A audio, MP4/WebM/MOV video, Office files or ZIP resources.')}
         {field('External URL', <Input name="external_url" placeholder="https://..." className="rounded-xl" />)}
         <div className="lg:col-span-3">{field('Description', <Textarea name="description" className="rounded-xl" rows={2} />)}</div>
         {field('Order', <Input name="sort_order" type="number" placeholder="1" className="rounded-xl" />)}
@@ -824,10 +844,10 @@ function CourseResources({ courseId, modules, resources }: { courseId: string; m
               className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-3"
             >
               {field('Title', <Input name="title" required defaultValue={resource.title ?? ''} className="rounded-xl" />)}
-              {field('Replace File', <Input name="file" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*,audio/*,video/mp4,video/webm" className="rounded-xl" />)}
+              {field('Resource Type', <ResourceTypeSelect defaultValue={resource.resource_type ?? 'file'} />)}
+              {field('Replace File', <Input name="file" type="file" accept={resourceAccept} className="rounded-xl" />)}
               {field('External URL', <Input name="external_url" defaultValue={resource.external_url ?? resource.resource_url ?? ''} placeholder="https://..." className="rounded-xl" />)}
               <div className="lg:col-span-3">{field('Description', <Textarea name="description" defaultValue={resource.description ?? ''} className="rounded-xl" rows={2} />)}</div>
-              {field('Resource Type', <Input name="resource_type" defaultValue={resource.resource_type ?? 'file'} className="rounded-xl" />)}
               {field('Order', <Input name="sort_order" type="number" defaultValue={resource.sort_order ?? 0} className="rounded-xl" />)}
               {field('Visibility', <VisibilitySelect defaultValue={resource.visibility ?? 'enrolled'} />)}
               {field('Scope', <ScopeSelect defaultValue={resource.scope ?? 'course'} />)}
@@ -860,6 +880,25 @@ function numbersValue(value: unknown) {
     : ''
 }
 
+function moduleLessons(module: any) {
+  return (module.course_lessons ?? module.lessons ?? []) as any[]
+}
+
+function quizPlacementLabel(quiz: any, modules: any[]) {
+  if (quiz.lesson_id) {
+    for (const module of modules) {
+      const lesson = moduleLessons(module).find((item) => item.id === quiz.lesson_id)
+      if (lesson) return `Lesson: ${module.title} - ${lesson.title}`
+    }
+    return 'Lesson attached'
+  }
+  if (quiz.module_id) {
+    const module = modules.find((item) => item.id === quiz.module_id)
+    return module ? `Module end: ${module.title}` : 'Module attached'
+  }
+  return 'Course final quiz'
+}
+
 function CourseQuizzes({
   courseId,
   modules,
@@ -884,15 +923,16 @@ function CourseQuizzes({
         <FileQuestion className="h-5 w-5 text-[#1D4ED8]" />
         <h3 className="text-lg font-bold text-[#0F172A]">Quizzes</h3>
       </div>
-      <form action={createCourseQuizFormAction.bind(null, courseId)} className="grid gap-4 lg:grid-cols-3">
+      <form action={createCourseQuizFormAction.bind(null, courseId)} className="grid gap-4 lg:grid-cols-4">
         {field('Quiz Title', <Input name="title" required className="rounded-xl" />)}
+        {field('Attach to Module', <ModuleSelect modules={modules} />)}
         {field('Attach to Lesson', <LessonSelect modules={modules} name="lesson_id" />)}
         {field('Order', <Input name="sort_order" type="number" placeholder="1" className="rounded-xl" />)}
-        <div className="lg:col-span-3">{field('Description', <Textarea name="description" className="rounded-xl" rows={2} />)}</div>
+        <div className="lg:col-span-4">{field('Description', <Textarea name="description" className="rounded-xl" rows={2} />)}</div>
         {field('Passing Score %', <Input name="passing_score" type="number" min="0" max="100" defaultValue="70" className="rounded-xl" />)}
         {field('Max Attempts', <Input name="max_attempts" type="number" min="1" defaultValue="3" className="rounded-xl" />)}
         {field('Timer Minutes', <Input name="timer_minutes" type="number" min="0" className="rounded-xl" />)}
-        <div className="flex flex-wrap gap-4 text-sm lg:col-span-3">
+        <div className="flex flex-wrap gap-4 text-sm lg:col-span-4">
           <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="randomize_questions" /> Randomize questions</label>
           <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="randomize_options" /> Randomize options</label>
           <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="show_explanations" defaultChecked /> Show explanations</label>
@@ -913,6 +953,7 @@ function CourseQuizzes({
               <div>
                 <p className="font-medium">{quiz.title}</p>
                 <p className="text-xs text-slate-500">Passing score {quiz.passing_score}% / {quiz.max_attempts} attempts</p>
+                <p className="mt-1 text-xs font-semibold text-[#1D4ED8]">{quizPlacementLabel(quiz, modules)}</p>
               </div>
               <div className="flex items-center gap-2">
                 <LmsStatusBadge tone={quiz.published ? 'green' : 'gold'}>{quiz.published ? 'published' : 'draft'}</LmsStatusBadge>
@@ -923,6 +964,28 @@ function CourseQuizzes({
                 />
               </div>
             </div>
+
+            <form action={updateCourseQuizFormAction.bind(null, quiz.id, courseId)} className="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-4">
+              {field('Quiz Title', <Input name="title" required defaultValue={quiz.title ?? ''} className="rounded-xl" />)}
+              {field('Attach to Module', <ModuleSelect modules={modules} defaultValue={quiz.module_id ?? ''} />)}
+              {field('Attach to Lesson', <LessonSelect modules={modules} name="lesson_id" defaultValue={quiz.lesson_id ?? ''} />)}
+              {field('Order', <Input name="sort_order" type="number" defaultValue={quiz.sort_order ?? 0} className="rounded-xl" />)}
+              <div className="lg:col-span-4">{field('Description', <Textarea name="description" defaultValue={quiz.description ?? ''} className="rounded-xl" rows={2} />)}</div>
+              {field('Passing Score %', <Input name="passing_score" type="number" min="0" max="100" defaultValue={quiz.passing_score ?? 70} className="rounded-xl" />)}
+              {field('Max Attempts', <Input name="max_attempts" type="number" min="1" defaultValue={quiz.max_attempts ?? 3} className="rounded-xl" />)}
+              {field('Timer Minutes', <Input name="timer_minutes" type="number" min="0" defaultValue={quiz.timer_minutes ?? ''} className="rounded-xl" />)}
+              <div className="flex flex-wrap gap-4 text-sm lg:col-span-4">
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="randomize_questions" defaultChecked={Boolean(quiz.randomize_questions)} /> Randomize questions</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="randomize_options" defaultChecked={Boolean(quiz.randomize_options)} /> Randomize options</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="show_explanations" defaultChecked={quiz.show_explanations !== false} /> Show explanations</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="allow_review" defaultChecked={quiz.allow_review !== false} /> Allow review</label>
+                <label className="flex items-center gap-2 rounded-lg border px-3 py-2"><input type="checkbox" name="published" defaultChecked={quiz.published !== false} /> Published</label>
+              </div>
+              <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white lg:w-fit">
+                <Save className="mr-2 h-4 w-4" />
+                Save Quiz
+              </Button>
+            </form>
 
             <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
               <h4 className="font-semibold text-[#0F172A]">Add Question</h4>
@@ -1024,6 +1087,16 @@ function VisibilitySelect({ defaultValue = 'enrolled' }: { defaultValue?: string
   )
 }
 
+function ResourceTypeSelect({ defaultValue = 'file' }: { defaultValue?: string }) {
+  return (
+    <select name="resource_type" defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
+      {RESOURCE_TYPES.map(([value, label]) => (
+        <option key={value} value={value}>{label}</option>
+      ))}
+    </select>
+  )
+}
+
 function ScopeSelect({ defaultValue = 'course' }: { defaultValue?: string }) {
   return (
     <select name="scope" defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
@@ -1049,7 +1122,7 @@ function LessonSelect({ modules, name = 'lesson_id', defaultValue = '' }: { modu
   return (
     <select name={name} defaultValue={defaultValue} className="w-full rounded-xl border px-3 py-2 text-sm">
       <option value="">No lesson</option>
-      {modules.flatMap((module: any) => (module.course_lessons ?? []).map((lesson: any) => (
+      {modules.flatMap((module: any) => moduleLessons(module).map((lesson: any) => (
         <option key={lesson.id} value={lesson.id}>{module.title} - {lesson.title}</option>
       )))}
     </select>

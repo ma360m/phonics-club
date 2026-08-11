@@ -17,91 +17,98 @@ type LessonShell = {
 
 const CHILDREN_PHONICS_LESSON_SHELLS: Record<string, LessonShell[]> = {
   'jolly-phonics-sounds-groups-1-3': [
-    { moduleIndex: 0, title: 'Welcome Video', description: 'Instructor uploads a short introductory video for children and families.' },
-    { moduleIndex: 0, title: 'How Activities Work', description: 'Animated walkthrough for flashcards, listen-and-say, formation, tracing, blending, segmenting and review games.' },
     ...['s', 'a', 't', 'i', 'p', 'n'].map((sound) => ({
-      moduleIndex: 1,
+      moduleIndex: 0,
       title: `Sound ${sound}`,
       description: 'Content required: add pronunciation, poem or song, story, action, flashcard, formation, tracing and practice media.',
     })),
-    { moduleIndex: 1, title: 'Group 1 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
-    { moduleIndex: 1, title: 'Group 1 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
-    { moduleIndex: 1, title: 'Group 1 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
-    { moduleIndex: 1, title: 'Group 1 Blending Practice', description: 'Content required: add approved blending examples using taught sounds.' },
-    { moduleIndex: 1, title: 'Group 1 Segmenting Practice', description: 'Content required: add approved segmenting examples using taught sounds.' },
-    { moduleIndex: 1, title: 'Group 1 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
-    { moduleIndex: 2, title: 'Group 1 Practice and Review', description: 'Content required: add flashcards, matching, tracing, blending, segmenting, memory pairs and mini-quiz activities.' },
-    ...['c', 'k', 'e', 'h', 'r', 'm', 'd'].map((sound) => ({
-      moduleIndex: 3,
+    { moduleIndex: 0, title: 'Group 1 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
+    { moduleIndex: 0, title: 'Group 1 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
+    { moduleIndex: 0, title: 'Group 1 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
+    { moduleIndex: 0, title: 'Group 1 Blending Practice', description: 'Content required: add approved blending examples using taught sounds.' },
+    { moduleIndex: 0, title: 'Group 1 Segmenting Practice', description: 'Content required: add approved segmenting examples using taught sounds.' },
+    { moduleIndex: 0, title: 'Group 1 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
+    { moduleIndex: 0, title: 'Group 1 Practice and Review', description: 'Content required: add flashcards, matching, tracing, blending, segmenting, memory pairs and mini-quiz activities.' },
+    ...['c/k', 'e', 'h', 'r', 'm', 'd'].map((sound) => ({
+      moduleIndex: 1,
       title: `Sound ${sound}`,
-      description: sound === 'k'
-        ? 'Content required: keep c and k separate while adding pronunciation, poem or song, story, action, flashcard, formation, tracing and practice media.'
+      description: sound === 'c/k'
+        ? 'Content required: teach the /k/ sound with c and k spellings while adding approved media.'
         : 'Content required: add pronunciation, poem or song, story, action, flashcard, formation, tracing and practice media.',
     })),
-    { moduleIndex: 3, title: 'Group 2 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
-    { moduleIndex: 3, title: 'Group 2 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
-    { moduleIndex: 3, title: 'Group 2 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
-    { moduleIndex: 3, title: 'Groups 1-2 Blending', description: 'Content required: add approved blending examples using taught sounds.' },
-    { moduleIndex: 3, title: 'Groups 1-2 Segmenting', description: 'Content required: add approved segmenting examples using taught sounds.' },
-    { moduleIndex: 3, title: 'Group 2 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
-    { moduleIndex: 4, title: 'Group 2 Practice and Review', description: 'Content required: add c/k distinction, formation, word building, listening and mini-assessment activities.' },
+    { moduleIndex: 1, title: 'Group 2 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
+    { moduleIndex: 1, title: 'Group 2 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
+    { moduleIndex: 1, title: 'Group 2 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
+    { moduleIndex: 1, title: 'Groups 1-2 Blending', description: 'Content required: add approved blending examples using taught sounds.' },
+    { moduleIndex: 1, title: 'Groups 1-2 Segmenting', description: 'Content required: add approved segmenting examples using taught sounds.' },
+    { moduleIndex: 1, title: 'Group 2 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
+    { moduleIndex: 1, title: 'Group 2 Practice and Review', description: 'Content required: add c/k distinction, formation, word building, listening and mini-assessment activities.' },
     ...['g', 'o', 'u', 'l', 'f', 'b'].map((sound) => ({
-      moduleIndex: 5,
+      moduleIndex: 2,
       title: `Sound ${sound}`,
       description: 'Content required: add pronunciation, poem or song, story, action, flashcard, formation, tracing and practice media.',
     })),
-    { moduleIndex: 5, title: 'Group 3 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
-    { moduleIndex: 5, title: 'Group 3 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
-    { moduleIndex: 5, title: 'Group 3 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
-    { moduleIndex: 5, title: 'Groups 1-3 Blending', description: 'Content required: add approved blending examples using taught sounds.' },
-    { moduleIndex: 5, title: 'Groups 1-3 Segmenting', description: 'Content required: add approved segmenting examples using taught sounds.' },
-    { moduleIndex: 5, title: 'Group 3 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
-    { moduleIndex: 6, title: 'Group 3 Practice and Review', description: 'Content required: add sound sorting, picture matching, word building and mini-assessment activities.' },
-    { moduleIndex: 7, title: 'Groups 1-3 Blending Activities', description: 'Content required: add approved blending examples using only introduced sounds.' },
-    { moduleIndex: 7, title: 'Groups 1-3 Segmenting Activities', description: 'Content required: add approved segmenting examples using only introduced sounds.' },
-    { moduleIndex: 8, title: 'Final Review and Assessment', description: 'Content required: add recognition, listening, matching, formation, blending and segmenting checks.' },
+    { moduleIndex: 2, title: 'Group 3 Flashcard Review', description: 'Content required: add instructor-approved review activity media.' },
+    { moduleIndex: 2, title: 'Group 3 Formation Practice', description: 'Content required: add instructor-approved formation practice.' },
+    { moduleIndex: 2, title: 'Group 3 Listening Game', description: 'Content required: add instructor-approved listening activity.' },
+    { moduleIndex: 2, title: 'Groups 1-3 Blending', description: 'Content required: add approved blending examples using taught sounds.' },
+    { moduleIndex: 2, title: 'Groups 1-3 Segmenting', description: 'Content required: add approved segmenting examples using taught sounds.' },
+    { moduleIndex: 2, title: 'Group 3 Checkpoint', description: 'Content required: add a child-friendly checkpoint.' },
+    { moduleIndex: 2, title: 'Group 3 Practice and Review', description: 'Content required: add sound sorting, picture matching, word building and mini-assessment activities.' },
+    { moduleIndex: 3, title: 'Groups 1-3 Blending Activities', description: 'Content required: add approved blending examples using only introduced sounds.' },
+    { moduleIndex: 3, title: 'Groups 1-3 Segmenting Activities', description: 'Content required: add approved segmenting examples using only introduced sounds.' },
+    { moduleIndex: 3, title: 'Groups 1-3 Review', description: 'Content required: add recognition, listening, matching, formation, blending and segmenting checks.' },
   ],
   'jolly-phonics-sounds-groups-4-7': [
-    { moduleIndex: 0, title: 'Welcome Back', description: 'Content required: add a quick review of Groups 1-3 before introducing the remaining sounds.' },
     ...['ai', 'j', 'oa', 'ie', 'ee', 'or'].map((sound) => ({
-      moduleIndex: 1,
+      moduleIndex: 0,
       title: `Sound ${sound}`,
       description: ['ai', 'oa', 'ie', 'ee', 'or'].includes(sound)
         ? 'Content required: treat the digraph as one sound unit and add approved media.'
         : 'Content required: add approved media and practice activities.',
     })),
-    { moduleIndex: 2, title: 'Group 4 Practice and Review', description: 'Content required: add pronunciation, recognition, blending and writing review activities.' },
+    { moduleIndex: 0, title: 'Group 4 Practice and Review', description: 'Content required: add pronunciation, recognition, blending and writing review activities.' },
     ...['z', 'w', 'ng', 'v'].map((sound) => ({
-      moduleIndex: 3,
+      moduleIndex: 1,
       title: `Sound ${sound}`,
       description: sound === 'ng'
         ? 'Content required: treat the digraph as one sound unit and add approved media.'
         : 'Content required: add approved media and practice activities.',
     })),
-    { moduleIndex: 3, title: 'Sound oo (short)', description: 'Content required: keep this oo sound separate from oo_long and add distinct pronunciation examples.' },
-    { moduleIndex: 3, title: 'Sound oo (long)', description: 'Content required: keep this oo sound separate from oo_short and add distinct pronunciation examples.' },
-    { moduleIndex: 4, title: 'Group 5 Practice and Review', description: 'Content required: add games, tracing, flashcards, listening and sound practice activities.' },
+    { moduleIndex: 1, title: 'Sound oo (moon)', description: 'Content required: keep this oo sound separate from oo_book and add distinct pronunciation examples.' },
+    { moduleIndex: 1, title: 'Sound oo (book)', description: 'Content required: keep this oo sound separate from oo_moon and add distinct pronunciation examples.' },
+    { moduleIndex: 1, title: 'Group 5 Practice and Review', description: 'Content required: add games, tracing, flashcards, listening and sound practice activities.' },
     ...['y', 'x', 'ch', 'sh'].map((sound) => ({
-      moduleIndex: 5,
+      moduleIndex: 2,
       title: `Sound ${sound}`,
       description: ['ch', 'sh'].includes(sound)
         ? 'Content required: treat the digraph as one sound unit and add approved media.'
         : 'Content required: add approved media and practice activities.',
     })),
-    { moduleIndex: 5, title: 'Sound th (unvoiced)', description: 'Content required: keep this th sound separate from th_voiced and add distinct pronunciation examples.' },
-    { moduleIndex: 5, title: 'Sound th (voiced)', description: 'Content required: keep this th sound separate from th_unvoiced and add distinct pronunciation examples.' },
-    { moduleIndex: 6, title: 'Group 6 Practice and Review', description: 'Content required: add recognition, pronunciation and application activities.' },
+    { moduleIndex: 2, title: 'Sound th (unvoiced)', description: 'Content required: keep this th sound separate from th_voiced and add distinct pronunciation examples.' },
+    { moduleIndex: 2, title: 'Sound th (voiced)', description: 'Content required: keep this th sound separate from th_unvoiced and add distinct pronunciation examples.' },
+    { moduleIndex: 2, title: 'Group 6 Practice and Review', description: 'Content required: add recognition, pronunciation and application activities.' },
     ...['qu', 'ou', 'oi', 'ue', 'er', 'ar'].map((sound) => ({
-      moduleIndex: 7,
+      moduleIndex: 3,
       title: `Sound ${sound}`,
       description: 'Content required: treat the digraph as one sound unit and add approved media.',
     })),
-    { moduleIndex: 8, title: 'Group 7 Practice and Review', description: 'Content required: add games, tracing, listening and word-building activities.' },
-    { moduleIndex: 9, title: 'Groups 4-7 Blending Activities', description: 'Content required: add approved blending examples and keep digraphs as one tile.' },
-    { moduleIndex: 9, title: 'Groups 4-7 Segmenting Activities', description: 'Content required: add approved segmenting examples and keep digraphs as one tile.' },
-    { moduleIndex: 10, title: 'Complete 42-Sound Review', description: 'Content required: add comprehensive 42-sound review activities.' },
-    { moduleIndex: 11, title: 'Final Assessment', description: 'Content required: add a child-friendly final assessment.' },
+    { moduleIndex: 3, title: 'Group 7 Practice and Review', description: 'Content required: add games, tracing, listening and word-building activities.' },
+    { moduleIndex: 4, title: 'Groups 4-7 Blending Activities', description: 'Content required: add approved blending examples and keep digraphs as one tile.' },
+    { moduleIndex: 4, title: 'Groups 4-7 Segmenting Activities', description: 'Content required: add approved segmenting examples and keep digraphs as one tile.' },
+    { moduleIndex: 4, title: 'Groups 4-7 Review', description: 'Content required: add comprehensive Groups 4-7 review activities.' },
   ],
+}
+
+const CHILDREN_PHONICS_FINAL_QUIZZES: Record<string, { title: string; description: string }> = {
+  'jolly-phonics-sounds-groups-1-3': {
+    title: 'Final Quiz',
+    description: 'Final quiz for the Groups 1-3 blending and segmenting course. Add approved questions before publishing.',
+  },
+  'jolly-phonics-sounds-groups-4-7': {
+    title: 'Final Quiz',
+    description: 'Final quiz for the Groups 4-7 blending and segmenting course. Add approved questions before publishing.',
+  },
 }
 
 function coursePayload(course: Course) {
@@ -259,6 +266,45 @@ async function ensureLessonShells(
   }
 }
 
+async function ensureFinalQuizShell(supabase: SupabaseLike, courseId: string, slug: string) {
+  const quiz = CHILDREN_PHONICS_FINAL_QUIZZES[slug]
+  if (!quiz) return
+
+  const { data: existing } = await supabase
+    .from('course_quizzes')
+    .select('id')
+    .eq('course_id', courseId)
+    .in('title', [quiz.title, 'Final Assessment'])
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.id) {
+    await supabase
+      .from('course_quizzes')
+      .update({
+        title: quiz.title,
+        description: quiz.description,
+        lesson_id: null,
+        sort_order: 1,
+      } as never)
+      .eq('id', existing.id)
+    return
+  }
+
+  const { error } = await supabase.from('course_quizzes').insert({
+    course_id: courseId,
+    lesson_id: null,
+    title: quiz.title,
+    description: quiz.description,
+    passing_score: 70,
+    max_attempts: 3,
+    sort_order: 1,
+    published: false,
+  } as never)
+
+  if (error) throw new Error(error.message)
+}
+
 export async function ensureChildrenPhonicsCoursesInstalled(options?: {
   slugs?: string[]
   requireService?: boolean
@@ -288,19 +334,22 @@ export async function ensureChildrenPhonicsCoursesInstalled(options?: {
 
       if (error) throw new Error(error.message)
       dbCourse = inserted as Course
-    } else if (
-      dbCourse.title !== course.title ||
-      dbCourse.image_url !== course.image_url ||
-      dbCourse.thumbnail_url !== course.thumbnail_url ||
-      dbCourse.banner_url !== course.banner_url ||
-      dbCourse.seo_title !== (course.seo_title ?? course.title)
-    ) {
+    } else {
+      const existingMetadata =
+        dbCourse.metadata && typeof dbCourse.metadata === 'object' && !Array.isArray(dbCourse.metadata)
+          ? dbCourse.metadata
+          : {}
       const coursePatch = {
         title: course.title,
         seo_title: course.seo_title ?? course.title,
         image_url: course.image_url,
         thumbnail_url: course.thumbnail_url ?? course.image_url,
         banner_url: course.banner_url ?? course.thumbnail_url ?? course.image_url,
+        curriculum: course.curriculum,
+        metadata: {
+          ...existingMetadata,
+          ...(course.metadata ?? {}),
+        },
       }
       await supabase.from('courses').update(coursePatch as never).eq('id', dbCourse.id)
       dbCourse = { ...dbCourse, ...coursePatch }
@@ -308,6 +357,7 @@ export async function ensureChildrenPhonicsCoursesInstalled(options?: {
 
     const modules = await ensureModules(supabase, dbCourse.id, course.curriculum)
     await ensureLessonShells(supabase, dbCourse.id, course.slug, modules)
+    await ensureFinalQuizShell(supabase, dbCourse.id, course.slug)
     installed.push(dbCourse)
   }
 

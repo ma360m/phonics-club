@@ -7,6 +7,12 @@ import {
 } from '@/actions/admin/lms'
 import { Button } from '@/components/ui/button'
 import { LmsEmptyState, LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
+import {
+  coursePaymentHasSlip,
+  getCoursePaymentRegistrationExpiry,
+  getCoursePaymentWorkflowStatus,
+  type CoursePaymentWorkflowStatus,
+} from '@/lib/course-payment-workflow'
 import { formatPrice } from '@/utils/format'
 import { ExternalLink, FileSearch, KeyRound, Mail, ShieldCheck, XCircle } from 'lucide-react'
 
@@ -25,6 +31,26 @@ function paymentStudentEmail(payment: any) {
   return payment.customer_email ?? payment.profiles?.email ?? ''
 }
 
+function formatDateTime(value?: string | Date | null) {
+  if (!value) return 'Not recorded'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Not recorded'
+  return date.toLocaleString('en-PK')
+}
+
+function workflowLabel(status: CoursePaymentWorkflowStatus) {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-[#0F172A]">{value}</p>
+    </div>
+  )
+}
+
 export default async function AdminCoursePaymentsPage({
   searchParams,
 }: {
@@ -39,7 +65,7 @@ export default async function AdminCoursePaymentsPage({
       <LmsPageHeader
         eyebrow="Course Payments"
         title="Payment review"
-        description="Verify manual transfers, preview uploaded receipts, issue licence keys and let customers unlock course access after confirmation."
+        description="Verify manual transfers, preview uploaded receipts, issue licence keys and unlock course access after confirmation."
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -70,6 +96,12 @@ export default async function AdminCoursePaymentsPage({
           const studentEmail = paymentStudentEmail(payment)
           const canGenerateLicense = payment.status !== 'refunded'
           const canReject = !['paid', 'refunded', 'rejected'].includes(payment.status)
+          const workflowStatus = (payment.payment_workflow_status ?? getCoursePaymentWorkflowStatus(payment)) as CoursePaymentWorkflowStatus
+          const registrationExpiry = getCoursePaymentRegistrationExpiry(payment)
+          const slipUploaded = coursePaymentHasSlip(payment)
+          const reminderSent = Boolean(payment.payment_pending_reminder_sent_at)
+          const verified = payment.status === 'paid' || Boolean(payment.verified_at)
+          const licenceIssued = Boolean(payment.license_key || payment.license_emailed_at)
 
           return (
             <article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -83,10 +115,22 @@ export default async function AdminCoursePaymentsPage({
                   <p className="mt-1 text-sm font-semibold text-[#0F172A]">Student: {studentName}</p>
                   <p className="mt-1 text-xs text-slate-500">Email: {studentEmail || 'No email on profile'}</p>
 
-                {payment.receipt_path ? (
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    <Detail label="Registration date" value={formatDateTime(payment.created_at)} />
+                    <Detail label="Payment status" value={`${payment.status} / ${workflowLabel(workflowStatus)}`} />
+                    <Detail label="Slip upload status" value={slipUploaded ? `Uploaded ${formatDateTime(payment.submitted_at)}` : 'Not uploaded'} />
+                    <Detail label="Reminder sent" value={reminderSent ? 'Yes' : 'No'} />
+                    <Detail label="Reminder date/time" value={formatDateTime(payment.payment_pending_reminder_sent_at)} />
+                    <Detail label="Request expiry" value={formatDateTime(payment.registration_expires_at ?? registrationExpiry)} />
+                    <Detail label="Verification status" value={verified ? `Verified ${formatDateTime(payment.verified_at)}` : 'Not verified'} />
+                    <Detail label="Licence issued" value={licenceIssued ? 'Issued' : 'Not issued'} />
+                    <Detail label="Licence email" value={formatDateTime(payment.license_emailed_at)} />
+                  </div>
+
+                {slipUploaded ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm text-slate-600">
                     <p className="font-medium text-[#0F172A]">Receipt uploaded</p>
-                    <p className="mt-1 break-all font-mono text-xs">{payment.receipt_filename ?? payment.receipt_path}</p>
+                    <p className="mt-1 break-all font-mono text-xs">{payment.receipt_filename ?? payment.receipt_path ?? payment.receipt_url ?? 'Receipt submitted'}</p>
                     {payment.signed_receipt_url && (
                       <a
                         href={payment.signed_receipt_url}
@@ -120,8 +164,8 @@ export default async function AdminCoursePaymentsPage({
                     </p>
                     <p className="mt-1 text-xs">
                       {payment.license_unlocked_at
-                        ? `Customer unlocked access ${new Date(payment.license_unlocked_at).toLocaleString('en-PK')}.`
-                        : 'Waiting for the customer to enter the licence key.'}
+                        ? `Course access unlocked ${new Date(payment.license_unlocked_at).toLocaleString('en-PK')}.`
+                        : 'Course access will unlock when payment is approved.'}
                     </p>
                   </div>
                 )}
@@ -162,7 +206,7 @@ export default async function AdminCoursePaymentsPage({
                           <ShieldCheck className="mr-2 h-4 w-4" />
                           {payment.status === 'paid'
                             ? payment.license_key ? 'Save / Resend Key' : 'Generate Key'
-                            : 'Approve & Issue Key'}
+                            : 'Approve, Issue Key & Unlock'}
                         </Button>
                       </form>
                     ) : (
