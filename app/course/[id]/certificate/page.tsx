@@ -164,7 +164,7 @@ export default async function CertificateStatusPage({
                   <Button asChild className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
                     <a href={certificateDownloadUrl} target="_blank" rel="noreferrer">
                       <Download className="mr-2 h-4 w-4" />
-                      Download/View Certificate
+                      Preview / Download Certificate
                     </a>
                   </Button>
                 )}
@@ -192,6 +192,9 @@ export default async function CertificateStatusPage({
                   </div>
                 </div>
               )}
+              <p className="mt-5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm leading-6 text-[#1D4ED8]">
+                If your name or any certificate detail needs correction, email support@phonicsclub.com.
+              </p>
             </section>
           ) : status.eligible ? (
             <form action={requestCertificateFormAction} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm sm:p-8">
@@ -201,6 +204,9 @@ export default async function CertificateStatusPage({
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-700">
                 Request your certificate now. The existing certificate workflow will generate and store the PDF when configured.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-emerald-700">
+                The certificate will use your profile name. For name corrections, email support@phonicsclub.com.
               </p>
               <Button type="submit" className="mt-5 rounded-xl bg-[#8B1E2D] hover:bg-[#8B1E2D]/90">
                 Request Certificate

@@ -22,6 +22,7 @@ import {
 import {
   updateCourseArchiveStatusAction,
   updateCourseCatalogVisibilityAction,
+  updateCourseCertificateSettingsAction,
   updateCourseMediaAction,
   updateCoursePublishStatusAction,
 } from '@/actions/admin/courses'
@@ -668,11 +669,55 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
           description="Certificate availability and completion requirements stay connected to the existing course settings."
           icon={<Award className="h-5 w-5" />}
         >
+          <form action={updateCourseCertificateSettingsAction.bind(null, id)} className="mb-5 grid gap-4 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold">
+                <input type="checkbox" name="certificate_enabled" defaultChecked={data.course.certificate_enabled !== false} />
+                This course has a certificate
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <input type="checkbox" name="completion_requires_lessons" defaultChecked={data.course.completion_requires_lessons !== false} />
+                Require compulsory lessons
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <input type="checkbox" name="completion_requires_quiz" defaultChecked={data.course.completion_requires_quiz !== false} />
+                Unlock certificate only after final quiz
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <input type="checkbox" name="completion_requires_active_enrollment" defaultChecked={data.course.completion_requires_active_enrollment !== false} />
+                Require active course access
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <input type="checkbox" name="completion_requires_instructor_approval" defaultChecked={Boolean(data.course.completion_requires_instructor_approval)} />
+                Require instructor approval
+              </label>
+              {field('Passing Quiz %', <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={data.course.passing_quiz_percentage ?? 70} className="rounded-xl bg-white" />)}
+            </div>
+            <CourseMediaUpload
+              name="certificate_background_url"
+              label="Certificate Template / Background"
+              defaultValue={data.course.certificate_background_url ?? ''}
+              folder={`courses/${id}/certificates`}
+              kind="image"
+            />
+            <div className="flex flex-wrap gap-3 lg:col-span-2">
+              <Button type="submit" className="rounded-xl bg-[#1D4ED8]">
+                <Save className="mr-2 h-4 w-4" />
+                Save Certificate Settings
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+                <Link href={`/course/${id}/certificate?preview=admin`}>Preview Certificate Page</Link>
+              </Button>
+            </div>
+          </form>
           <div className="grid gap-4 md:grid-cols-3">
             <SummaryCard label="Certificate" value={data.course.certificate_enabled === false ? 'Disabled' : 'Enabled'} />
             <SummaryCard label="Passing quiz" value={`${data.course.passing_quiz_percentage ?? 70}%`} />
             <SummaryCard label="Instructor approval" value={data.course.completion_requires_instructor_approval ? 'Required' : 'Not required'} />
           </div>
+          <p className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm leading-6 text-[#1D4ED8]">
+            Certificates use the learner profile name. If a name or certificate detail needs correction, email support@phonicsclub.com.
+          </p>
           <Button asChild variant="outline" className="mt-4 rounded-xl border-slate-200 bg-white">
             <Link href={`/admin/courses/${id}`}>Edit completion settings</Link>
           </Button>

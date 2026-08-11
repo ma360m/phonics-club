@@ -59,7 +59,7 @@ export default async function ResearchPage() {
 
       {content.supportImages.length > 0 ? (
         <section className="bg-white">
-          <div className="mx-auto grid max-w-6xl gap-5 px-4 py-10 sm:px-6 md:grid-cols-2 lg:px-8">
+          <div className="mx-auto grid w-full max-w-none gap-5 px-4 py-10 sm:px-6 md:grid-cols-2 lg:px-8">
             {content.supportImages.map((image) => (
               <figure key={image.src} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
                 <div className="relative aspect-[16/9] bg-slate-50">

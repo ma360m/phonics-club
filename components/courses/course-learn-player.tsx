@@ -96,7 +96,7 @@ function lessonSourceUrl(lesson: CourseLesson) {
 }
 
 function lessonHasQuiz(lesson: CourseLesson, quizzes: CourseQuiz[]) {
-  return lesson.lesson_type === 'quiz' || quizzes.some((quiz) => quiz.lesson_id === lesson.id)
+  return quizzes.some((quiz) => quiz.lesson_id === lesson.id)
 }
 
 function getModuleLessons(lessons: LessonWithModule[], moduleId: string | undefined) {
@@ -119,7 +119,7 @@ function getQuizzesForLesson(lesson: LessonWithModule | undefined, lessons: Less
 }
 
 function lessonHasPlacedQuiz(lesson: LessonWithModule, lessons: LessonWithModule[], quizzes: CourseQuiz[]) {
-  return lesson.lesson_type === 'quiz' || getQuizzesForLesson(lesson, lessons, quizzes).length > 0
+  return getQuizzesForLesson(lesson, lessons, quizzes).length > 0
 }
 
 function quizHref(courseId: string, quizId: string | undefined, previewMode: boolean) {
@@ -829,7 +829,7 @@ function LessonContent({
 }) {
   const content = getLessonText(lesson)
   const showVideo = lesson.lesson_type === 'video' || Boolean(videoUrl)
-  const showQuiz = lesson.lesson_type === 'quiz' || quizzes.length > 0
+  const showQuiz = quizzes.length > 0
   const showExternal = lesson.lesson_type === 'external_link' || lesson.lesson_type === 'live_class'
   const primaryQuiz = quizzes[0]
 

@@ -364,6 +364,35 @@ export async function updateCourseMediaAction(id: string, formData: FormData): P
   revalidatePath(`/courses`)
 }
 
+export async function updateCourseCertificateSettingsAction(id: string, formData: FormData): Promise<void> {
+  const actor = await requireAdminOrInstructor()
+  const supabase = await createClient()
+  if (!(await canManageCourseId(actor, id, supabase))) {
+    throw new Error('You can only update certificate settings for courses assigned to your instructor account.')
+  }
+
+  const certificateEnabled = formData.get('certificate_enabled') === 'on'
+  const { error } = await supabase
+    .from('courses')
+    .update({
+      certificate_enabled: certificateEnabled,
+      certificate_background_url: normalizeMediaUrl(String(formData.get('certificate_background_url') ?? '')) || null,
+      passing_quiz_percentage: Number(formData.get('passing_quiz_percentage') || 70),
+      completion_requires_lessons: formData.get('completion_requires_lessons') === 'on',
+      completion_requires_quiz: certificateEnabled && formData.get('completion_requires_quiz') === 'on',
+      completion_requires_active_enrollment: formData.get('completion_requires_active_enrollment') === 'on',
+      completion_requires_instructor_approval: formData.get('completion_requires_instructor_approval') === 'on',
+    } as never)
+    .eq('id', id)
+
+  if (error) throw toError(error, 'Certificate settings could not be saved.')
+
+  revalidatePath('/admin/courses')
+  revalidatePath(`/admin/courses/${id}`)
+  revalidatePath(`/admin/courses/${id}/builder`)
+  revalidatePath(`/course/${id}/certificate`)
+}
+
 export async function installChildrenPhonicsCoursesAction(): Promise<void> {
   await requireAdmin()
   await ensureChildrenPhonicsCoursesInstalled()

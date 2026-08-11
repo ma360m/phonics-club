@@ -17,16 +17,39 @@ function hours(minutes: number): string {
   return `${value} hours`
 }
 
+async function drawCertificateBackground(pdfDoc: PDFDocument, page: ReturnType<PDFDocument['addPage']>, url?: string | null) {
+  if (!url) return false
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return false
+
+    const contentType = response.headers.get('content-type') ?? ''
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    const image = contentType.includes('png') || /\.png(\?|$)/i.test(url)
+      ? await pdfDoc.embedPng(bytes)
+      : await pdfDoc.embedJpg(bytes)
+    const { width, height } = page.getSize()
+    page.drawImage(image, { x: 0, y: 0, width, height })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function buildCertificatePdf(input: CertificatePdfInput): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([842, 595])
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const { width, height } = page.getSize()
+  const hasTemplate = await drawCertificateBackground(pdfDoc, page, input.course.certificate_background_url)
 
-  page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 0.99, 0.94) })
-  page.drawRectangle({ x: 38, y: 38, width: width - 76, height: height - 76, borderColor: rgb(0.11, 0.31, 0.85), borderWidth: 3 })
-  page.drawRectangle({ x: 54, y: 54, width: width - 108, height: height - 108, borderColor: rgb(0.83, 0, 0), borderWidth: 1 })
+  if (!hasTemplate) {
+    page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 0.99, 0.94) })
+    page.drawRectangle({ x: 38, y: 38, width: width - 76, height: height - 76, borderColor: rgb(0.11, 0.31, 0.85), borderWidth: 3 })
+    page.drawRectangle({ x: 54, y: 54, width: width - 108, height: height - 108, borderColor: rgb(0.83, 0, 0), borderWidth: 1 })
+  }
 
   page.drawText('PHONICS CLUB', {
     x: 315,

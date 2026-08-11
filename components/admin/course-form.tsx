@@ -254,13 +254,6 @@ export function CourseForm({ course }: { course?: Course }) {
             kind="image"
           />
           <CourseMediaUpload
-            name="certificate_background_url"
-            label="Certificate Background"
-            defaultValue={course?.certificate_background_url ?? ''}
-            folder="courses/certificates"
-            kind="image"
-          />
-          <CourseMediaUpload
             name="hero_video_url"
             label="Hero Video"
             defaultValue={course?.hero_video_url ?? ''}
@@ -348,6 +341,74 @@ export function CourseForm({ course }: { course?: Course }) {
       <input type="hidden" name="curriculum" value={JSON.stringify(curriculum)} />
       <CurriculumBuilder value={curriculum} onChange={setCurriculum} />
 
+      <section className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+        <h2 className="mb-2 text-lg font-semibold">Certificate and Completion</h2>
+        <p className="mb-4 text-sm leading-6 text-slate-500">
+          Enable certificates for this course, upload the certificate template, and choose what unlocks it for learners.
+        </p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                name="certificate_enabled"
+                defaultChecked={course?.certificate_enabled ?? course?.metadata?.certificateEnabled !== false}
+              />
+              This course has a certificate
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" name="completion_requires_lessons" defaultChecked={course?.completion_requires_lessons ?? true} />
+              Require compulsory lessons
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" name="completion_requires_quiz" defaultChecked={course?.completion_requires_quiz ?? true} />
+              Unlock certificate only after final quiz
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" name="completion_requires_active_enrollment" defaultChecked={course?.completion_requires_active_enrollment ?? true} />
+              Require active course access
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" name="completion_requires_instructor_approval" defaultChecked={course?.completion_requires_instructor_approval ?? false} />
+              Require instructor approval
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" name="offline_evidence_required" defaultChecked={course?.offline_evidence_required ?? false} />
+              Require offline evidence
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Passing Quiz %</Label>
+                <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={course?.passing_quiz_percentage ?? 70} className="rounded-xl bg-white" />
+              </div>
+              <div className="space-y-2">
+                <Label>Required Assignment Passes</Label>
+                <Input name="required_assignment_passes" type="number" min="0" defaultValue={course?.required_assignment_passes ?? 0} className="rounded-xl bg-white" />
+              </div>
+            </div>
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+              {[
+                ['completion_requires_online_minutes', 'Require online minutes', course?.completion_requires_online_minutes ?? false],
+                ['completion_requires_offline_minutes', 'Require offline minutes', course?.completion_requires_offline_minutes ?? false],
+                ['completion_requires_assignments', 'Require assignments', course?.completion_requires_assignments ?? false],
+              ].map(([name, label, checked]) => (
+                <label key={String(name)} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name={String(name)} defaultChecked={Boolean(checked)} />
+                  {String(label)}
+                </label>
+              ))}
+            </div>
+          </div>
+          <CourseMediaUpload
+            name="certificate_background_url"
+            label="Certificate Template / Background"
+            defaultValue={course?.certificate_background_url ?? ''}
+            folder="courses/certificates"
+            kind="image"
+          />
+        </div>
+      </section>
+
       <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
         <h2 className="mb-4 text-lg font-semibold">Access, Time and Completion Rules</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -374,14 +435,6 @@ export function CourseForm({ course }: { course?: Course }) {
           <div className="space-y-2">
             <Label>Required Offline Minutes</Label>
             <Input name="required_offline_minutes" type="number" min="0" defaultValue={course?.required_offline_minutes ?? 0} className="rounded-xl" />
-          </div>
-          <div className="space-y-2">
-            <Label>Passing Quiz %</Label>
-            <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={course?.passing_quiz_percentage ?? 70} className="rounded-xl" />
-          </div>
-          <div className="space-y-2">
-            <Label>Required Assignment Passes</Label>
-            <Input name="required_assignment_passes" type="number" min="0" defaultValue={course?.required_assignment_passes ?? 0} className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label>Daily Online Cap</Label>
@@ -413,31 +466,6 @@ export function CourseForm({ course }: { course?: Course }) {
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={course?.featured} /> Featured
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="certificate_enabled"
-            defaultChecked={course?.certificate_enabled ?? course?.metadata?.certificateEnabled !== false}
-          /> Certificate
-        </label>
-      </div>
-
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
-        {[
-          ['completion_requires_lessons', 'Require compulsory lessons', course?.completion_requires_lessons ?? true],
-          ['completion_requires_online_minutes', 'Require online minutes', course?.completion_requires_online_minutes ?? false],
-          ['completion_requires_offline_minutes', 'Require offline minutes', course?.completion_requires_offline_minutes ?? false],
-          ['completion_requires_quiz', 'Require final quiz', course?.completion_requires_quiz ?? false],
-          ['completion_requires_assignments', 'Require assignments', course?.completion_requires_assignments ?? false],
-          ['completion_requires_active_enrollment', 'Require active access', course?.completion_requires_active_enrollment ?? true],
-          ['completion_requires_instructor_approval', 'Require instructor approval', course?.completion_requires_instructor_approval ?? false],
-          ['offline_evidence_required', 'Require offline evidence', course?.offline_evidence_required ?? false],
-        ].map(([name, label, checked]) => (
-          <label key={String(name)} className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name={String(name)} defaultChecked={Boolean(checked)} />
-            {String(label)}
-          </label>
-        ))}
       </div>
 
       <Button type="submit" disabled={pending} className="rounded-xl bg-[#1D4ED8]">
