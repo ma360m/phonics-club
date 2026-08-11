@@ -285,3 +285,32 @@ export function customerRowsToCsv(rows: CustomerReportRow[]) {
 
   return [headers.map(escape).join(','), ...lines].join('\n')
 }
+
+export function studentRowsToCsv(rows: CustomerReportRow[]) {
+  const studentRows = rows.filter((row) => row.enrolledCourses.length || row.coursePaymentCourses.length)
+  const headers = [
+    'Student Name',
+    'Username',
+    'Email',
+    'Phone',
+    'Enrolled Courses',
+    'Course Payments',
+    'Training Registrations',
+    'Webinar Registrations',
+    'Last Activity',
+  ]
+  const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+  const lines = studentRows.map((row) => [
+    row.name,
+    row.username,
+    row.email,
+    row.phone,
+    row.enrolledCourses.join('; '),
+    row.coursePaymentCourses.join('; '),
+    row.trainingRegistrations.join('; '),
+    row.webinarRegistrations.join('; '),
+    row.lastActivityAt,
+  ].map(escape).join(','))
+
+  return [headers.map(escape).join(','), ...lines].join('\n')
+}

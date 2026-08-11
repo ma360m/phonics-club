@@ -453,7 +453,7 @@ export async function unlockCourseWithLicenseKeyFormAction(
 
 export async function approveCoursePaymentAction(
   paymentId: string,
-  options: { licenseKey?: string } = {},
+  options: { licenseKey?: string; forceNewLicenseKey?: boolean; resendEmail?: boolean } = {},
 ): Promise<ActionResult> {
   try {
     const admin = await import('@/lib/auth').then((mod) => mod.requireAdmin())
@@ -467,7 +467,10 @@ export async function approveCoursePaymentAction(
 
     const course = payment.courses as Course
     const now = new Date()
-    const licenseKey = normalizeLicenseKey(options.licenseKey) || payment.license_key || generateCourseLicenseKey(payment.course_id, payment.user_id)
+    const customLicenseKey = normalizeLicenseKey(options.licenseKey)
+    const licenseKey = customLicenseKey || (options.forceNewLicenseKey || !payment.license_key
+      ? generateCourseLicenseKey(payment.course_id, payment.user_id)
+      : payment.license_key)
     const existingEnrollment = payment.enrollment_id
       ? await supabase.from('enrollments').select('*').eq('id', payment.enrollment_id).maybeSingle()
       : await supabase
@@ -516,7 +519,7 @@ export async function approveCoursePaymentAction(
     const profile = payment.profiles as { email?: string | null; full_name?: string | null } | null
     let licenseEmailSent = false
     let licenseEmailFrom: string | null = null
-    if (profile?.email && !payment.license_emailed_at) {
+    if (profile?.email && (options.resendEmail || !payment.license_emailed_at)) {
       const emailResult = await sendCourseLicenseEmail({
         to: profile.email,
         studentName: profile.full_name,

@@ -2,7 +2,7 @@ import { getAdminCustomerRows } from '@/lib/admin/customers'
 import { sendCustomerPasswordResetAction } from '@/actions/admin/customers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download, KeyRound } from 'lucide-react'
+import { Download, KeyRound, UsersRound } from 'lucide-react'
 import Link from 'next/link'
 
 function listText(items: string[]) {
@@ -26,12 +26,20 @@ export default async function AdminCustomersPage({
             Consolidated customers from product orders, course enrollments, course payments, trainings, and webinars.
           </p>
         </div>
-        <Button asChild className="rounded-xl bg-[#1D4ED8]">
-          <Link href="/api/admin/customers/export">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+            <Link href="/api/admin/students/export">
+              <UsersRound className="mr-2 h-4 w-4" />
+              Export Students CSV
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl bg-[#1D4ED8]">
+            <Link href="/api/admin/customers/export">
+              <Download className="mr-2 h-4 w-4" />
+              Export Customers CSV
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {notice?.message ? (

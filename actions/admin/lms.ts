@@ -12,6 +12,18 @@ function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
 }
 
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const cleanValue = String(value ?? '').trim()
+    if (cleanValue) return cleanValue
+  }
+  return ''
+}
+
 function num(formData: FormData, key: string, fallback = 0) {
   const value = Number(formData.get(key))
   return Number.isFinite(value) ? value : fallback
@@ -433,26 +445,51 @@ export async function deleteQuizQuestionAction(questionId: string, courseId: str
 
 export async function getAdminCoursePayments(status?: string) {
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? await createServiceClient() : await createClient()
   let query = supabase
     .from('course_payments')
-    .select('*, courses(title, slug), profiles(full_name, email)')
+    .select('*')
     .order('created_at', { ascending: false })
   if (status && status !== 'all') query = query.eq('status', status)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) throw toError(error, 'Course payments could not be loaded.')
   const rows = data ?? []
+  const courseIds = Array.from(new Set(rows.map((row: any) => row.course_id).filter(Boolean)))
+  const userIds = Array.from(new Set(rows.map((row: any) => row.user_id).filter(Boolean)))
   const enrollmentIds = rows.map((row: any) => row.enrollment_id).filter(Boolean)
-  const { data: enrollments } = enrollmentIds.length
-    ? await supabase
-        .from('enrollments')
-        .select('id, status, progress, expires_at, access_extended_until')
-        .in('id', enrollmentIds)
-    : { data: [] }
-  const enrollmentsById = new Map((enrollments ?? []).map((enrollment: any) => [enrollment.id, enrollment]))
+
+  const [coursesResult, profilesResult, enrollmentsResult] = await Promise.all([
+    courseIds.length
+      ? supabase.from('courses').select('id, title, slug').in('id', courseIds)
+      : Promise.resolve({ data: [] }),
+    userIds.length
+      ? supabase.from('profiles').select('id, full_name, email, username').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+    enrollmentIds.length
+      ? supabase.from('enrollments').select('id, status, progress, expires_at, access_extended_until').in('id', enrollmentIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const coursesById = new Map((coursesResult.data ?? []).map((course: any) => [course.id, course]))
+  const profilesById = new Map((profilesResult.data ?? []).map((profile: any) => [profile.id, profile]))
+  const enrollmentsById = new Map((enrollmentsResult.data ?? []).map((enrollment: any) => [enrollment.id, enrollment]))
   const rowsWithEnrollments = rows.map((row: any) => ({
     ...row,
+    courses: row.course_id ? coursesById.get(row.course_id) ?? null : null,
+    profiles: row.user_id ? profilesById.get(row.user_id) ?? null : null,
     enrollment: row.enrollment_id ? enrollmentsById.get(row.enrollment_id) ?? null : null,
-  }))
+  })).map((row: any) => {
+    const profile = row.profiles as { full_name?: string | null; email?: string | null; username?: string | null } | null
+    const metadata = objectRecord(row.metadata)
+    const customerName = firstText(profile?.full_name, metadata.studentName, metadata.student_name, metadata.customerName, metadata.name, profile?.email, row.user_id)
+    const customerEmail = firstText(profile?.email, metadata.studentEmail, metadata.student_email, metadata.customerEmail, metadata.email)
+    return {
+      ...row,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_username: firstText(profile?.username, metadata.username),
+    }
+  })
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return rowsWithEnrollments
   const service = await createServiceClient()
@@ -468,6 +505,8 @@ export async function getAdminCoursePayments(status?: string) {
 export async function approveCoursePaymentFormAction(formData: FormData): Promise<void> {
   const result = await approveCoursePaymentAction(String(formData.get('payment_id')), {
     licenseKey: text(formData, 'license_key') || undefined,
+    forceNewLicenseKey: formData.get('force_new_license_key') === 'on',
+    resendEmail: formData.get('resend_license_email') === 'on',
   })
   if (!result.success) throw toError(result.error, 'Course payment could not be approved.')
 }
