@@ -45,7 +45,7 @@ export default async function ResearchPage() {
       </section>
 
       <section className="border-y bg-[#F8FAFC]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
+        <div className="mx-auto grid w-full max-w-none gap-8 px-6 py-12 sm:px-8 lg:grid-cols-[0.75fr_1.25fr] lg:px-10">
           <h2 className="text-3xl font-bold">Research Focus</h2>
           <div className="space-y-4 text-muted-foreground">
             {content.overview
@@ -59,7 +59,7 @@ export default async function ResearchPage() {
 
       {content.supportImages.length > 0 ? (
         <section className="bg-white">
-          <div className="mx-auto grid w-full max-w-none gap-5 px-4 py-10 sm:px-6 md:grid-cols-2 lg:px-8">
+          <div className="mx-auto grid w-full max-w-none gap-5 px-6 py-10 sm:px-8 md:grid-cols-2 lg:px-10">
             {content.supportImages.map((image) => (
               <figure key={image.src} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
                 <div className="relative aspect-[16/9] bg-slate-50">
@@ -73,10 +73,10 @@ export default async function ResearchPage() {
       ) : null}
 
       <section className="bg-white">
-        <div className="mx-auto w-full max-w-none px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-none px-6 py-14 sm:px-8 lg:px-10">
           <div className="space-y-6">
             {content.projects.map((project, index) => (
-              <article key={project.title} className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+              <article key={project.title} className="rounded-2xl border bg-card p-7 shadow-sm sm:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <Badge className="mb-3 bg-[#1D4ED8]">Project {index + 1}</Badge>
@@ -97,9 +97,9 @@ export default async function ResearchPage() {
                       <School className="h-5 w-5 text-[#1D4ED8]" />
                       Pilot Schools
                     </h3>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {project.schools.map((school) => (
-                        <div key={school} className="rounded-lg border bg-white px-4 py-3 text-sm">{school}</div>
+                        <div key={school} className="rounded-lg border bg-white px-4 py-4 text-sm leading-6">{school}</div>
                       ))}
                     </div>
                   </div>

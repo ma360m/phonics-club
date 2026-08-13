@@ -44,6 +44,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CourseMediaUpload } from '@/components/admin/course-media-upload'
+import { RichTextarea } from '@/components/admin/rich-textarea'
 import { LmsPageHeader, LmsStatusBadge } from '@/components/lms/lms-primitives'
 import {
   ArrowLeft,
@@ -563,8 +564,8 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                                   </AccordionTrigger>
                                   <AccordionContent className="space-y-4 pb-4">
                                     <div className="grid gap-3 lg:grid-cols-2">
-                                      {field('Full Reading Content', <Textarea name="rich_content" defaultValue={lesson.rich_content ?? lesson.content ?? ''} className="rounded-xl bg-white" rows={7} />)}
-                                      {field('Article Content', <Textarea name="article_content" defaultValue={lesson.article_content ?? ''} className="rounded-xl bg-white" rows={7} />)}
+                                      {field('Full Reading Content', <RichTextarea name="rich_content" defaultValue={lesson.rich_content ?? lesson.content ?? ''} className="rounded-xl bg-white" rows={7} />)}
+                                      {field('Article Content', <RichTextarea name="article_content" defaultValue={lesson.article_content ?? ''} className="rounded-xl bg-white" rows={7} />)}
                                       {field('Practice Prompt', <Textarea name="practice_prompt" defaultValue={lesson.practice_prompt ?? ''} className="rounded-xl bg-white" rows={3} />)}
                                       {field('Discussion Prompt', <Textarea name="discussion_prompt" defaultValue={lesson.discussion_prompt ?? ''} className="rounded-xl bg-white" rows={3} />)}
                                     </div>
@@ -611,7 +612,7 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                             {field('Reading Mode', <ReadingTypeSelect defaultValue="" />)}
                             {field('Material URL', <Input name="material_url" placeholder="PDF, worksheet or download URL" className="rounded-xl bg-white" />)}
                             {field('Reading/PDF URL', <Input name="reading_external_url" className="rounded-xl bg-white" />)}
-                            {field('Full Reading Content', <Textarea name="rich_content" className="rounded-xl bg-white lg:col-span-3" rows={5} />)}
+                            {field('Full Reading Content', <RichTextarea name="rich_content" className="rounded-xl bg-white lg:col-span-3" rows={5} />)}
                           </div>
                           <input type="hidden" name="is_compulsory" value="on" />
                           <input type="hidden" name="sequentially_locked" value="on" />

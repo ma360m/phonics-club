@@ -1,12 +1,13 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useMemo, useRef, useState } from 'react'
 import { createBlogPostAction, updateBlogPostAction } from '@/actions/admin/blog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImageUpload } from './image-upload'
+import { RichTextToolbar } from './rich-text-toolbar'
 import { BLOG_CATEGORIES } from '@/lib/constants'
 import type { BlogPost } from '@/types/database'
 import type { BlogGalleryImage } from '@/types/database'
@@ -18,6 +19,7 @@ export function BlogForm({ post }: { post?: BlogPost }) {
   const action = post ? updateBlogPostAction.bind(null, post.id) : createBlogPostAction
   const [state, formAction, pending] = useActionState(action, initial)
   const [galleryImages, setGalleryImages] = useState<BlogGalleryImage[]>(() => post?.gallery_images ?? [])
+  const contentRef = useRef<HTMLTextAreaElement>(null)
   const galleryJson = useMemo(() => JSON.stringify(galleryImages), [galleryImages])
 
   function updateGalleryImage(index: number, patch: Partial<BlogGalleryImage>) {
@@ -49,7 +51,8 @@ export function BlogForm({ post }: { post?: BlogPost }) {
       </div>
       <div className="space-y-2">
         <Label>Content (HTML)</Label>
-        <Textarea name="content" defaultValue={post?.content} required rows={12} className="rounded-xl font-mono text-sm" />
+        <RichTextToolbar textareaRef={contentRef} />
+        <Textarea ref={contentRef} name="content" defaultValue={post?.content} required rows={12} className="rounded-xl font-mono text-sm" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

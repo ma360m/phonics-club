@@ -248,20 +248,20 @@ export default async function AboutPage() {
       ) : null}
 
       <section className="bg-white">
-        <div className="mx-auto w-full max-w-none px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-none px-6 py-14 sm:px-8 lg:px-10">
           <h2 className="text-3xl font-bold">Journey and Milestones</h2>
           <div className="mt-10 space-y-6">
             {content.milestones.map((milestone) => (
-              <article key={milestone.year} className="grid w-full gap-4 rounded-lg border bg-card p-5 md:grid-cols-[120px_1fr]">
+              <article key={milestone.year} className="grid w-full gap-6 rounded-2xl border bg-card p-7 shadow-sm sm:p-8 md:grid-cols-[180px_minmax(0,1fr)]">
                 <div>
-                  <p className="text-3xl font-bold text-[#D30000]">{milestone.year}</p>
+                  <p className="text-4xl font-bold text-[#D30000]">{milestone.year}</p>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">{milestone.title}</h3>
-                  <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                  <h3 className="text-2xl font-bold">{milestone.title}</h3>
+                  <ul className="mt-5 grid gap-4 text-base leading-7 text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
                     {milestone.items.map((item) => (
-                      <li key={item} className="flex gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1D4ED8]" />
+                      <li key={item} className="flex gap-3">
+                        <span className="mt-2.5 h-2 w-2 shrink-0 rounded-full bg-[#1D4ED8]" />
                         <span>{item}</span>
                       </li>
                     ))}

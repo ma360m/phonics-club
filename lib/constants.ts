@@ -40,12 +40,32 @@ export const COURSE_CATEGORIES = [
 ] as const
 
 export const BLOG_CATEGORIES = [
+  'training',
+  'events',
+  'pilot-projects',
+  'jolly-phonics',
+  'webinars',
+  'international',
+  'news',
   'phonics-tips',
   'parenting',
   'teaching',
-  'news',
   'general',
 ] as const
+
+export const BLOG_CATEGORY_LABELS: Record<string, string> = {
+  training: 'Training',
+  events: 'Events',
+  'pilot-projects': 'Pilot Projects',
+  'jolly-phonics': 'Jolly Phonics',
+  webinars: 'Webinars',
+  international: 'International',
+  news: 'News',
+  'phonics-tips': 'Phonics Tips',
+  parenting: 'Parenting',
+  teaching: 'Teaching',
+  general: 'General',
+}
 
 export const ADMIN_ROUTES = ['/admin'] as const
 export const PROTECTED_ROUTES = ['/dashboard', '/wishlist', '/admin'] as const

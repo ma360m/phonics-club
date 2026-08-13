@@ -1,23 +1,34 @@
-import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import Link from 'next/link'
+import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { getBlogPosts } from '@/lib/data/queries'
 import { buildMetadata } from '@/utils/seo'
 import { formatDate } from '@/utils/format'
 import { BLOG_CATEGORIES } from '@/lib/constants'
+import { GradientThumbnail, yearFromValue } from '@/components/blog/gradient-thumbnail'
 
 const BLOG_DESCRIPTION =
   "Discover practical tips, educational news, professional development articles, and evidence-based literacy practices to support every child's reading journey."
-
-function shouldUseColorBlogThumbnail(slug: string) {
-  return slug === 'jolly-phonics-2017-training-video'
-}
 
 export const metadata = buildMetadata({
   title: 'Blog',
   description: BLOG_DESCRIPTION,
   path: '/blog',
 })
+
+function postTime(value: string | Date | null | undefined) {
+  const time = new Date(value ?? '').getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
+function postYear(value: string | Date | null | undefined) {
+  const year = new Date(value ?? '').getFullYear()
+  return Number.isFinite(year) ? String(year) : 'Undated'
+}
+
+function hasUsableCover(post: { cover_image?: string | null; slug: string }) {
+  return Boolean(post.cover_image && post.cover_image !== '/logo.png' && post.slug !== 'jolly-phonics-2017-training-video')
+}
 
 export default async function BlogPage({
   searchParams,
@@ -33,16 +44,30 @@ export default async function BlogPage({
         p.title.toLowerCase().includes(term) ||
         p.excerpt?.toLowerCase().includes(term) ||
         p.tags?.some((t) => t.toLowerCase().includes(term))
-    )
+      )
   }
+  const sortedPosts = [...posts].sort((a, b) => postTime(b.created_at) - postTime(a.created_at))
+  const groupedPosts = sortedPosts.reduce<Record<string, typeof sortedPosts>>((acc, post) => {
+    const year = postYear(post.created_at)
+    acc[year] = acc[year] ?? []
+    acc[year].push(post)
+    return acc
+  }, {})
+  const years = Object.keys(groupedPosts).sort((a, b) => {
+    if (a === 'Undated') return 1
+    if (b === 'Undated') return -1
+    return Number(b) - Number(a)
+  })
 
   return (
     <main>
       <AnnouncementBar />
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold mb-2">Blog</h1>
-        <p className="text-muted-foreground mb-8">{BLOG_DESCRIPTION}</p>
+      <div className="mx-auto w-full max-w-none px-6 py-12 sm:px-8 lg:px-10">
+        <div className="mb-8 max-w-5xl">
+          <h1 className="text-4xl font-bold mb-2">Blog</h1>
+          <p className="text-muted-foreground">{BLOG_DESCRIPTION}</p>
+        </div>
         <div className="flex flex-wrap gap-2 mb-6">
           <a href="/blog" className={`px-4 py-2 rounded-xl text-sm font-medium ${!category ? 'bg-[#1D4ED8] text-white' : 'bg-muted'}`}>
             All
@@ -69,29 +94,46 @@ export default async function BlogPage({
             Search
           </button>
         </form>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
-            <Link
-              key={post.id}
-              href={`/blog/${post.slug}`}
-              className="group bg-card rounded-2xl border overflow-hidden shadow-sm hover:shadow-xl transition-all"
-            >
-              {post.cover_image && !shouldUseColorBlogThumbnail(post.slug) ? (
-                <img src={post.cover_image} alt="" className="aspect-video w-full object-cover" />
-              ) : (
-                <div className="aspect-video bg-gradient-to-br from-[#1D4ED8]/10 to-[#FBBF24]/20 flex items-center justify-center text-sm font-semibold text-[#1D4ED8]">
-                  Phonics Club Article
+        {years.length === 0 ? (
+          <div className="rounded-lg border bg-card p-8 text-center">
+            <p className="font-semibold">No blog posts found.</p>
+          </div>
+        ) : (
+          <div className="space-y-12">
+            {years.map((year) => (
+              <section key={year}>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b pb-3">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-wide text-[#1D4ED8]">Articles</p>
+                    <h2 className="text-3xl font-bold text-[#0F172A]">{year}</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{groupedPosts[year].length} post{groupedPosts[year].length === 1 ? '' : 's'}</p>
                 </div>
-              )}
-              <div className="p-6">
-                <Badge variant="secondary" className="mb-2">{post.category}</Badge>
-                <h2 className="font-semibold text-lg group-hover:text-[#1D4ED8] line-clamp-2">{post.title}</h2>
-                {post.excerpt && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{post.excerpt}</p>}
-                <p className="text-xs text-muted-foreground mt-4">{formatDate(post.created_at)}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {groupedPosts[year].map((post) => (
+                    <Link
+                      key={post.id}
+                      href={`/blog/${post.slug}`}
+                      className="group flex min-h-[430px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:border-[#1D4ED8] hover:shadow-md"
+                    >
+                      {hasUsableCover(post) ? (
+                        <img src={post.cover_image!} alt="" className="aspect-video w-full object-cover" />
+                      ) : (
+                        <GradientThumbnail title={post.title} meta={formatDate(post.created_at)} year={yearFromValue(post.created_at)} className="aspect-video min-h-0" compact showText={false} />
+                      )}
+                      <div className="flex flex-1 flex-col p-5">
+                        <Badge variant="secondary" className="mb-2 capitalize">{post.category}</Badge>
+                        <h3 className="break-words text-lg font-semibold leading-tight group-hover:text-[#1D4ED8]">{post.title}</h3>
+                        {post.excerpt && <p className="mt-2 line-clamp-4 text-sm text-muted-foreground">{post.excerpt}</p>}
+                        <p className="mt-auto pt-5 text-xs font-medium text-muted-foreground">{formatDate(post.created_at)}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
       <Footer />
     </main>

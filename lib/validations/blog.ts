@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const blogGalleryImageSchema = z.object({
-  src: z.string().url(),
+  src: z.string().min(1),
   alt: z.string().max(160).optional().nullable(),
   caption: z.string().max(240).optional().nullable(),
 })
@@ -13,7 +13,7 @@ export const blogPostSchema = z.object({
   content: z.string().min(10),
   category: z.string().default('general'),
   tags: z.string().optional(),
-  cover_image: z.string().url().optional().nullable(),
+  cover_image: z.string().optional().nullable(),
   gallery_images: z.array(blogGalleryImageSchema).default([]),
   published: z.coerce.boolean().default(false),
   seo_title: z.string().optional(),

@@ -14,7 +14,7 @@ export const SEED_BLOG_POSTS: BlogPost[] = [
     title: 'NOC of Jolly Learning Books — PCTB Approved',
     slug: 'noc-jolly-learning-books-pctb',
     excerpt: 'Almost all books are now PCTB approved. Buy only from authorized Phonics Club dealers.',
-    content: `<p>Almost all the books are now approved from PCTB and Phonics Club has acquired NOCs of relevant textbooks and SRM.</p>`,
+    content: `<p><strong>Almost all the books are now approved from PCTB</strong>, and Phonics Club has acquired NOCs of relevant textbooks and SRM.</p><p><strong><em>Receive SRM and PCTB stickers</em></strong> for all purchases and previously acquired books.</p>`,
     category: 'news',
     tags: ['PCTB', 'NOC'],
     cover_image: '/logo.png',

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
 import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses, withChildrenPhonicsCourseUpdates } from './children-phonics-courses'
+import { getTrainingEventBlogPosts, getTrainingEventBySlug, trainingEventToBlogPost } from './training-events-blog'
 import { filterProductsByCollection } from '@/lib/product-collections'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
@@ -172,9 +173,12 @@ export async function getBlogPosts(options?: {
   category?: string
   limit?: number
 }): Promise<BlogPost[]> {
+  const eventPosts = getTrainingEventBlogPosts({ category: options?.category })
+
   if (!isSupabaseConfigured()) {
-    let items = [...SEED_BLOG_POSTS]
+    let items = [...eventPosts, ...SEED_BLOG_POSTS]
     if (options?.category) items = items.filter((p) => p.category === options.category)
+    items = items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     if (options?.limit) items = items.slice(0, options.limit)
     return items
   }
@@ -189,12 +193,22 @@ export async function getBlogPosts(options?: {
   if (options?.limit) query = query.limit(options.limit)
 
   const { data } = await query.order('created_at', { ascending: false })
-  return (data as BlogPost[]) ?? []
+  const databasePosts = (data as BlogPost[]) ?? []
+  const databaseSlugs = new Set(databasePosts.map((post) => post.slug))
+  const seedPosts = SEED_BLOG_POSTS.filter((post) => (!options?.category || post.category === options.category) && !databaseSlugs.has(post.slug))
+  const merged = [
+    ...eventPosts.filter((post) => !databaseSlugs.has(post.slug)),
+    ...seedPosts,
+    ...databasePosts,
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  return options?.limit ? merged.slice(0, options.limit) : merged
 }
 
 export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
   if (!isSupabaseConfigured()) {
-    return SEED_BLOG_POSTS.find((p) => p.slug === slug) ?? SEED_BLOG_POSTS[0] ?? null
+    const event = getTrainingEventBySlug(slug)
+    return event ? trainingEventToBlogPost(event) : SEED_BLOG_POSTS.find((p) => p.slug === slug) ?? null
   }
 
   const supabase = await createClient()
@@ -205,7 +219,11 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
     .eq('published', true)
     .single()
 
-  return data as BlogPost | null
+  if (data) return data as BlogPost
+
+  const event = getTrainingEventBySlug(slug)
+  if (event) return trainingEventToBlogPost(event)
+  return SEED_BLOG_POSTS.find((post) => post.published && post.slug === slug) ?? null
 }
 
 export async function getAllProfiles(): Promise<Profile[]> {

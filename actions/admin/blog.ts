@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { blogPostSchema } from '@/lib/validations/blog'
+import { getTrainingEventBlogPosts } from '@/lib/data/training-events-blog'
+import { SEED_BLOG_POSTS } from '@/lib/data/seed'
 import type { ActionResult } from '@/types'
+import type { BlogPost } from '@/types/database'
 
 function parseBlogForm(formData: FormData) {
   const tagsRaw = formData.get('tags')
@@ -66,7 +69,7 @@ export async function updateBlogPostAction(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAdmin()
+  const profile = await requireAdmin()
   const parsed = parseBlogForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
 
@@ -76,11 +79,16 @@ export async function updateBlogPostAction(
 
   const { tags: _tags, ...rest } = parsed.data
   const supabase = await createClient()
-  const { error } = await supabase.from('blog_posts').update({ ...rest, tags } as never).eq('id', id)
+  const fallback = getEditableStaticBlogPosts().find((post) => post.id === id)
+  const payload = { ...rest, tags }
+  const { error } = fallback
+    ? await supabase.from('blog_posts').upsert({ ...payload, author_id: profile.id } as never, { onConflict: 'slug' })
+    : await supabase.from('blog_posts').update(payload as never).eq('id', id)
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/blog')
   revalidatePath('/blog')
+  revalidatePath(`/blog/${parsed.data.slug}`)
   return { success: true }
 }
 
@@ -97,12 +105,28 @@ export async function getAdminBlogPosts() {
   await requireAdmin()
   const supabase = await createClient()
   const { data } = await supabase.from('blog_posts').select('*').order('created_at', { ascending: false })
-  return data ?? []
+  const databasePosts = (data as BlogPost[]) ?? []
+  const databaseSlugs = new Set(databasePosts.map((post) => post.slug))
+  return [
+    ...databasePosts,
+    ...getEditableStaticBlogPosts().filter((post) => !databaseSlugs.has(post.slug)),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 export async function getAdminBlogPost(id: string) {
   await requireAdmin()
+  if (id.startsWith('static-')) {
+    return getEditableStaticBlogPosts().find((post) => post.id === id) ?? null
+  }
+
   const supabase = await createClient()
-  const { data } = await supabase.from('blog_posts').select('*').eq('id', id).single()
-  return data
+  const { data } = await supabase.from('blog_posts').select('*').eq('id', id).maybeSingle()
+  return data ?? getEditableStaticBlogPosts().find((post) => post.id === id) ?? null
+}
+
+function getEditableStaticBlogPosts(): BlogPost[] {
+  return [...getTrainingEventBlogPosts(), ...SEED_BLOG_POSTS].map((post) => ({
+    ...post,
+    id: post.id.startsWith('static-') ? post.id : `static-${post.id}`,
+  }))
 }

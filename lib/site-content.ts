@@ -676,6 +676,35 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
       title: 'Major National and International Training Activities',
       items: ['August and September on-site trainings at Soar STEM School and Virtual University Lahore', 'October to December international training series with Coral George', "Lahore trainings at TNS Beaconhouse DHA, Froebel's International School Lahore, and TNS Beaconhouse Gulberg", "Islamabad training at Froebel's International School Islamabad", 'Karachi training events including Mrs. Mohiuddin Montessori'],
     },
+    {
+      year: '2025',
+      title: 'Pilot Projects and Landmark Literacy Events',
+      items: [
+        'AKRSP pilot-project training activity expanded to Gilgit and Skardu',
+        'Gujranwala Pilot Project professional teacher training strengthened classroom implementation in September 2025',
+        'Chitral Pilot Project training extended professional literacy development during Fall 2025',
+        'Pilot Project Training Workshop conducted at NSCOE, Children Library Complex Lahore',
+        'Professional training programmes held at Allaudin Academy and other Lahore partner schools',
+        'Jolly Morning Day at NSCOE celebrated multisensory literacy learning and Jolly Phonics practice',
+        'Christopher Jolly visited Chitral for a special Teaching Jolly Phonics session',
+        'Christopher Jolly in Lahore marked a landmark literacy event at Children Library Complex',
+        'Jolly Experience Day in Islamabad brought together Christopher Jolly and experienced Jolly Phonics trainers',
+      ],
+    },
+    {
+      year: '2026',
+      title: 'Workshops, Webinars and Continued Outreach',
+      items: [
+        'Jolly Phonics Training Workshops conducted in Gilgit and Hunza',
+        'Lahore Jolly Phonics Training Workshop held at Unique School, Township Branch, in collaboration with Starfish Pakistan School',
+        'Pilot Project Refresher Training supported pilot-project schools at NSCOE Lahore',
+        'Gujranwala Pilot Project refresher training reinforced classroom implementation in mid-January 2026',
+        'Free Jolly Grammar and Jolly English webinar offered professional learning for teachers, parents and educators',
+        'International webinar on helping children climb out of the Failure Pit supported collaborative professional discussion',
+        'Professional training at Bright Vision School Lahore and Al-Fatah School Chakwal extended school-based teacher development',
+        'Event, training, research and pilot-project stories were organized into the website blog archive for public access',
+      ],
+    },
   ],
   impact: [
     { label: 'Years of Service', value: '10+' },
@@ -1048,11 +1077,24 @@ export async function getAboutPageContent(): Promise<AboutPageContent> {
     services: data.services ?? DEFAULT_ABOUT_PAGE.services,
     showLearningPath: data.showLearningPath ?? DEFAULT_ABOUT_PAGE.showLearningPath,
     learningPath: data.learningPath ?? DEFAULT_ABOUT_PAGE.learningPath,
-    milestones: data.milestones ?? DEFAULT_ABOUT_PAGE.milestones,
+    milestones: withRequiredAboutMilestones(data.milestones ?? DEFAULT_ABOUT_PAGE.milestones),
     impact: data.impact ?? DEFAULT_ABOUT_PAGE.impact,
     supportImages: data.supportImages ?? DEFAULT_ABOUT_PAGE.supportImages,
     galleryImages: data.galleryImages ?? DEFAULT_ABOUT_PAGE.galleryImages,
   }
+}
+
+function withRequiredAboutMilestones(milestones: AboutPageContent['milestones']) {
+  const requiredYears = new Set(['2025', '2026'])
+  const required = DEFAULT_ABOUT_PAGE.milestones.filter((milestone) => requiredYears.has(milestone.year))
+  const years = new Set(milestones.map((milestone) => milestone.year))
+  const merged = [...milestones]
+
+  for (const milestone of required) {
+    if (!years.has(milestone.year)) merged.push(milestone)
+  }
+
+  return merged.sort((a, b) => Number(a.year) - Number(b.year))
 }
 
 export async function getResearchPageContent(): Promise<ResearchPageContent> {

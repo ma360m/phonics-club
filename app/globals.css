@@ -591,8 +591,48 @@ html[data-pc-font-mode='dyslexia-friendly'] {
   --font-sans: Verdana, Atkinson Hyperlegible, Arial, sans-serif;
 }
 
-:where(.prose, [data-reading-content], .course-lesson-content, .policy-content, article) {
+:where(.prose, [data-reading-content], .course-lesson-content, .policy-content) {
   max-width: var(--pc-reading-max-width);
+}
+
+:where(.pc-blog-content, .pc-reading-surface) h2 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  border-left: 4px solid #1D4ED8;
+  padding-left: 0.9rem;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1.2;
+}
+
+:where(.pc-blog-content, .pc-reading-surface) :where(strong, b) {
+  font-weight: 800;
+  color: #0F172A;
+}
+
+:where(.pc-blog-content, .pc-reading-surface) :where(em, i) {
+  color: #8B1E2D;
+  font-style: italic;
+  font-weight: 600;
+}
+
+:where(.pc-blog-content, .pc-reading-surface) blockquote {
+  margin: 1.5rem 0;
+  border-left: 4px solid #FBBF24;
+  background: #F8FAFC;
+  padding: 1rem 1.25rem;
+  font-style: italic;
+}
+
+:where(.pc-blog-content, .pc-reading-surface) ul {
+  margin: 1rem 0;
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+:where(.pc-blog-content, .pc-reading-surface) ol {
+  margin: 1rem 0;
+  list-style: decimal;
+  padding-left: 1.5rem;
 }
 
 :where(.prose, [data-reading-content], .course-lesson-content, .policy-content, article) :where(p, li, blockquote, dd) {

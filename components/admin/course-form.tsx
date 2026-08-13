@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 import { createCourseAction, updateCourseAction } from '@/actions/admin/courses'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CourseMediaUpload } from './course-media-upload'
 import { CurriculumBuilder } from './curriculum-builder'
+import { RichTextToolbar } from './rich-text-toolbar'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import type { Course, CurriculumModule } from '@/types/database'
 import type { ActionResult } from '@/types'
@@ -45,6 +46,8 @@ export function CourseForm({ course }: { course?: Course }) {
   const action = course ? updateCourseAction.bind(null, course.id) : createCourseAction
   const [state, formAction, pending] = useActionState(action, initial)
   const [curriculum, setCurriculum] = useState<CurriculumModule[]>(course?.curriculum ?? [])
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const richDescriptionRef = useRef<HTMLTextAreaElement>(null)
 
   return (
     <form action={formAction} className="max-w-5xl space-y-6">
@@ -74,12 +77,14 @@ export function CourseForm({ course }: { course?: Course }) {
 
       <div className="space-y-2">
         <Label>Full Description</Label>
-        <Textarea name="description" defaultValue={course?.description ?? ''} className="rounded-xl" rows={4} />
+        <RichTextToolbar textareaRef={descriptionRef} />
+        <Textarea ref={descriptionRef} name="description" defaultValue={course?.description ?? ''} className="rounded-xl" rows={4} />
       </div>
 
       <div className="space-y-2">
         <Label>Rich LMS Description</Label>
-        <Textarea name="rich_description" defaultValue={course?.rich_description ?? ''} className="rounded-xl" rows={5} />
+        <RichTextToolbar textareaRef={richDescriptionRef} />
+        <Textarea ref={richDescriptionRef} name="rich_description" defaultValue={course?.rich_description ?? ''} className="rounded-xl" rows={5} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
