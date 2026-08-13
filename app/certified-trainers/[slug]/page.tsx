@@ -6,7 +6,9 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { buildMetadata } from '@/utils/seo'
 import { getTrainerBySlug } from '@/lib/site-content'
+import { getTrainerDisplayName } from '@/lib/trainer-display'
 import { getTrainerImageUrl } from '@/lib/trainer-images'
+import { cn } from '@/lib/utils'
 import { Award, CheckCircle2, GraduationCap, Star } from 'lucide-react'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -14,10 +16,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const trainer = await getTrainerBySlug(slug)
   if (!trainer) return {}
   const trainerImageUrl = getTrainerImageUrl(trainer)
+  const trainerDisplayName = getTrainerDisplayName(trainer)
 
   return buildMetadata({
-    title: trainer.name,
-    description: trainer.bio ?? `${trainer.name} profile at Phonics Club`,
+    title: trainerDisplayName,
+    description: trainer.bio ?? `${trainerDisplayName} profile at Phonics Club`,
     path: `/certified-trainers/${slug}`,
     image: trainerImageUrl ?? undefined,
   })
@@ -57,6 +60,8 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
   const trainer = await getTrainerBySlug(slug)
   if (!trainer) notFound()
   const trainerImageUrl = getTrainerImageUrl(trainer)
+  const trainerDisplayName = getTrainerDisplayName(trainer)
+  const isFatimaProfile = trainer.slug === 'fatima-tuz-zahra' || trainer.slug === 'dr-fatima-tuz-zahra'
 
   return (
     <main>
@@ -66,16 +71,16 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
         <BackButton fallbackHref="/certified-trainers" />
 
         <section className="grid gap-8 rounded-lg border bg-white p-6 shadow-sm md:grid-cols-[220px_1fr] md:p-8">
-          <div className="mx-auto flex h-44 w-44 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1D4ED8]/20 to-[#FBBF24]/30 md:mx-0">
+          <div className={cn('mx-auto flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1D4ED8]/20 to-[#FBBF24]/30 md:mx-0', isFatimaProfile ? 'h-52 w-52' : 'h-44 w-44')}>
             {trainerImageUrl ? (
-              <Image src={trainerImageUrl} alt={trainer.name} width={176} height={176} className="h-full w-full object-cover" />
+              <Image src={trainerImageUrl} alt={trainerDisplayName} width={208} height={208} className="h-full w-full object-cover" />
             ) : (
               <Award className="h-20 w-20 text-[#1D4ED8]" />
             )}
           </div>
           <div className="flex flex-col justify-center text-center md:text-left">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Certified Trainer</p>
-            <h1 className="mt-2 text-4xl font-bold">{trainer.name}</h1>
+            <h1 className="mt-2 text-4xl font-bold">{trainerDisplayName}</h1>
             <p className="mt-2 text-lg text-[#1D4ED8]">{trainer.title ?? 'Jolly Phonics Certified Trainer'}</p>
             {trainer.bio && !trainer.profile_details ? <p className="mt-5 max-w-3xl leading-8 text-muted-foreground">{trainer.bio}</p> : null}
           </div>
@@ -95,7 +100,7 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
         </div>
 
         <div className="mt-10 rounded-lg border bg-[#F8FAFC] p-6 text-center">
-          <h2 className="text-2xl font-bold">Interested in training with {trainer.name}?</h2>
+          <h2 className="text-2xl font-bold">Interested in training with {trainerDisplayName}?</h2>
           <p className="mt-3 text-muted-foreground">Explore available Phonics Club courses or contact us for school training and consultancy.</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <Link href="/courses" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white">

@@ -334,10 +334,10 @@ const DEFAULT_SCHOOL_LOGOS: SchoolLogo[] = [
 const DEFAULT_TRAINERS = [
   {
     id: 'trainer-fatima-tuz-zahra',
-    name: 'Fatima Tuz Zahra',
+    name: 'Dr. Fatima Tuz Zahra',
     slug: 'fatima-tuz-zahra',
     title: 'Certified Jolly Phonics Trainer and Literacy Consultant',
-    bio: 'Fatima Tuz Zahra leads Phonics Club and supports schools, teachers, parents, and learners through lively Jolly Phonics and Jolly Literacy training.',
+    bio: 'Dr. Fatima Tuz Zahra leads Phonics Club and supports schools, teachers, parents, and learners through lively Jolly Phonics and Jolly Literacy training.',
     image_url: '/images/trainers/dr%20fatima%20tuz%20zahra.jpg',
     achievements: ['Founder and lead trainer at Phonics Club', 'Worked with government, foundations, publishers, and schools', 'Designed curricula and training for schools across budget levels'],
     credentials: ['Certified Jolly Phonics trainer', 'Literacy consultant', 'Synthetic Phonics implementation specialist'],

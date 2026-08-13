@@ -5,6 +5,7 @@ import { BackButton } from '@/components/layout/back-button'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY } from '@/lib/company'
 import { getTrainers } from '@/lib/site-content'
+import { getTrainerDisplayName } from '@/lib/trainer-display'
 import { getTrainerImageUrl } from '@/lib/trainer-images'
 import { slugify } from '@/utils/slug'
 import { Award, ArrowRight } from 'lucide-react'
@@ -30,6 +31,7 @@ export default async function CertifiedTrainersPage() {
           {trainers.map((trainer) => {
             const trainerSlug = (trainer.slug as string | undefined) || slugify(trainer.name)
             const trainerImageUrl = getTrainerImageUrl(trainer)
+            const trainerDisplayName = getTrainerDisplayName(trainer)
             return (
               <Link
                 key={trainer.id}
@@ -38,12 +40,12 @@ export default async function CertifiedTrainersPage() {
               >
                 <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1D4ED8]/20 to-[#FBBF24]/30">
                   {trainerImageUrl ? (
-                    <Image src={trainerImageUrl} alt={trainer.name} width={96} height={96} className="h-full w-full object-cover" />
+                    <Image src={trainerImageUrl} alt={trainerDisplayName} width={96} height={96} className="h-full w-full object-cover" />
                   ) : (
                     <Award className="h-10 w-10 text-[#1D4ED8]" />
                   )}
                 </div>
-                <h3 className="text-lg font-bold">{trainer.name}</h3>
+                <h3 className="text-lg font-bold">{trainerDisplayName}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{trainer.title ?? 'Jolly Phonics Certified Trainer'}</p>
                 {trainer.bio ? <p className="mt-3 line-clamp-3 text-xs text-muted-foreground">{trainer.bio}</p> : null}
                 <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#1D4ED8]">

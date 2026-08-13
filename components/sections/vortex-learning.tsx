@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, ExternalLink } from 'lucide-react'
@@ -15,6 +16,16 @@ export function VortexLearningSection({ data }: { data: VortexLearning }) {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
+          <div className="mx-auto mb-6 flex h-24 w-56 items-center justify-center rounded-xl bg-white p-4 shadow-lg">
+            <Image
+              src="/images/logos/vortex-logo.png"
+              alt="Vortex Learning logo"
+              width={190}
+              height={72}
+              className="h-full w-full object-contain"
+              priority={false}
+            />
+          </div>
           <span className="text-sm font-semibold text-[#60A5FA] uppercase tracking-wider">Partnership</span>
           <h2 className="text-3xl lg:text-4xl font-bold mt-2 mb-4">{data.title}</h2>
           <p className="text-white/80 max-w-3xl mx-auto leading-relaxed">{data.description}</p>
