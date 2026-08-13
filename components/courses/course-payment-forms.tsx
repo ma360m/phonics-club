@@ -17,18 +17,25 @@ const initialState: ActionResult<{ redirectTo?: string }> = { success: false }
 export function CoursePaymentReceiptForm({
   paymentId,
   redirectTo,
+  paymentKind = 'course',
 }: {
   paymentId: string
   redirectTo?: string
+  paymentKind?: 'course' | 'certificate'
 }) {
   const router = useRouter()
   const [state, formAction, pending] = useActionState(submitCoursePaymentReceiptFormAction, initialState)
+  const isCertificatePayment = paymentKind === 'certificate'
 
   useEffect(() => {
     if (!state.success) return
-    toast.success('Payment screenshot submitted. Admin will review it before issuing the licence key.')
+    toast.success(
+      isCertificatePayment
+        ? 'Certificate payment screenshot submitted. Admin will review it before enabling the certificate request.'
+        : 'Payment screenshot submitted. Admin will review it before issuing the licence key.'
+    )
     router.refresh()
-  }, [router, state.success])
+  }, [isCertificatePayment, router, state.success])
 
   return (
     <form action={formAction} encType="multipart/form-data" className="space-y-4">
@@ -42,7 +49,9 @@ export function CoursePaymentReceiptForm({
       )}
       {state.success && (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-          Screenshot received. Your course remains locked until admin confirms the payment and sends your licence key.
+          {isCertificatePayment
+            ? 'Screenshot received. Your certificate request remains locked until admin confirms the payment.'
+            : 'Screenshot received. Your course remains locked until admin confirms the payment and sends your licence key.'}
         </p>
       )}
 

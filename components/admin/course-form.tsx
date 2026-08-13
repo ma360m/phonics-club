@@ -362,6 +362,14 @@ export function CourseForm({ course }: { course?: Course }) {
               This course has a certificate
             </label>
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                name="certificate_requires_payment"
+                defaultChecked={Boolean(course?.certificate_requires_payment ?? course?.metadata?.certificateRequiresPayment)}
+              />
+              Certificate requires separate payment
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
               <input type="checkbox" name="completion_requires_lessons" defaultChecked={course?.completion_requires_lessons ?? true} />
               Require compulsory lessons
             </label>
@@ -385,6 +393,17 @@ export function CourseForm({ course }: { course?: Course }) {
               <div className="space-y-2">
                 <Label>Passing Quiz %</Label>
                 <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={course?.passing_quiz_percentage ?? 70} className="rounded-xl bg-white" />
+              </div>
+              <div className="space-y-2">
+                <Label>Certificate Price</Label>
+                <Input
+                  name="certificate_price"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={course?.certificate_price ?? Number(course?.metadata?.certificatePrice ?? 0)}
+                  className="rounded-xl bg-white"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Required Assignment Passes</Label>

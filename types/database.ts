@@ -161,6 +161,8 @@ export interface Course {
   students_count?: number
   is_free?: boolean
   certificate_enabled?: boolean
+  certificate_requires_payment?: boolean
+  certificate_price?: number | null
   enrolment_opens_at?: string | null
   enrolment_closes_at?: string | null
   max_students?: number | null
@@ -200,6 +202,7 @@ export interface CurriculumLesson {
   thumbnail_url?: string
   video_url?: string
   material_url?: string
+  activity_data?: Record<string, unknown>
 }
 
 export interface CurriculumModule {

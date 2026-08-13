@@ -20,6 +20,17 @@ function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
+function jsonRecord(formData: FormData, key: string): Record<string, unknown> {
+  const raw = text(formData, key)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return objectRecord(parsed)
+  } catch {
+    throw new Error('Interactive Activity JSON must be valid JSON.')
+  }
+}
+
 function firstText(...values: unknown[]) {
   for (const value of values) {
     const cleanValue = String(value ?? '').trim()
@@ -227,6 +238,7 @@ export async function createCourseLessonFormAction(courseId: string, moduleId: s
     external_link_url: text(formData, 'external_link_url') || null,
     video_url: text(formData, 'video_url') || null,
     material_url: text(formData, 'material_url') || null,
+    activity_data: jsonRecord(formData, 'activity_data'),
     duration_minutes: num(formData, 'duration_minutes', 0),
     sort_order: num(formData, 'sort_order', 0),
     is_preview: formData.get('is_preview') === 'on',
@@ -271,6 +283,7 @@ export async function updateCourseLessonFormAction(lessonId: string, courseId: s
       external_link_url: text(formData, 'external_link_url') || null,
       video_url: text(formData, 'video_url') || null,
       material_url: text(formData, 'material_url') || null,
+      activity_data: jsonRecord(formData, 'activity_data'),
       duration_minutes: num(formData, 'duration_minutes', 0),
       sort_order: num(formData, 'sort_order', 0),
       is_preview: formData.get('is_preview') === 'on',

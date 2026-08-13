@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '@/lib/auth'
 import { COURSE_CATEGORIES } from '@/lib/constants'
 import { SEED_COURSES } from '@/lib/data/seed'
 import { CHILDREN_PHONICS_COURSES, withChildrenPhonicsCourseUpdates } from '@/lib/data/children-phonics-courses'
+import { jollyActivityForLesson, jollyLessonTemplatesForCourse } from '@/lib/data/jolly-phonics-sound-data'
 import { getCourses, getCourseBySlug } from '@/lib/data/queries'
 import { formatCourseCategory } from '@/lib/course-format'
 import type {
@@ -60,6 +61,8 @@ export interface CourseDisplayMeta {
   lessonCount: number
   quizCount: number
   certificateEnabled: boolean
+  certificateRequiresPayment: boolean
+  certificatePrice: number
   previewVideoUrl: string | null
   highlights: string[]
   coreMaterials: string[]
@@ -162,6 +165,8 @@ export function getCourseDisplayMeta(
     lessonCount,
     quizCount: Number(meta.quizzes ?? 0),
     certificateEnabled: isCourseCertificateEnabled(course),
+    certificateRequiresPayment: courseRequiresCertificatePayment(course),
+    certificatePrice: getCourseCertificatePrice(course),
     previewVideoUrl: typeof meta.previewVideoUrl === 'string' ? meta.previewVideoUrl : null,
     highlights: asStringArray(meta.highlights),
     coreMaterials: asStringArray(meta.coreMaterials),
@@ -177,6 +182,7 @@ export function youtubeEmbedUrl(url: string | null): string | null {
 }
 
 function modulesFromCurriculum(course: Course): CourseModuleWithLessons[] {
+  const jollyLessonTemplates = jollyLessonTemplatesForCourse(course.slug)
   return (course.curriculum ?? []).map((module, moduleIndex) => ({
     id: `curriculum-${course.id}-${moduleIndex}`,
     course_id: course.id,
@@ -185,11 +191,13 @@ function modulesFromCurriculum(course: Course): CourseModuleWithLessons[] {
     sort_order: moduleIndex + 1,
     created_at: course.created_at,
     updated_at: course.updated_at,
-    lessons: module.lessons.map((lesson, lessonIndex) => {
+    lessons: (jollyLessonTemplates[moduleIndex] ?? module.lessons).map((lesson, lessonIndex) => {
       const isQuiz = lesson.title.toLowerCase().includes('quiz')
+      const jollyActivity = jollyActivityForLesson(lesson.title, lesson.activity_data ?? null)
       const isVideoFirst = lessonIndex === 0 || lesson.title.toLowerCase().includes('blending')
-      const lessonType: CourseLesson['lesson_type'] = isQuiz ? 'quiz' : isVideoFirst ? 'video' : 'notes'
+      const lessonType: CourseLesson['lesson_type'] = jollyActivity ? 'interactive' : isQuiz ? 'quiz' : isVideoFirst ? 'video' : 'notes'
       const readingType: CourseLesson['reading_type'] =
+        jollyActivity ? 'interactive_presentation' :
         lesson.title === 'Learning the Letter Sounds' ? 'flipbook' :
         lesson.title === 'Learning Letter Formation' ? 'pdf_viewer' :
         lesson.title === 'Tricky Words' ? 'powerpoint_slides' :
@@ -208,6 +216,7 @@ function modulesFromCurriculum(course: Course): CourseModuleWithLessons[] {
         thumbnail_url: lesson.thumbnail_url ?? null,
         reading_type: readingType,
         article_content: lesson.description ?? null,
+        activity_data: jollyActivity ?? lesson.activity_data ?? undefined,
         video_url: lesson.video_url ?? null,
         material_url: lesson.material_url ?? null,
         content: null,
@@ -445,6 +454,40 @@ const GROUPS_4_7_LESSON_PRIORITY = new Map([
   ['Groups 4-7 Review', 3],
 ])
 
+const GROUPS_4_7_LESSON_MODULE_INDEX = new Map([
+  ['Sound ai', 0],
+  ['Sound j', 0],
+  ['Sound oa', 0],
+  ['Sound ie', 0],
+  ['Sound ee', 0],
+  ['Sound or', 0],
+  ['Group 4 Practice and Review', 0],
+  ['Sound z', 1],
+  ['Sound w', 1],
+  ['Sound ng', 1],
+  ['Sound v', 1],
+  ['Sound oo (moon)', 1],
+  ['Sound oo (book)', 1],
+  ['Group 5 Practice and Review', 1],
+  ['Sound y', 2],
+  ['Sound x', 2],
+  ['Sound ch', 2],
+  ['Sound sh', 2],
+  ['Sound th (unvoiced)', 2],
+  ['Sound th (voiced)', 2],
+  ['Group 6 Practice and Review', 2],
+  ['Sound qu', 3],
+  ['Sound ou', 3],
+  ['Sound oi', 3],
+  ['Sound ue', 3],
+  ['Sound er', 3],
+  ['Sound ar', 3],
+  ['Group 7 Practice and Review', 3],
+  ['Groups 4-7 Blending Activities', 4],
+  ['Groups 4-7 Segmenting Activities', 4],
+  ['Groups 4-7 Review', 4],
+])
+
 const GROUPS_4_7_REMOVED_LESSON_TITLES = new Set(['Welcome Back', 'Final Assessment'])
 
 function normalizeGroups47LessonTitle(lesson: CourseLesson): CourseLesson {
@@ -494,12 +537,28 @@ function hasDesiredGroups47Modules(modules: CourseModuleWithLessons[]) {
 function normalizeGroups47Modules(modules: CourseModuleWithLessons[], course: Course): CourseModuleWithLessons[] {
   if (course.slug !== GROUPS_4_7_COURSE_SLUG || !modules.length) return modules
 
+  const normalizedLessonsWithOrigin = modules.flatMap((module, moduleIndex) =>
+    module.lessons
+      .filter((lesson) => !GROUPS_4_7_REMOVED_LESSON_TITLES.has(lesson.title))
+      .map(normalizeGroups47LessonTitle)
+      .map((lesson) => ({ lesson, moduleIndex })),
+  )
+  const lessonsForModule = (moduleIndex: number) =>
+    orderGroups47Lessons(
+      normalizedLessonsWithOrigin
+        .filter(({ lesson, moduleIndex: originalModuleIndex }) => {
+          const intendedModuleIndex = GROUPS_4_7_LESSON_MODULE_INDEX.get(lesson.title)
+          return intendedModuleIndex === undefined ? originalModuleIndex === moduleIndex : intendedModuleIndex === moduleIndex
+        })
+        .map(({ lesson }) => lesson),
+    )
+
   if (hasDesiredGroups47Modules(modules)) {
     return modules.map((module, index) => ({
       ...module,
       description: GROUPS_4_7_MODULES[index].description,
       sort_order: index + 1,
-      lessons: orderGroups47Lessons(module.lessons),
+      lessons: lessonsForModule(index),
     }))
   }
 
@@ -526,7 +585,7 @@ function normalizeGroups47Modules(modules: CourseModuleWithLessons[], course: Co
       title: targetModule.title,
       description: targetModule.description,
       sort_order: index + 1,
-      lessons: orderGroups47Lessons(sourceModules.flatMap((module) => module.lessons)),
+      lessons: lessonsForModule(index),
     }
   })
 }
@@ -733,11 +792,34 @@ export function isCourseCertificateEnabled(course: Course): boolean {
   return (course.certificate_enabled ?? metadata(course).certificateEnabled) !== false
 }
 
+export function getCourseCertificatePrice(course: Course): number {
+  const value = Number(course.certificate_price ?? metadata(course).certificatePrice ?? 0)
+  return Number.isFinite(value) ? Math.max(0, value) : 0
+}
+
+export function courseRequiresCertificatePayment(course: Course): boolean {
+  if (!isCourseCertificateEnabled(course)) return false
+  const enabled = Boolean(course.certificate_requires_payment ?? metadata(course).certificateRequiresPayment)
+  return enabled && getCourseCertificatePrice(course) > 0
+}
+
 export function getCoursePrice(course: Course): number {
   if (isCourseFree(course)) return 0
   const discounted = course.discounted_price
   if (discounted !== null && discounted !== undefined && Number(discounted) >= 0) return Number(discounted)
   return Number(course.price ?? 0)
+}
+
+export function isCertificatePayment(payment: Pick<CoursePayment, 'idempotency_key' | 'metadata'> | null | undefined): boolean {
+  if (!payment) return false
+  const meta = payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)
+    ? payment.metadata as Record<string, unknown>
+    : {}
+  return payment.idempotency_key?.startsWith('certificate:') || meta.paymentPurpose === 'certificate'
+}
+
+export function isCertificatePaymentPaid(payment: Pick<CoursePayment, 'status' | 'verified_at'> | null | undefined): boolean {
+  return Boolean(payment && (payment.status === 'paid' || payment.verified_at))
 }
 
 export function isEnrollmentActive(enrollment: Enrollment | null | undefined, at = new Date()): boolean {
@@ -851,6 +933,23 @@ export async function getUserCoursePayments(userId: string): Promise<CoursePayme
     return (data as CoursePayment[]) ?? []
   } catch {
     return []
+  }
+}
+
+export async function getUserCertificatePayment(userId: string, courseId: string): Promise<CoursePayment | null> {
+  if (!isSupabaseConfigured()) return null
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('course_payments')
+      .select('*, courses(*)')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .eq('idempotency_key', `certificate:${courseId}:user:${userId}:manual`)
+      .maybeSingle()
+    return (data as CoursePayment | null) ?? null
+  } catch {
+    return null
   }
 }
 

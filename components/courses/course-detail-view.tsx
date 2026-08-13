@@ -24,14 +24,17 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  courseRequiresCertificatePayment,
   formatCourseCategory,
   getCourseDisplayMeta,
+  getCourseCertificatePrice,
   getCoursePrice,
   slugifyInstructor,
   youtubeEmbedUrl,
   type CourseModuleWithLessons,
 } from '@/lib/lms'
 import { CurrencyDisplayNotice, PriceDisplay } from '@/components/currency/price-display'
+import { formatPrice } from '@/utils/format'
 import type { Course, CourseQuiz, CourseResource, CourseReview } from '@/types/database'
 
 interface Props {
@@ -128,6 +131,8 @@ function EnrollmentCard({
 }) {
   const price = getCoursePrice(course)
   const helpPackage = instructorHelpPackage(course)
+  const certificatePaymentRequired = certificateEnabled && courseRequiresCertificatePayment(course)
+  const certificatePrice = getCourseCertificatePrice(course)
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -203,7 +208,7 @@ function EnrollmentCard({
         <CourseFact
           icon={FileText}
           label="Certificate"
-          value={certificateEnabled ? 'Available' : 'Not included'}
+          value={certificateEnabled ? certificatePaymentRequired ? `Available separately (${formatPrice(certificatePrice, course.currency ?? 'PKR')})` : 'Available' : 'Not included'}
         />
       </ul>
     </div>
@@ -565,6 +570,9 @@ export function CourseDetailView({
                   <h2 className="text-2xl font-bold tracking-normal text-[#0F172A]">Certificate Information</h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">
                     A Phonics Club certificate is available after the course completion requirements are met.
+                    {meta.certificateRequiresPayment
+                      ? ` Certificate payment is ${formatPrice(meta.certificatePrice, course.currency ?? 'PKR')}.`
+                      : ''}
                     {course.passing_quiz_percentage
                       ? ` The quiz passing requirement is ${course.passing_quiz_percentage}%.`
                       : ''}

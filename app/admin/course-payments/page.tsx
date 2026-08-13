@@ -13,6 +13,7 @@ import {
   getCoursePaymentWorkflowStatus,
   type CoursePaymentWorkflowStatus,
 } from '@/lib/course-payment-workflow'
+import { isCertificatePayment } from '@/lib/lms'
 import { formatPrice } from '@/utils/format'
 import { ExternalLink, FileSearch, KeyRound, Mail, ShieldCheck, XCircle } from 'lucide-react'
 
@@ -65,7 +66,7 @@ export default async function AdminCoursePaymentsPage({
       <LmsPageHeader
         eyebrow="Course Payments"
         title="Payment review"
-        description="Verify manual transfers, preview uploaded receipts, issue licence keys and unlock course access after confirmation."
+        description="Verify manual transfers, preview uploaded receipts, issue course licence keys and approve certificate payments after confirmation."
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -102,6 +103,8 @@ export default async function AdminCoursePaymentsPage({
           const reminderSent = Boolean(payment.payment_pending_reminder_sent_at)
           const verified = payment.status === 'paid' || Boolean(payment.verified_at)
           const licenceIssued = Boolean(payment.license_key || payment.license_emailed_at)
+          const certificatePayment = isCertificatePayment(payment)
+          const canApproveCertificatePayment = certificatePayment && !['paid', 'refunded'].includes(payment.status)
 
           return (
             <article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -112,19 +115,23 @@ export default async function AdminCoursePaymentsPage({
                     <span className="text-xs text-slate-500">Reference: {payment.transaction_reference ?? 'Not submitted'}</span>
                   </div>
                   <h2 className="text-lg font-bold text-[#0F172A]">{payment.courses?.title ?? 'Course payment'}</h2>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[#1D4ED8]">
+                    {certificatePayment ? 'Certificate payment' : 'Course access payment'}
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-[#0F172A]">Student: {studentName}</p>
                   <p className="mt-1 text-xs text-slate-500">Email: {studentEmail || 'No email on profile'}</p>
 
                   <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                     <Detail label="Registration date" value={formatDateTime(payment.created_at)} />
                     <Detail label="Payment status" value={`${payment.status} / ${workflowLabel(workflowStatus)}`} />
+                    <Detail label="Payment type" value={certificatePayment ? 'Certificate' : 'Course access'} />
                     <Detail label="Slip upload status" value={slipUploaded ? `Uploaded ${formatDateTime(payment.submitted_at)}` : 'Not uploaded'} />
                     <Detail label="Reminder sent" value={reminderSent ? 'Yes' : 'No'} />
                     <Detail label="Reminder date/time" value={formatDateTime(payment.payment_pending_reminder_sent_at)} />
                     <Detail label="Request expiry" value={formatDateTime(payment.registration_expires_at ?? registrationExpiry)} />
                     <Detail label="Verification status" value={verified ? `Verified ${formatDateTime(payment.verified_at)}` : 'Not verified'} />
-                    <Detail label="Licence issued" value={licenceIssued ? 'Issued' : 'Not issued'} />
-                    <Detail label="Licence email" value={formatDateTime(payment.license_emailed_at)} />
+                    <Detail label="Licence issued" value={certificatePayment ? 'Not needed' : licenceIssued ? 'Issued' : 'Not issued'} />
+                    <Detail label="Licence email" value={certificatePayment ? 'Not needed' : formatDateTime(payment.license_emailed_at)} />
                   </div>
 
                 {slipUploaded ? (
@@ -149,7 +156,19 @@ export default async function AdminCoursePaymentsPage({
                   </div>
                 )}
 
-                {payment.license_key && (
+                {certificatePayment && payment.status === 'paid' && (
+                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                    <p className="flex items-center gap-2 font-semibold text-emerald-900">
+                      <ShieldCheck className="h-4 w-4" />
+                      Certificate payment approved
+                    </p>
+                    <p className="mt-2 text-xs leading-5">
+                      The learner can request the certificate from their certificate page.
+                    </p>
+                  </div>
+                )}
+
+                {!certificatePayment && payment.license_key && (
                   <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
                     <p className="flex items-center gap-2 font-semibold text-emerald-900">
                       <KeyRound className="h-4 w-4" />
@@ -173,9 +192,25 @@ export default async function AdminCoursePaymentsPage({
 
                 <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Amount</p>
-                  <p className="mt-2 text-2xl font-bold text-[#1D4ED8]">{formatPrice(Number(payment.amount ?? 0))}</p>
+                  <p className="mt-2 text-2xl font-bold text-[#1D4ED8]">{formatPrice(Number(payment.amount ?? 0), payment.currency ?? 'PKR')}</p>
                   <div className="mt-4 space-y-3">
-                    {canGenerateLicense ? (
+                    {canApproveCertificatePayment ? (
+                      <form action={approveCoursePaymentFormAction} className="space-y-2">
+                        <input type="hidden" name="payment_id" value={payment.id} />
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Certificate approval</p>
+                        <p className="text-xs leading-5 text-slate-600">
+                          Approving this payment unlocks the learner certificate request. It does not change course access or issue a licence key.
+                        </p>
+                        <Button type="submit" size="sm" className="w-full rounded-xl bg-emerald-600">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Approve Certificate Payment
+                        </Button>
+                      </form>
+                    ) : certificatePayment ? (
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                        Certificate payment review is complete for this status.
+                      </div>
+                    ) : canGenerateLicense ? (
                       <form action={approveCoursePaymentFormAction} className="space-y-2">
                         <input type="hidden" name="payment_id" value={payment.id} />
                         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Licence generator</p>
@@ -229,7 +264,7 @@ export default async function AdminCoursePaymentsPage({
                       </form>
                     )}
                   </div>
-                  {payment.enrollment && (
+                  {!certificatePayment && payment.enrollment && (
                     <form action={extendEnrollmentAccessFormAction} className="mt-4 space-y-2 border-t border-slate-200 pt-4">
                       <input type="hidden" name="enrollment_id" value={payment.enrollment.id} />
                       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Access</p>

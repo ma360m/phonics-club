@@ -2,18 +2,31 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { AnnouncementBar, Footer, Navbar } from '@/components/layout'
-import { requestCertificateAction } from '@/actions/lms'
+import { createCertificatePaymentAction, requestCertificateAction } from '@/actions/lms'
 import { CopyVerificationLinkButton } from '@/components/courses/certificate-actions'
+import { CoursePaymentReceiptForm } from '@/components/courses/course-payment-forms'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { LmsShell } from '@/components/lms/lms-shell'
 import { LmsStatusBadge } from '@/components/lms/lms-primitives'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { canManageCourseId } from '@/lib/admin/course-scope'
-import { getCertificateStatus, getCourseAccessState, getCourseById, getUserEnrollment, isCourseCertificateEnabled } from '@/lib/lms'
+import {
+  courseRequiresCertificatePayment,
+  getCertificateStatus,
+  getCourseAccessState,
+  getCourseById,
+  getCourseCertificatePrice,
+  getUserCertificatePayment,
+  getUserEnrollment,
+  isCertificatePaymentPaid,
+  isCourseCertificateEnabled,
+} from '@/lib/lms'
 import { createServiceClient } from '@/lib/supabase/server'
 import { APP_URL } from '@/lib/constants'
-import { Award, CheckCircle2, ChevronLeft, Clock, Download, ExternalLink, ShieldCheck } from 'lucide-react'
+import { getBankDetails } from '@/lib/site-content'
+import { formatPrice } from '@/utils/format'
+import { Award, CheckCircle2, ChevronLeft, Clock, CreditCard, Download, ExternalLink, ShieldCheck, UploadCloud } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Certificate Status',
@@ -75,11 +88,37 @@ export default async function CertificateStatusPage({
   const completionDate = certificate?.issued_at ?? enrollment?.completed_at
   const currentCourseId = course.id
   const learningHref = managerPreview ? `/course/${course.id}/learn?preview=admin` : `/course/${course.id}/learn`
+  const certificatePaymentRequired = courseRequiresCertificatePayment(course)
+  const certificatePrice = getCourseCertificatePrice(course)
+  const certificatePayment = !managerPreview && certificatePaymentRequired
+    ? await getUserCertificatePayment(user.id, id)
+    : null
+  const certificatePaymentApproved = isCertificatePaymentPaid(certificatePayment)
+  const certificatePaymentCanUpload = certificatePayment && ['pending', 'processing', 'rejected'].includes(certificatePayment.status)
+  const certificatePaymentWaiting = certificatePayment?.status === 'submitted'
+  const bankDetails = !managerPreview && certificatePaymentRequired && status.eligible && !certificatePaymentApproved
+    ? await getBankDetails()
+    : null
+  const certificateReady = status.eligible && (!certificatePaymentRequired || certificatePaymentApproved)
+  const certificateBadgeLabel = certificate
+    ? 'issued'
+    : certificateReady
+      ? 'eligible'
+      : status.eligible && certificatePaymentRequired
+        ? 'payment required'
+        : 'in progress'
 
   async function requestCertificateFormAction() {
     'use server'
     const result = await requestCertificateAction(currentCourseId)
     if (!result.success) throw new Error(result.error ?? 'Unable to request certificate')
+  }
+
+  async function startCertificatePaymentFormAction() {
+    'use server'
+    const result = await createCertificatePaymentAction(currentCourseId)
+    if (!result.success) throw new Error(result.error ?? 'Unable to start certificate payment')
+    if (result.data?.redirectTo) redirect(result.data.redirectTo)
   }
 
   return (
@@ -111,8 +150,8 @@ export default async function CertificateStatusPage({
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <LmsStatusBadge tone={certificate || status.eligible ? 'green' : 'gold'}>
-                  {certificate ? 'issued' : status.eligible ? 'eligible' : 'in progress'}
+                <LmsStatusBadge tone={certificate || certificateReady ? 'green' : 'gold'}>
+                  {certificateBadgeLabel}
                 </LmsStatusBadge>
                 <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FBBF24]/20 text-[#8B1E2D]">
                   <Award className="h-7 w-7" />
@@ -134,6 +173,10 @@ export default async function CertificateStatusPage({
               Course access expired on {access.expiresAt ? formatDate(access.expiresAt) : 'the configured expiry date'}.
               Your progress is preserved; contact admin to renew access.
             </div>
+          )}
+
+          {isCourseCertificateEnabled(course) && course.certificate_background_url && !certificate && (
+            <CertificateTemplatePreview src={course.certificate_background_url} title={course.title} />
           )}
 
           {!isCourseCertificateEnabled(course) ? (
@@ -196,6 +239,59 @@ export default async function CertificateStatusPage({
                 If your name or any certificate detail needs correction, email support@phonicsclub.com.
               </p>
             </section>
+          ) : status.eligible && certificatePaymentRequired && !certificatePaymentApproved ? (
+            <section className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-2 font-semibold text-amber-800">
+                <CreditCard className="h-5 w-5" />
+                Certificate payment required
+              </div>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Your course requirements are complete. Pay {formatPrice(certificatePrice, course.currency ?? 'PKR')} and upload the receipt so admin can approve the certificate request.
+              </p>
+
+              {bankDetails && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <CertificateField label="Bank" value={bankDetails.bankName} />
+                  <CertificateField label="Account" value={bankDetails.accountTitle} />
+                  <CertificateField label="A/C No" value={bankDetails.accountNumber} />
+                  <CertificateField label="IBAN" value={bankDetails.iban || 'Not provided'} />
+                </div>
+              )}
+
+              {!certificatePayment ? (
+                <form action={startCertificatePaymentFormAction}>
+                  <Button type="submit" className="mt-5 rounded-xl bg-[#8B1E2D] hover:bg-[#8B1E2D]/90">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Start Certificate Payment
+                  </Button>
+                </form>
+              ) : certificatePaymentCanUpload ? (
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
+                  <div className="mb-4 flex items-center gap-2 font-semibold text-[#0F172A]">
+                    <UploadCloud className="h-5 w-5 text-[#1D4ED8]" />
+                    Upload certificate payment receipt
+                  </div>
+                  <CoursePaymentReceiptForm
+                    paymentId={certificatePayment.id}
+                    redirectTo={`/course/${course.id}/certificate?paymentId=${certificatePayment.id}`}
+                    paymentKind="certificate"
+                  />
+                  {certificatePayment.rejection_reason && (
+                    <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700">
+                      {certificatePayment.rejection_reason}
+                    </p>
+                  )}
+                </div>
+              ) : certificatePaymentWaiting ? (
+                <div className="mt-5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm leading-6 text-[#1D4ED8]">
+                  Receipt received. The certificate request unlocks after admin confirms the payment.
+                </div>
+              ) : (
+                <div className="mt-5 rounded-xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+                  This certificate payment is currently {certificatePayment.status}. Contact support if it needs review.
+                </div>
+              )}
+            </section>
           ) : status.eligible ? (
             <form action={requestCertificateFormAction} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-2 font-semibold text-emerald-700">
@@ -249,5 +345,37 @@ function CertificateField({ label, value }: { label: string; value: string | num
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 break-words font-semibold text-[#0F172A]">{value ?? 'Not available'}</p>
     </div>
+  )
+}
+
+function CertificateTemplatePreview({ src, title }: { src: string; title: string }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="mb-4 flex items-center gap-2 font-semibold text-[#0F172A]">
+        <Award className="h-5 w-5 text-[#8B1E2D]" />
+        Certificate template preview
+      </div>
+      <div className="relative aspect-[1.414/1] max-h-[440px] overflow-hidden rounded-xl border border-slate-200 bg-[#F8FAFC]">
+        <img
+          src={src}
+          alt={`${title} certificate template preview`}
+          draggable={false}
+          className="h-full w-full select-none object-cover opacity-80 blur-md"
+        />
+        <div className="absolute inset-0 bg-white/25" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(-24deg, rgba(15, 23, 42, 0.10) 0px, rgba(15, 23, 42, 0.10) 1px, transparent 1px, transparent 34px)',
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="rounded-full border border-white/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 shadow-sm">
+            Preview
+          </span>
+        </div>
+      </div>
+    </section>
   )
 }

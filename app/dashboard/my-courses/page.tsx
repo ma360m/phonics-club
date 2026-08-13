@@ -3,7 +3,7 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { getProfile, isAdminRole, isLmsManagerRole, isSupabaseConfigured, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@/actions/lms'
-import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments, isCourseCertificateEnabled } from '@/lib/lms'
+import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments, isCertificatePayment, isCourseCertificateEnabled } from '@/lib/lms'
 import { getCourses } from '@/lib/data/queries'
 import { requestCourseCancellationAction } from '@/actions/enrollments'
 import { COMPANY_BANK_DETAILS } from '@/lib/company'
@@ -227,20 +227,27 @@ export default async function MyCoursesPage() {
                         </p>
                         <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
                         <p className="mt-2 font-medium text-[#1D4ED8]">
-                          You can pay now and upload the receipt later from this dashboard. Admin approval sends a licence key from {COURSE_LICENSE_EMAIL_ADDRESS} and unlocks the course.
+                          You can pay now and upload the receipt later from this dashboard. Admin approval unlocks the matching course access or certificate request.
                         </p>
                       </div>
                     )}
                   <ul className="space-y-3">
                     {payments.slice(0, 5).map((payment) => {
                       const paidCourse = payment.courses as Course | undefined
-                      const paymentPageHref = paidCourse?.slug ? `/courses/${paidCourse.slug}/payment?paymentId=${payment.id}` : '/courses'
+                      const certificatePayment = isCertificatePayment(payment)
+                      const paymentPageHref = certificatePayment && paidCourse?.id
+                        ? `/course/${paidCourse.id}/certificate?paymentId=${payment.id}`
+                        : paidCourse?.slug
+                          ? `/courses/${paidCourse.slug}/payment?paymentId=${payment.id}`
+                          : '/courses'
 
                       return (
                         <li key={payment.id} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                              <p className="font-semibold text-[#0F172A]">{paidCourse?.title ?? 'Course payment'}</p>
+                              <p className="font-semibold text-[#0F172A]">
+                                {paidCourse?.title ?? 'Course payment'}{certificatePayment ? ' certificate' : ''}
+                              </p>
                               <p className="mt-1 text-xs text-slate-500">
                                 {payment.currency} {Number(payment.amount ?? 0).toLocaleString('en-PK')}
                               </p>
@@ -259,10 +266,20 @@ export default async function MyCoursesPage() {
                           )}
                           {payment.status === 'submitted' && (
                             <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
-                              Receipt received. Admin review starts after the screenshot is visible. Course access remains locked until admin approval and licence-key unlock.
+                              {certificatePayment
+                                ? 'Receipt received. The certificate request unlocks after admin approves the payment.'
+                                : 'Receipt received. Admin review starts after the screenshot is visible. Course access remains locked until admin approval and licence-key unlock.'}
                             </p>
                           )}
-                          {payment.status === 'paid' && !payment.license_unlocked_at && (
+                          {payment.status === 'paid' && certificatePayment && (
+                            <div className="mt-3 rounded-xl border border-emerald-200 bg-white p-3 text-xs leading-5 text-emerald-700">
+                              <p>Certificate payment approved. Open the certificate page to request your certificate.</p>
+                              <Button asChild size="sm" className="mt-3 rounded-xl bg-[#1D4ED8]">
+                                <Link href={paymentPageHref}>Open Certificate</Link>
+                              </Button>
+                            </div>
+                          )}
+                          {payment.status === 'paid' && !certificatePayment && !payment.license_unlocked_at && (
                             <div className="mt-3 rounded-xl border border-[#BFDBFE] bg-white p-3 text-xs leading-5 text-slate-600">
                               <p>
                                 Payment approved. Check your email from {COURSE_LICENSE_EMAIL_ADDRESS}. If access is not active yet, enter the licence key.
@@ -272,7 +289,7 @@ export default async function MyCoursesPage() {
                               </Button>
                             </div>
                           )}
-                          {payment.status === 'paid' && payment.license_unlocked_at && (
+                          {payment.status === 'paid' && !certificatePayment && payment.license_unlocked_at && (
                             <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-700">
                               Licence key accepted. Course access is unlocked.
                             </p>

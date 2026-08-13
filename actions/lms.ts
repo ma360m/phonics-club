@@ -5,9 +5,14 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
 import {
   evaluateCourseCompletion,
+  courseRequiresCertificatePayment,
   getCourseById,
+  getCourseCertificatePrice,
   getCoursePrice,
+  getUserCertificatePayment,
   getUserEnrollment,
+  isCertificatePayment,
+  isCertificatePaymentPaid,
   isEnrollmentActive,
 } from '@/lib/lms'
 import { buildCertificatePdf } from '@/lib/certificate-pdf'
@@ -437,6 +442,92 @@ export async function createCourseCheckoutAction(
   }
 }
 
+export async function createCertificatePaymentAction(
+  courseId: string
+): Promise<ActionResult<{ paymentId?: string; redirectTo: string }>> {
+  try {
+    const user = await requireCurrentUser()
+    const course = await getCourseById(courseId)
+    if (!course) return { success: false, error: 'Course not found' }
+
+    const enrollment = await getUserEnrollment(user.id, courseId)
+    if (!isEnrollmentActive(enrollment)) return { success: false, error: 'Your course access is not active' }
+
+    const checklist = await evaluateCourseCompletion(course, user.id)
+    if (!checklist.eligible) return { success: false, error: 'Complete all enabled course requirements before paying for a certificate' }
+    if (!courseRequiresCertificatePayment(course)) {
+      return { success: true, data: { redirectTo: `/course/${courseId}/certificate` } }
+    }
+
+    const supabase = await getServiceSupabase()
+    const price = getCourseCertificatePrice(course)
+    const now = new Date()
+    const idempotencyKey = `certificate:${courseId}:user:${user.id}:manual`
+    const { data: existingPayment } = await supabase
+      .from('course_payments')
+      .select('*')
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle()
+
+    let payment = existingPayment
+    const paymentMetadata = {
+      paymentPurpose: 'certificate',
+      courseTitle: course.title,
+      certificatePrice: price,
+      certificateRequiresPayment: true,
+    }
+
+    if (!payment) {
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('course_payments')
+        .insert({
+          user_id: user.id,
+          course_id: courseId,
+          amount: price,
+          currency: course.currency ?? 'PKR',
+          status: 'pending',
+          payment_method: 'manual_bank_transfer',
+          provider: 'manual',
+          idempotency_key: idempotencyKey,
+          registration_expires_at: addDays(now, COURSE_REGISTRATION_REMINDER_DAYS).toISOString(),
+          payment_workflow_status: 'pending_payment',
+          metadata: paymentMetadata,
+        } as never)
+        .select('*')
+        .single()
+
+      if (paymentError) return { success: false, error: friendlyErrorMessage(paymentError, 'Certificate payment could not be created.') }
+      payment = newPayment
+
+      await supabase.from('course_payment_events').insert({
+        payment_id: payment.id,
+        course_id: courseId,
+        user_id: user.id,
+        new_status: payment.status,
+        event_type: 'certificate_checkout_created',
+        payload: { amount: price, currency: course.currency ?? 'PKR' },
+      } as never)
+    } else if (!isCertificatePaymentPaid(payment) && (Number(payment.amount ?? 0) !== price || payment.currency !== (course.currency ?? 'PKR'))) {
+      await supabase
+        .from('course_payments')
+        .update({
+          amount: price,
+          currency: course.currency ?? 'PKR',
+          metadata: { ...objectRecord(payment.metadata), ...paymentMetadata },
+        } as never)
+        .eq('id', payment.id)
+    }
+
+    if (!payment) return { success: false, error: 'Certificate payment could not be created' }
+
+    revalidatePath('/dashboard/my-courses')
+    revalidatePath(`/course/${courseId}/certificate`)
+    return { success: true, data: { paymentId: payment.id, redirectTo: `/course/${courseId}/certificate?paymentId=${payment.id}` } }
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Unable to start certificate payment.') }
+  }
+}
+
 export async function submitCoursePaymentReceiptAction(
   paymentId: string,
   formData: FormData
@@ -454,6 +545,7 @@ export async function submitCoursePaymentReceiptAction(
     if (!['pending', 'processing', 'submitted', 'rejected'].includes(payment.status)) {
       return { success: false, error: 'This payment can no longer be updated' }
     }
+    const certificatePayment = isCertificatePayment(payment)
 
     const receipt = formData.get('receipt') as File | null
     if (!receipt || receipt.size <= 0) return { success: false, error: 'Upload a receipt file' }
@@ -486,13 +578,14 @@ export async function submitCoursePaymentReceiptAction(
       user_id: user.id,
       previous_status: payment.status,
       new_status: 'submitted',
-      event_type: 'manual_receipt_submitted',
+      event_type: certificatePayment ? 'certificate_receipt_submitted' : 'manual_receipt_submitted',
       payload: { transactionReference, receiptPath: uploaded.path },
     } as never)
 
     revalidatePath('/dashboard/my-courses')
     const courseSlug = (payment.courses as { slug?: string } | null)?.slug
-    if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
+    if (certificatePayment) revalidatePath(`/course/${payment.course_id}/certificate`)
+    else if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to submit receipt.') }
@@ -617,6 +710,42 @@ export async function approveCoursePaymentAction(
 
     const currentCourse = course as Course
     const now = new Date()
+    const paymentMetadata = objectRecord(payment.metadata)
+    if (isCertificatePayment(payment)) {
+      const { error } = await supabase
+        .from('course_payments')
+        .update({
+          status: 'paid',
+          verified_at: now.toISOString(),
+          approved_by: admin.id,
+          registration_expired_at: null,
+          payment_workflow_status: 'payment_verified',
+          metadata: {
+            ...paymentMetadata,
+            paymentPurpose: 'certificate',
+            certificateApprovedAt: now.toISOString(),
+          },
+        } as never)
+        .eq('id', paymentId)
+      if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
+
+      await supabase.from('course_payment_events').insert({
+        payment_id: paymentId,
+        course_id: payment.course_id,
+        user_id: payment.user_id,
+        previous_status: payment.status,
+        new_status: 'paid',
+        event_type: 'certificate_payment_approved',
+        actor_id: admin.id,
+        payload: { amount: Number(payment.amount ?? 0), currency: payment.currency ?? 'PKR' },
+      } as never)
+
+      revalidatePath('/admin/course-payments')
+      revalidatePath('/dashboard/my-courses')
+      revalidatePath(`/course/${payment.course_id}/certificate`)
+      return { success: true }
+    }
+
     const customLicenseKey = normalizeLicenseKey(options.licenseKey)
     const licenseKey = customLicenseKey || (options.forceNewLicenseKey || !payment.license_key
       ? generateCourseLicenseKey(payment.course_id, payment.user_id)
@@ -675,7 +804,6 @@ export async function approveCoursePaymentAction(
 
     const invoice = await ensureCourseInvoice(supabase, payment)
     const studentProfile = profile as { email?: string | null; full_name?: string | null } | null
-    const paymentMetadata = objectRecord(payment.metadata)
     const studentEmail = firstString(
       studentProfile?.email,
       paymentMetadata.studentEmail,
@@ -753,6 +881,7 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
     const supabase = await getServiceSupabase()
     const { data: payment } = await supabase.from('course_payments').select('*, courses(slug)').eq('id', paymentId).maybeSingle()
     if (!payment) return { success: false, error: 'Payment not found' }
+    const certificatePayment = isCertificatePayment(payment)
 
     const { error } = await supabase
       .from('course_payments')
@@ -765,10 +894,12 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
       .eq('id', paymentId)
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
-    await supabase
-      .from('enrollments')
-      .update({ status: 'pending', payment_status: 'rejected' } as never)
-      .eq('payment_id', paymentId)
+    if (!certificatePayment) {
+      await supabase
+        .from('enrollments')
+        .update({ status: 'pending', payment_status: 'rejected' } as never)
+        .eq('payment_id', paymentId)
+    }
 
     await supabase.from('course_payment_events').insert({
       payment_id: paymentId,
@@ -776,14 +907,15 @@ export async function rejectCoursePaymentAction(paymentId: string, reason: strin
       user_id: payment.user_id,
       previous_status: payment.status,
       new_status: 'rejected',
-      event_type: 'manual_payment_rejected',
+      event_type: certificatePayment ? 'certificate_payment_rejected' : 'manual_payment_rejected',
       actor_id: admin.id,
       payload: { reason },
     } as never)
 
     revalidatePath('/admin/course-payments')
     const courseSlug = (payment.courses as { slug?: string } | null)?.slug
-    if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
+    if (certificatePayment) revalidatePath(`/course/${payment.course_id}/certificate`)
+    else if (courseSlug) revalidatePath(`/courses/${courseSlug}/payment`)
     revalidatePath('/dashboard/my-courses')
     return { success: true }
   } catch (error) {
@@ -1171,6 +1303,12 @@ export async function requestCertificateAction(courseId: string): Promise<Action
 
     const checklist = await evaluateCourseCompletion(course, user.id)
     if (!checklist.eligible) return { success: false, error: 'Complete all enabled course requirements before requesting a certificate' }
+    if (courseRequiresCertificatePayment(course)) {
+      const certificatePayment = await getUserCertificatePayment(user.id, courseId)
+      if (!isCertificatePaymentPaid(certificatePayment)) {
+        return { success: false, error: 'Certificate payment must be approved before requesting this certificate' }
+      }
+    }
 
     const supabase = await getServiceSupabase()
     const [{ data: profile }, { data: existing }, { data: completion }] = await Promise.all([

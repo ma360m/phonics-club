@@ -20,7 +20,7 @@ import { getSession } from '@/lib/auth'
 import { getCourseBySlug } from '@/lib/data/queries'
 import { ensureChildrenPhonicsCourseInstalledBySlug } from '@/lib/data/children-phonics-install'
 import { isChildrenPhonicsCourseSlug } from '@/lib/data/children-phonics-courses'
-import { getCourseAccessState, getCoursePrice, getUserEnrollment, isCourseFree } from '@/lib/lms'
+import { getCourseAccessState, getCoursePrice, getUserEnrollment, isCertificatePayment, isCourseFree } from '@/lib/lms'
 import { getEnabledPaymentMethodSettings, DEFAULT_PAYMENT_METHOD_SETTINGS } from '@/lib/payment-method-settings'
 import { getBankDetails } from '@/lib/site-content'
 import { createClient } from '@/lib/supabase/server'
@@ -65,11 +65,12 @@ async function loadPayment(userId: string, courseId: string, paymentId?: string)
     .eq('user_id', userId)
     .eq('course_id', courseId)
     .order('created_at', { ascending: false })
-    .limit(1)
+    .limit(paymentId ? 1 : 10)
 
   if (paymentId) query = query.eq('id', paymentId)
-  const { data } = await query.maybeSingle()
-  return (data as CoursePayment | null) ?? null
+  const { data } = await query
+  const payments = ((Array.isArray(data) ? data : data ? [data] : []) as CoursePayment[])
+  return payments.find((payment) => !isCertificatePayment(payment)) ?? payments[0] ?? null
 }
 
 export default async function CoursePaymentPage({
@@ -101,6 +102,7 @@ export default async function CoursePaymentPage({
   }
 
   let payment = await loadPayment(user.id, course.id, paymentId)
+  if (payment && isCertificatePayment(payment)) redirect(`/course/${course.id}/certificate?paymentId=${payment.id}`)
   if (!payment) {
     const checkout = await createCourseCheckoutAction(course.id)
     if (checkout.success && checkout.data?.redirectTo) redirect(checkout.data.redirectTo)

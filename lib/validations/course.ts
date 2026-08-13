@@ -49,6 +49,8 @@ export const courseSchema = z.object({
   archived: z.coerce.boolean().default(false),
   coming_soon: z.coerce.boolean().default(false),
   certificate_enabled: z.coerce.boolean().default(true),
+  certificate_requires_payment: z.coerce.boolean().default(false),
+  certificate_price: z.coerce.number().min(0, 'Certificate price cannot be negative.').default(0),
   completion_requires_lessons: z.coerce.boolean().default(true),
   completion_requires_online_minutes: z.coerce.boolean().default(false),
   completion_requires_offline_minutes: z.coerce.boolean().default(false),
@@ -57,6 +59,14 @@ export const courseSchema = z.object({
   completion_requires_active_enrollment: z.coerce.boolean().default(true),
   completion_requires_instructor_approval: z.coerce.boolean().default(false),
   offline_evidence_required: z.coerce.boolean().default(false),
+}).superRefine((course, ctx) => {
+  if (course.certificate_enabled && course.certificate_requires_payment && course.certificate_price <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['certificate_price'],
+      message: 'Enter a certificate price greater than 0, or turn off certificate payment.',
+    })
+  }
 })
 
 export type CourseInput = z.infer<typeof courseSchema>

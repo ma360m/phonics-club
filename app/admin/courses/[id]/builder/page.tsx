@@ -568,6 +568,7 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                                       {field('Article Content', <RichTextarea name="article_content" defaultValue={lesson.article_content ?? ''} className="rounded-xl bg-white" rows={7} />)}
                                       {field('Practice Prompt', <Textarea name="practice_prompt" defaultValue={lesson.practice_prompt ?? ''} className="rounded-xl bg-white" rows={3} />)}
                                       {field('Discussion Prompt', <Textarea name="discussion_prompt" defaultValue={lesson.discussion_prompt ?? ''} className="rounded-xl bg-white" rows={3} />)}
+                                      {field('Interactive Activity JSON', <Textarea name="activity_data" defaultValue={JSON.stringify(lesson.activity_data ?? {}, null, 2)} className="rounded-xl bg-white font-mono text-xs leading-5 lg:col-span-2" rows={10} />)}
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                       {LESSON_TOGGLES.map(([name, label]) => (
@@ -613,6 +614,7 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                             {field('Material URL', <Input name="material_url" placeholder="PDF, worksheet or download URL" className="rounded-xl bg-white" />)}
                             {field('Reading/PDF URL', <Input name="reading_external_url" className="rounded-xl bg-white" />)}
                             {field('Full Reading Content', <RichTextarea name="rich_content" className="rounded-xl bg-white lg:col-span-3" rows={5} />)}
+                            {field('Interactive Activity JSON', <Textarea name="activity_data" className="rounded-xl bg-white font-mono text-xs leading-5 lg:col-span-3" rows={7} />)}
                           </div>
                           <input type="hidden" name="is_compulsory" value="on" />
                           <input type="hidden" name="sequentially_locked" value="on" />
@@ -677,6 +679,14 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                 This course has a certificate
               </label>
               <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="certificate_requires_payment"
+                  defaultChecked={Boolean(data.course.certificate_requires_payment ?? data.course.metadata?.certificateRequiresPayment)}
+                />
+                Certificate requires separate payment
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
                 <input type="checkbox" name="completion_requires_lessons" defaultChecked={data.course.completion_requires_lessons !== false} />
                 Require compulsory lessons
               </label>
@@ -693,6 +703,18 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
                 Require instructor approval
               </label>
               {field('Passing Quiz %', <Input name="passing_quiz_percentage" type="number" min="0" max="100" defaultValue={data.course.passing_quiz_percentage ?? 70} className="rounded-xl bg-white" />)}
+              {field(
+                'Certificate Price',
+                <Input
+                  name="certificate_price"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={data.course.certificate_price ?? Number(data.course.metadata?.certificatePrice ?? 0)}
+                  className="rounded-xl bg-white"
+                />,
+                `Uses ${data.course.currency ?? 'PKR'} for certificate checkout.`,
+              )}
             </div>
             <CourseMediaUpload
               name="certificate_background_url"
@@ -713,7 +735,10 @@ export default async function AdminCourseBuilderPage({ params }: { params: Promi
           </form>
           <div className="grid gap-4 md:grid-cols-3">
             <SummaryCard label="Certificate" value={data.course.certificate_enabled === false ? 'Disabled' : 'Enabled'} />
-            <SummaryCard label="Passing quiz" value={`${data.course.passing_quiz_percentage ?? 70}%`} />
+            <SummaryCard
+              label="Certificate payment"
+              value={data.course.certificate_requires_payment ? `${data.course.currency ?? 'PKR'} ${data.course.certificate_price ?? 0}` : 'Not required'}
+            />
             <SummaryCard label="Instructor approval" value={data.course.completion_requires_instructor_approval ? 'Required' : 'Not required'} />
           </div>
           <p className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm leading-6 text-[#1D4ED8]">

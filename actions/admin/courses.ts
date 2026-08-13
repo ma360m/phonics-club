@@ -113,6 +113,8 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
     archived,
     coming_soon: formData.get('coming_soon') === 'on',
     certificate_enabled: formData.get('certificate_enabled') === 'on',
+    certificate_requires_payment: formData.get('certificate_requires_payment') === 'on',
+    certificate_price: formData.get('certificate_price') || 0,
     completion_requires_lessons: formData.get('completion_requires_lessons') === 'on',
     completion_requires_online_minutes: formData.get('completion_requires_online_minutes') === 'on',
     completion_requires_offline_minutes: formData.get('completion_requires_offline_minutes') === 'on',
@@ -131,6 +133,8 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
   }
 
   const price = parsed.data.price
+  const certificateRequiresPayment = parsed.data.certificate_enabled && parsed.data.certificate_requires_payment
+  const certificatePrice = certificateRequiresPayment ? parsed.data.certificate_price : 0
   const previewVideoUrl = String(formData.get('preview_video_url') ?? '').trim()
   const highlights = parseLines(formData, 'highlights')
   const coreMaterials = parseLines(formData, 'core_materials')
@@ -138,6 +142,8 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
   const targetAudience = parseLines(formData, 'target_audience')
   const metadata = metadataRecord(existingMetadata)
   metadata.certificateEnabled = formData.get('certificate_enabled') === 'on'
+  metadata.certificateRequiresPayment = certificateRequiresPayment
+  metadata.certificatePrice = certificatePrice
   if (previewVideoUrl) metadata.previewVideoUrl = previewVideoUrl
   else delete metadata.previewVideoUrl
   if (highlights.length) metadata.highlights = highlights
@@ -160,6 +166,8 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
     ok: true as const,
     data: {
       ...parsed.data,
+      certificate_requires_payment: certificateRequiresPayment,
+      certificate_price: certificatePrice,
       objectives: parseLines(formData, 'objectives'),
       requirements: parseLines(formData, 'requirements'),
       target_audience: targetAudience.length ? targetAudience : intendedAudience,
@@ -372,10 +380,17 @@ export async function updateCourseCertificateSettingsAction(id: string, formData
   }
 
   const certificateEnabled = formData.get('certificate_enabled') === 'on'
+  const certificateRequiresPayment = certificateEnabled && formData.get('certificate_requires_payment') === 'on'
+  const certificatePrice = certificateRequiresPayment ? Number(formData.get('certificate_price') || 0) : 0
+  if (certificateRequiresPayment && (!Number.isFinite(certificatePrice) || certificatePrice <= 0)) {
+    throw new Error('Enter a certificate price greater than 0, or turn off certificate payment.')
+  }
   const { error } = await supabase
     .from('courses')
     .update({
       certificate_enabled: certificateEnabled,
+      certificate_requires_payment: certificateRequiresPayment,
+      certificate_price: certificatePrice,
       certificate_background_url: normalizeMediaUrl(String(formData.get('certificate_background_url') ?? '')) || null,
       passing_quiz_percentage: Number(formData.get('passing_quiz_percentage') || 70),
       completion_requires_lessons: formData.get('completion_requires_lessons') === 'on',

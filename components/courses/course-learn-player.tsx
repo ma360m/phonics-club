@@ -22,6 +22,7 @@ import {
   PlayCircle,
   Sparkles,
   Video,
+  Volume2,
   type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -36,6 +37,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { jollyActivityForLesson } from '@/lib/data/jolly-phonics-sound-data'
 import { cn } from '@/lib/utils'
 import type { Course, CourseLesson, CourseQuiz, CourseResource, LessonProgress, LessonReadingType } from '@/types/database'
 import type { CourseModuleWithLessons } from '@/lib/lms'
@@ -150,6 +152,7 @@ function lessonHasAttachedContent(lesson: CourseLesson) {
 
 function isContentRequiredLesson(lesson: CourseLesson) {
   const activityData = asRecord(lesson.activity_data)
+  if (jollyActivityForLesson(lesson.title, activityData)) return false
   const isChildShell =
     activityData.childActivityShell === true ||
     activityData.contentStatus === 'content_required'
@@ -832,6 +835,7 @@ function LessonContent({
   const showQuiz = quizzes.length > 0
   const showExternal = lesson.lesson_type === 'external_link' || lesson.lesson_type === 'live_class'
   const primaryQuiz = quizzes[0]
+  const jollyActivity = jollyActivityForLesson(lesson.title, asRecord(lesson.activity_data))
 
   return (
     <div className="space-y-0">
@@ -894,6 +898,8 @@ function LessonContent({
             </p>
           </div>
         </div>
+      ) : jollyActivity ? (
+        <JollyPhonicsLesson activity={jollyActivity} lessonTitle={lesson.title} />
       ) : (
         <ReadingMaterial lesson={lesson} readingMode={readingMode} sourceUrl={sourceUrl} content={content} />
       )}
@@ -1080,6 +1086,933 @@ function PresentationSlides({
           {slide.body && <p className="mt-4 whitespace-pre-wrap leading-8 text-slate-600">{slide.body}</p>}
         </article>
       ))}
+    </div>
+  )
+}
+
+type JollyInteractiveActivity = {
+  activityKind?: string
+  title?: string
+  group?: string | number
+  mode?: string
+  soundKey?: string
+  displayGrapheme?: string
+  soundLabel?: string
+  audioUrl?: string
+  flashcardTheme?: string
+  action?: string
+  formation?: string
+  examples?: unknown
+  nonExamples?: unknown
+  blendingWords?: unknown
+  segmentingWords?: unknown
+  sounds?: unknown
+  words?: unknown
+  wordAudioUrls?: unknown
+}
+
+type ReviewSound = {
+  key: string
+  displayGrapheme: string
+  soundLabel: string
+  audioUrl: string
+  examples: string[]
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []
+}
+
+function reviewSounds(value: unknown): ReviewSound[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const record = item as Record<string, unknown>
+      const key = String(record.key ?? '').trim()
+      const displayGrapheme = String(record.displayGrapheme ?? record.display ?? '').trim()
+      if (!key || !displayGrapheme) return null
+      return {
+        key,
+        displayGrapheme,
+        soundLabel: String(record.soundLabel ?? '').trim(),
+        audioUrl: String(record.audioUrl ?? '').trim(),
+        examples: stringList(record.examples),
+      }
+    })
+    .filter((item): item is ReviewSound => Boolean(item))
+}
+
+function playAudio(url?: string) {
+  if (!url || typeof window === 'undefined') return
+  const audio = new Audio(url)
+  void audio.play().catch(() => {
+    toast.error('Audio could not play')
+  })
+}
+
+function speakText(text: string, rate = 0.85) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = rate
+  utterance.pitch = 1.08
+  window.speechSynthesis.speak(utterance)
+}
+
+function playWordAudio(activity: JollyInteractiveActivity, word: string) {
+  const audioUrls = asRecord(activity.wordAudioUrls)
+  const audioUrl = String(audioUrls[word] ?? audioUrls[word.toLowerCase()] ?? '').trim()
+  if (audioUrl) {
+    playAudio(audioUrl)
+    return
+  }
+  speakText(word)
+}
+
+function themeClasses(theme?: string) {
+  if (theme === 'sky') return 'from-[#DFF7FF] via-[#EAFBFF] to-[#F8FDFF] text-[#0F4C81]'
+  if (theme === 'forest') return 'from-[#DFF7EA] via-[#F0FFF4] to-[#F8FFF9] text-[#14532D]'
+  if (theme === 'mountain') return 'from-[#EAF1FF] via-[#F5F8FF] to-white text-[#1E3A8A]'
+  if (theme === 'ocean') return 'from-[#DBF7FF] via-[#E7FAFF] to-[#F5FFFD] text-[#0E7490]'
+  return 'from-[#D7F4FC] via-[#EAFBFF] to-[#F7FDFF] text-[#0F172A]'
+}
+
+function JollyPhonicsLesson({ activity, lessonTitle }: { activity: JollyInteractiveActivity; lessonTitle: string }) {
+  const [earnedStar, setEarnedStar] = useState(false)
+  const sounds = reviewSounds(activity.sounds)
+  const examples = stringList(activity.examples)
+  const nonExamples = stringList(activity.nonExamples)
+  const blendingWords = stringList(activity.blendingWords)
+  const segmentingWords = stringList(activity.segmentingWords)
+  const reviewWords = stringList(activity.words)
+  const isReview = activity.activityKind === 'review_station' || sounds.length > 0
+  const display = String(activity.displayGrapheme ?? '').trim()
+  const label = String(activity.soundLabel ?? '').trim()
+  const theme = String(activity.flashcardTheme ?? 'garden')
+  const mode = String(activity.mode ?? 'review').replace(/_/g, ' ')
+  const reviewCorrectWords = sounds.flatMap((sound) => sound.examples.slice(0, 1))
+  const activeWords = isReview ? reviewWords : Array.from(new Set([...examples, ...blendingWords, ...segmentingWords]))
+  const certificateTitle = activity.title ?? lessonTitle
+
+  return (
+    <section className="border-b border-slate-200 bg-[#F8FAFC] p-4 sm:p-6">
+      <div className={cn('relative overflow-hidden rounded-3xl bg-gradient-to-br p-4 shadow-sm ring-1 ring-slate-200 sm:p-6', themeClasses(theme))}>
+        <FlashcardDecor />
+        <div className="relative z-10 grid gap-5 xl:grid-cols-[minmax(360px,0.95fr)_minmax(420px,1.05fr)]">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide opacity-75">
+                {isReview ? 'Practice deck' : `Sound Group ${activity.group ?? ''}`}
+              </p>
+              <h3 className="mt-1 text-2xl font-black tracking-normal text-[#0F172A] sm:text-3xl">
+                {activity.title ?? lessonTitle}
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                {isReview ? `Mode: ${mode}` : `${label} sound station`}
+              </p>
+            </div>
+
+            {isReview ? (
+              <ReviewFlashcards sounds={sounds} theme={theme} />
+            ) : (
+              <SoundFlashcard display={display} label={label} audioUrl={activity.audioUrl} theme={theme} />
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {!isReview && (
+              <>
+                <ActionActivity
+                  display={display}
+                  label={label}
+                  action={String(activity.action ?? '')}
+                  audioUrl={activity.audioUrl}
+                  onComplete={() => setEarnedStar(true)}
+                />
+                <FormationActivity
+                  display={display}
+                  instruction={String(activity.formation ?? '')}
+                  onComplete={() => setEarnedStar(true)}
+                />
+              </>
+            )}
+
+            <PictureMatchActivity
+              title={isReview ? 'Picture Hunt Review' : 'Picture Hunt'}
+              prompt={isReview ? 'Choose the pictures for this review deck.' : `Which pictures match ${label || display}?`}
+              correctWords={isReview ? reviewCorrectWords : examples}
+              distractorWords={nonExamples}
+              onComplete={() => setEarnedStar(true)}
+            />
+
+            <SoundPopActivity
+              correctWords={isReview ? reviewCorrectWords : examples}
+              distractorWords={nonExamples}
+              onComplete={() => setEarnedStar(true)}
+            />
+
+            <BlendingActivity
+              words={activeWords.length ? activeWords : reviewWords}
+              activity={activity}
+              onComplete={() => setEarnedStar(true)}
+            />
+
+            <SegmentingActivity
+              words={activeWords.length ? activeWords : reviewWords}
+              activity={activity}
+              onComplete={() => setEarnedStar(true)}
+            />
+
+            <ActivityCertificate
+              earned={earnedStar}
+              title={certificateTitle}
+              onEarn={() => setEarnedStar(true)}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FlashcardDecor() {
+  return (
+    <>
+      <div className="pointer-events-none absolute -left-14 -top-14 h-44 w-44 rounded-full border-[28px] border-cyan-300/55" />
+      <div className="pointer-events-none absolute -bottom-16 left-12 h-48 w-48 rounded-full border-[32px] border-cyan-300/50" />
+      <div className="pointer-events-none absolute -right-10 top-12 h-36 w-36 rounded-full border-[24px] border-cyan-300/45" />
+      <div className="pointer-events-none absolute bottom-8 right-10 h-28 w-28 rounded-full border-[20px] border-cyan-300/45" />
+    </>
+  )
+}
+
+function SoundFlashcard({
+  display,
+  label,
+  audioUrl,
+  theme,
+}: {
+  display: string
+  label: string
+  audioUrl?: string
+  theme: string
+}) {
+  const isDigraph = display.length > 1
+
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] bg-white/82 p-5 shadow-[0_16px_0_rgba(15,23,42,0.13)] ring-1 ring-white/70">
+      <div className="flex min-h-[320px] items-center justify-center rounded-[1.5rem] bg-white/70 sm:min-h-[420px]">
+        <span className={cn('font-black leading-none tracking-normal text-[#111318]', isDigraph ? 'text-[clamp(5rem,14vw,12rem)]' : 'text-[clamp(9rem,22vw,17rem)]')}>
+          {display || '?'}
+        </span>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Flashcard</p>
+          <p className="text-2xl font-black text-[#0F172A]">{label}</p>
+        </div>
+        <Button type="button" onClick={() => playAudio(audioUrl)} className={cn('rounded-2xl px-5 py-6 font-bold shadow-sm', theme === 'forest' ? 'bg-[#16A34A] hover:bg-[#15803D]' : theme === 'ocean' ? 'bg-[#0891B2] hover:bg-[#0E7490]' : 'bg-[#1D4ED8] hover:bg-[#1D4ED8]/90')}>
+          <Volume2 className="mr-2 h-5 w-5" aria-hidden="true" />
+          Hear Sound
+        </Button>
+      </div>
+      {audioUrl && <audio className="mt-4 w-full" controls src={audioUrl} />}
+    </div>
+  )
+}
+
+function ReviewFlashcards({ sounds, theme }: { sounds: ReviewSound[]; theme: string }) {
+  if (!sounds.length) return <WordPanel title="Flashcards" words={[]} emptyText="Add review sounds in lesson activity data." />
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {sounds.map((sound) => (
+        <button
+          key={sound.key}
+          type="button"
+          onClick={() => playAudio(sound.audioUrl)}
+          className={cn(
+            'min-h-[150px] rounded-3xl bg-white/86 p-4 text-center shadow-sm ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:shadow-md',
+            theme === 'forest' ? 'hover:bg-[#F0FDF4]' : theme === 'ocean' ? 'hover:bg-[#ECFEFF]' : 'hover:bg-[#EFF6FF]',
+          )}
+        >
+          <span className={cn('block font-black leading-none text-[#111318]', sound.displayGrapheme.length > 1 ? 'text-6xl' : 'text-7xl')}>
+            {sound.displayGrapheme}
+          </span>
+          <span className="mt-3 inline-flex items-center justify-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">
+            <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {sound.soundLabel || 'Play'}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const PICTURE_DISTRACTORS = ['dog', 'moon', 'fish', 'sun', 'cat', 'ball', 'robot', 'kite']
+const PICTURE_SYMBOLS: Record<string, string> = {
+  sun: '\u2600\uFE0F',
+  sit: '\uD83E\uDE91',
+  sat: '\uD83E\uDE91',
+  sip: '\uD83E\uDD64',
+  ant: '\uD83D\uDC1C',
+  apple: '\uD83C\uDF4E',
+  tap: '\uD83D\uDC47',
+  top: '\uD83D\uDD1D',
+  ink: '\uD83E\uDDC9',
+  in: '\u2935',
+  pin: '\uD83D\uDCCC',
+  pan: '\uD83C\uDF73',
+  net: '\uD83E\uDD45',
+  nap: '\uD83D\uDE34',
+  cat: '\uD83D\uDC31',
+  kit: '\uD83E\uDDF0',
+  egg: '\uD83E\uDD5A',
+  hen: '\uD83D\uDC14',
+  hat: '\uD83C\uDFA9',
+  rat: '\uD83D\uDC00',
+  run: '\uD83C\uDFC3',
+  mat: '\uD83E\uDDF5',
+  dog: '\uD83D\uDC36',
+  goat: '\uD83D\uDC10',
+  pot: '\uD83E\uDD58',
+  cup: '\u2615',
+  leg: '\uD83E\uDDB5',
+  fan: '\uD83E\uDEAD',
+  bat: '\uD83C\uDFCF',
+  rain: '\uD83C\uDF27\uFE0F',
+  sail: '\u26F5',
+  jam: '\uD83C\uDF53',
+  boat: '\uD83D\uDEA4',
+  pie: '\uD83E\uDD67',
+  bee: '\uD83D\uDC1D',
+  fork: '\uD83C\uDF74',
+  zip: '\uD83E\uDDF7',
+  web: '\uD83D\uDD78\uFE0F',
+  ring: '\uD83D\uDC8D',
+  van: '\uD83D\uDE90',
+  moon: '\uD83C\uDF19',
+  book: '\uD83D\uDCD6',
+  yes: '\u2713',
+  yak: '\uD83D\uDC02',
+  yarn: '\uD83E\uDDF6',
+  yogurt: '\uD83E\uDD63',
+  yell: '\uD83D\uDDE3\uFE0F',
+  yard: '\uD83C\uDFE1',
+  box: '\uD83D\uDCE6',
+  chip: '\uD83C\uDF5F',
+  ship: '\uD83D\uDEA2',
+  thin: '\uD83D\uDCCF',
+  this: '\u261D\uFE0F',
+  queen: '\uD83D\uDC51',
+  cloud: '\u2601\uFE0F',
+  coin: '\uD83E\uDE99',
+  blue: '\uD83D\uDD35',
+  fern: '\uD83C\uDF3F',
+  star: '\u2B50',
+  fish: '\uD83D\uDC1F',
+  ball: '\u26BD',
+  robot: '\uD83E\uDD16',
+  kite: '\uD83E\uDE81',
+}
+
+function shuffleList<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5)
+}
+
+function ActivityCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-3xl border border-white/70 bg-white/86 p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-wide text-[#1D4ED8]">{title}</p>
+      <div className="mt-3">{children}</div>
+    </div>
+  )
+}
+
+function ActionActivity({
+  display,
+  label,
+  action,
+  audioUrl,
+  onComplete,
+}: {
+  display: string
+  label: string
+  action: string
+  audioUrl?: string
+  onComplete: () => void
+}) {
+  const [moving, setMoving] = useState(false)
+
+  function watchAction() {
+    setMoving(true)
+    window.setTimeout(() => setMoving(false), 1200)
+    onComplete()
+  }
+
+  return (
+    <ActivityCard title="Do the Action">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          onClick={watchAction}
+          className={cn(
+            'flex h-28 w-28 shrink-0 items-center justify-center rounded-[2rem] bg-[#EFF6FF] text-6xl font-black text-[#1D4ED8] shadow-inner transition',
+            moving && 'scale-110 rotate-3 bg-[#FEF3C7] text-[#B91C1C]',
+          )}
+          aria-label={`Watch action for ${display}`}
+        >
+          {display || '?'}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-black text-[#0F172A]">{action || `Do the action and say ${label || display}.`}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" onClick={watchAction} className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+              Watch
+            </Button>
+            <Button type="button" variant="outline" onClick={() => { playAudio(audioUrl); watchAction() }} className="rounded-xl bg-white">
+              <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              Hear and Do
+            </Button>
+          </div>
+        </div>
+      </div>
+    </ActivityCard>
+  )
+}
+
+const LETTER_PATHS: Record<string, string[]> = {
+  s: ['M186,122 C186,108 150,106 138,118 C126,130 150,138 168,146 C186,154 186,166 168,170 C150,174 128,170 126,156'],
+  a: ['M184,140 C184,123 172,110 157,110 C142,110 130,123 130,140 C130,157 142,170 157,170 C172,170 184,157 184,140 L184,170'],
+  t: ['M160,68 L160,158 C160,168 168,172 178,168', 'M132,108 L192,108'],
+  i: ['M160,112 L160,168'],
+  p: ['M135,110 L135,213 M135,110 C152,110 165,123 165,140 C165,157 152,170 135,170'],
+  n: ['M130,112 L130,170 M130,125 C130,108 190,108 190,128 L190,170'],
+  c: ['M188,120 C174,108 145,108 132,128 C118,150 132,170 158,170 C174,170 186,164 192,154'],
+  k: ['M135,66 L135,170 M190,108 L138,142 M148,140 L194,170'],
+  e: ['M190,140 L130,140 C130,122 146,110 164,112 C188,116 196,144 180,160 C164,176 134,170 130,148'],
+  h: ['M130,66 L130,170 M130,124 C142,108 190,110 190,132 L190,170'],
+  r: ['M130,112 L130,170 M130,126 C142,108 168,110 178,124'],
+  m: ['M120,112 L120,170 M120,126 C132,108 154,108 160,128 L160,170 M160,128 C174,108 198,110 202,132 L202,170'],
+  d: ['M190,66 L190,170 M190,140 C190,123 178,110 162,110 C146,110 134,123 134,140 C134,157 146,170 162,170 C178,170 190,157 190,140'],
+  g: ['M184,140 C184,123 172,110 157,110 C142,110 130,123 130,140 C130,157 142,170 157,170 C172,170 184,157 184,140 L184,190 C184,208 164,216 146,204'],
+  o: ['M160,110 C178,110 192,124 192,140 C192,158 178,172 160,172 C142,172 128,158 128,140 C128,124 142,110 160,110'],
+  u: ['M130,112 L130,150 C130,168 186,168 186,150 L186,112 M186,112 L186,170'],
+  l: ['M160,66 L160,170'],
+  f: ['M178,68 C146,62 142,92 152,112 L152,170 M126,112 L190,112'],
+  b: ['M130,66 L130,170 M130,140 C130,123 144,110 160,110 C178,110 190,123 190,140 C190,157 178,170 160,170 C144,170 130,157 130,140'],
+  j: ['M165,112 L165,188 C165,208 132,208 130,188'],
+  z: ['M126,112 L190,112 L126,170 L192,170'],
+  w: ['M118,112 L136,170 L160,122 L184,170 L204,112'],
+  y: ['M122,112 L158,170 M196,112 L158,170 L134,214'],
+  x: ['M128,112 L192,170 M192,112 L128,170'],
+  q: ['M170,140 C170,123 158,110 142,110 C126,110 114,123 114,140 C114,157 126,170 142,170 C158,170 170,157 170,140 M170,112 L170,214'],
+}
+
+function graphemeLetters(display: string) {
+  return display.replace('/', '').replace(/\s*\(.+?\)\s*/g, '').split('')
+}
+
+function FormationActivity({
+  display,
+  instruction,
+  onComplete,
+}: {
+  display: string
+  instruction: string
+  onComplete: () => void
+}) {
+  const [activeLetterIndex, setActiveLetterIndex] = useState(0)
+  const [attempted, setAttempted] = useState(false)
+  const [watching, setWatching] = useState(false)
+  const letters = graphemeLetters(display || '')
+  const currentLetter = letters[activeLetterIndex] ?? display[0] ?? '?'
+
+  function watchFormation() {
+    setWatching(true)
+    speakText(`Watch how to write ${currentLetter}. Start at the green dot and follow the arrow.`)
+    window.setTimeout(() => setWatching(false), 1500)
+  }
+
+  return (
+    <ActivityCard title={`Trace ${display}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-slate-600">{instruction || 'Start at the green dot and follow the dotted path.'}</p>
+        <Button type="button" size="sm" onClick={watchFormation} className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+          Watch
+        </Button>
+      </div>
+      {letters.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {letters.map((letter, index) => (
+            <button
+              key={`${display}-${letter}-${index}`}
+              type="button"
+              onClick={() => { setActiveLetterIndex(index); setAttempted(false) }}
+              className={cn('rounded-full px-4 py-2 text-sm font-black', activeLetterIndex === index ? 'bg-[#1D4ED8] text-white' : 'bg-[#EFF6FF] text-[#1D4ED8]')}
+            >
+              Trace {letter}
+            </button>
+          ))}
+        </div>
+      )}
+      <TraceCanvas letter={currentLetter} watching={watching} showGuide onAttempt={() => { setAttempted(true); onComplete() }} />
+      {attempted && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#1D4ED8]">Try Yourself</p>
+          <TraceCanvas letter={currentLetter} showGuide={false} onAttempt={() => onComplete()} />
+        </div>
+      )}
+      {letters.length > 1 && attempted && activeLetterIndex < letters.length - 1 && (
+        <Button type="button" onClick={() => { setActiveLetterIndex((value) => value + 1); setAttempted(false) }} className="mt-3 rounded-xl bg-[#16A34A] hover:bg-[#15803D]">
+          Next letter
+        </Button>
+      )}
+      {letters.length > 1 && attempted && activeLetterIndex === letters.length - 1 && (
+        <div className="mt-3 rounded-2xl bg-[#DCFCE7] p-3 text-center text-4xl font-black text-[#14532D]">{display}</div>
+      )}
+    </ActivityCard>
+  )
+}
+
+function TraceCanvas({
+  letter,
+  watching = false,
+  showGuide,
+  onAttempt,
+}: {
+  letter: string
+  watching?: boolean
+  showGuide: boolean
+  onAttempt: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const drawingRef = useRef(false)
+  const paths = LETTER_PATHS[letter.toLowerCase()] ?? []
+
+  function clearCanvas() {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
+  function point(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    }
+  }
+
+  function begin(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    drawingRef.current = true
+    canvas.setPointerCapture(event.pointerId)
+    const p = point(event)
+    ctx.beginPath()
+    ctx.moveTo(p.x, p.y)
+  }
+
+  function move(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    const p = point(event)
+    ctx.lineWidth = 10
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#1D4ED8'
+    ctx.lineTo(p.x, p.y)
+    ctx.stroke()
+  }
+
+  function end() {
+    if (!drawingRef.current) return
+    drawingRef.current = false
+    onAttempt()
+  }
+
+  return (
+    <div>
+      <div className="relative mx-auto h-[220px] max-w-[360px] overflow-hidden rounded-3xl bg-white shadow-inner ring-1 ring-slate-200">
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 320 220" aria-hidden="true">
+          {[60, 110, 170, 215].map((y, index) => (
+            <line key={y} x1="16" x2="304" y1={y} y2={y} stroke={index === 2 ? '#EF4444' : '#94A3B8'} strokeDasharray={index === 1 ? '8 8' : '4 8'} strokeWidth={index === 2 ? 2 : 1.5} />
+          ))}
+          {showGuide && paths.map((d, index) => (
+            <path key={`${letter}-${index}`} d={d} fill="none" stroke="#38BDF8" strokeWidth="10" strokeLinecap="round" strokeDasharray="2 12" opacity="0.82" />
+          ))}
+          {showGuide && <circle cx="130" cy="112" r="10" fill="#22C55E" />}
+          {showGuide && <polygon points="146,104 166,112 146,120" fill="#F59E0B" className={cn(watching && 'animate-pulse')} />}
+          {watching && paths.map((d, index) => (
+            <path key={`watch-${letter}-${index}`} d={d} fill="none" stroke="#F59E0B" strokeWidth="6" strokeLinecap="round" opacity="0.9" />
+          ))}
+        </svg>
+        <canvas
+          ref={canvasRef}
+          width={320}
+          height={220}
+          className="absolute inset-0 h-full w-full touch-none"
+          onPointerDown={begin}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={end}
+          aria-label={`Tracing canvas for ${letter}`}
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <Button type="button" variant="outline" onClick={() => speakText('Trace the letter. Start at the green dot and follow the arrow.')} className="rounded-xl bg-white">
+          <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
+          Hear instruction
+        </Button>
+        <Button type="button" variant="outline" onClick={clearCanvas} className="rounded-xl bg-white">
+          Clear
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function PictureMatchActivity({
+  title,
+  prompt,
+  correctWords,
+  distractorWords,
+  onComplete,
+}: {
+  title: string
+  prompt: string
+  correctWords: string[]
+  distractorWords: string[]
+  onComplete: () => void
+}) {
+  const [selected, setSelected] = useState<Record<string, boolean>>({})
+  const choices = useMemo(() => {
+    const correct = correctWords.slice(0, 4).map((word) => ({ word, correct: true }))
+    const distractors = shuffleList([...distractorWords, ...PICTURE_DISTRACTORS]).slice(0, 4).map((word) => ({ word, correct: false }))
+    return shuffleList([...correct, ...distractors])
+  }, [correctWords, distractorWords])
+
+  function choose(word: string, correct: boolean) {
+    setSelected((current) => ({ ...current, [word]: correct }))
+    if (correct) onComplete()
+  }
+
+  return (
+    <ActivityCard title={title}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-slate-600">{prompt}</p>
+        <Button type="button" size="sm" variant="outline" onClick={() => speakText(prompt)} className="rounded-xl bg-white">
+          <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
+          Hear question
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {choices.map((choice) => (
+          <button
+            key={`${title}-${choice.word}`}
+            type="button"
+            onClick={() => choose(choice.word, choice.correct)}
+            className={cn(
+              'min-h-[92px] rounded-2xl border bg-white p-3 text-center shadow-sm transition',
+              selected[choice.word] === true && 'border-emerald-300 bg-emerald-50',
+              selected[choice.word] === false && 'border-red-300 bg-red-50',
+            )}
+          >
+            <span className="block text-3xl font-black text-[#0F172A]">{PICTURE_SYMBOLS[choice.word.toLowerCase()] ?? choice.word.slice(0, 2)}</span>
+            <span className="mt-1 block text-sm font-black text-slate-700">{choice.word}</span>
+          </button>
+        ))}
+      </div>
+    </ActivityCard>
+  )
+}
+
+function SoundPopActivity({
+  correctWords,
+  distractorWords,
+  onComplete,
+}: {
+  correctWords: string[]
+  distractorWords: string[]
+  onComplete: () => void
+}) {
+  const [popped, setPopped] = useState<Record<string, boolean>>({})
+  const choices = useMemo(() => {
+    const correct = correctWords.slice(0, 3).map((word) => ({ word, correct: true }))
+    const distractors = shuffleList([...distractorWords, ...PICTURE_DISTRACTORS]).slice(0, 5).map((word) => ({ word, correct: false }))
+    return shuffleList([...correct, ...distractors])
+  }, [correctWords, distractorWords])
+  const found = Object.values(popped).filter(Boolean).length
+  const target = Math.max(1, choices.filter((choice) => choice.correct).length)
+
+  return (
+    <ActivityCard title="Pop the Sound">
+      <p className="mb-3 text-sm font-bold text-slate-600">Pop every bubble that belongs with this sound.</p>
+      <div className="grid grid-cols-4 gap-2">
+        {choices.map((choice) => {
+          const state = popped[choice.word]
+          return (
+            <button
+              key={`pop-${choice.word}`}
+              type="button"
+              onClick={() => {
+                setPopped((current) => ({ ...current, [choice.word]: choice.correct }))
+                if (choice.correct) onComplete()
+              }}
+              className={cn(
+                'aspect-square rounded-full border-4 border-[#38BDF8] bg-white text-sm font-black text-[#0F172A] shadow-sm transition hover:scale-105',
+                state === true && 'scale-90 border-emerald-400 bg-emerald-100 opacity-70',
+                state === false && 'border-red-300 bg-red-50',
+              )}
+            >
+              {choice.word}
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-sm font-black text-[#0F172A]">Stars found: {found} / {target}</p>
+    </ActivityCard>
+  )
+}
+
+function BlendingActivity({
+  words,
+  activity,
+  onComplete,
+}: {
+  words: string[]
+  activity: JollyInteractiveActivity
+  onComplete: () => void
+}) {
+  const [activeWord, setActiveWord] = useState(words[0] ?? '')
+
+  useEffect(() => {
+    if (!words.includes(activeWord)) setActiveWord(words[0] ?? '')
+  }, [activeWord, words])
+
+  if (!words.length) return null
+
+  return (
+    <ActivityCard title="Blend It">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" onClick={() => { playWordAudio(activity, activeWord); onComplete() }} className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+          <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
+          Hear Word
+        </Button>
+        <div className="flex flex-wrap gap-1.5">
+          {splitSoundTiles(activeWord).map((tile, index) => (
+            <span key={`${activeWord}-${index}`} className="flex h-11 min-w-11 items-center justify-center rounded-xl bg-[#EFF6FF] px-3 text-xl font-black text-[#1D4ED8] shadow-sm">
+              {tile}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {words.slice(0, 8).map((word) => (
+          <button key={`blend-${word}`} type="button" onClick={() => setActiveWord(word)} className={cn('rounded-full px-4 py-2 text-sm font-black', activeWord === word ? 'bg-[#FBBF24] text-[#0F172A]' : 'bg-white text-slate-700')}>
+            {word}
+          </button>
+        ))}
+      </div>
+    </ActivityCard>
+  )
+}
+
+function SegmentingActivity({
+  words,
+  activity,
+  onComplete,
+}: {
+  words: string[]
+  activity: JollyInteractiveActivity
+  onComplete: () => void
+}) {
+  const [activeWord, setActiveWord] = useState(words[0] ?? '')
+  const [box, setBox] = useState<string[]>([])
+  const tiles = useMemo(() => shuffleList(splitSoundTiles(activeWord)), [activeWord])
+  const complete = box.join('') === activeWord && activeWord.length > 0
+
+  useEffect(() => {
+    setActiveWord(words[0] ?? '')
+  }, [words])
+
+  useEffect(() => {
+    setBox([])
+  }, [activeWord])
+
+  useEffect(() => {
+    if (complete) onComplete()
+  }, [complete, onComplete])
+
+  if (!words.length) return null
+
+  return (
+    <ActivityCard title="Segment It">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Button type="button" onClick={() => playWordAudio(activity, activeWord)} className="rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90">
+          <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
+          Hear Word
+        </Button>
+        <select value={activeWord} onChange={(event) => setActiveWord(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold">
+          {words.slice(0, 8).map((word) => <option key={`segment-option-${word}`} value={word}>{word}</option>)}
+        </select>
+      </div>
+      <div className="rounded-2xl border-2 border-dashed border-[#93C5FD] bg-[#EFF6FF] p-3">
+        <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#1D4ED8]">Build the word here</p>
+        <div className="flex min-h-14 flex-wrap gap-2">
+          {box.length ? box.map((tile, index) => (
+            <button key={`box-${index}`} type="button" onClick={() => setBox((current) => current.filter((_, tileIndex) => tileIndex !== index))} className="rounded-xl bg-white px-4 py-2 text-xl font-black text-[#0F172A] shadow-sm">
+              {tile}
+            </button>
+          )) : <span className="text-sm font-semibold text-slate-500">Tap or drag tiles into this box.</span>}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {tiles.map((tile, index) => (
+          <button
+            key={`scramble-${activeWord}-${tile}-${index}`}
+            type="button"
+            draggable
+            onDragStart={(event) => event.dataTransfer.setData('text/plain', tile)}
+            onClick={() => setBox((current) => [...current, tile])}
+            className="rounded-xl bg-white px-4 py-2 text-xl font-black text-[#1D4ED8] shadow-sm"
+          >
+            {tile}
+          </button>
+        ))}
+        <button
+          type="button"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault()
+            const tile = event.dataTransfer.getData('text/plain')
+            if (tile) setBox((current) => [...current, tile])
+          }}
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-600"
+        >
+          Drop here
+        </button>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className={cn('text-sm font-black', complete ? 'text-emerald-700' : 'text-slate-500')}>
+          {complete ? 'Nice segmenting!' : `Target: ${activeWord.length ? '_ '.repeat(splitSoundTiles(activeWord).length) : ''}`}
+        </p>
+        <Button type="button" variant="outline" onClick={() => setBox([])} className="rounded-xl bg-white">Try Again</Button>
+      </div>
+    </ActivityCard>
+  )
+}
+
+function ActivityCertificate({
+  earned,
+  title,
+  onEarn,
+}: {
+  earned: boolean
+  title: string
+  onEarn: () => void
+}) {
+  return (
+    <div className={cn('rounded-3xl border p-5 text-center shadow-sm', earned ? 'border-amber-300 bg-[#FFFBEB]' : 'border-white/70 bg-white/70')}>
+      <p className="text-xs font-black uppercase tracking-wide text-[#B45309]">Activity Certificate</p>
+      <h4 className="mt-2 text-2xl font-black text-[#0F172A]">{earned ? 'Star earned!' : 'Finish an activity to earn a star'}</h4>
+      <p className="mt-1 text-sm font-semibold text-slate-600">{title}</p>
+      <div className="mx-auto mt-4 max-w-sm rounded-2xl border-4 border-[#FBBF24] bg-white p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-[#1D4ED8]">Phonics Club</p>
+        <p className="mt-2 text-xl font-black text-[#0F172A]">Sound Activity Star</p>
+        <p className="mt-2 text-sm font-semibold text-slate-600">Awarded for completing interactive phonics practice.</p>
+      </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {!earned && <Button type="button" onClick={onEarn} className="rounded-xl bg-[#FBBF24] text-[#0F172A] hover:bg-[#F59E0B]">Mark Star</Button>}
+        <Button type="button" variant="outline" onClick={() => window.print()} className="rounded-xl bg-white">Print Certificate</Button>
+      </div>
+    </div>
+  )
+}
+
+function PracticePanel({ title, body }: { title: string; body?: string }) {
+  if (!body) return null
+  return (
+    <div className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-wide text-[#1D4ED8]">{title}</p>
+      <p className="mt-2 text-lg font-bold leading-7 text-[#0F172A]">{body}</p>
+    </div>
+  )
+}
+
+function WordPanel({
+  title,
+  words,
+  emptyText,
+  subtle = false,
+}: {
+  title: string
+  words: string[]
+  emptyText: string
+  subtle?: boolean
+}) {
+  return (
+    <div className={cn('rounded-3xl border p-5 shadow-sm', subtle ? 'border-amber-200 bg-amber-50/80' : 'border-white/70 bg-white/82')}>
+      <p className="text-xs font-black uppercase tracking-wide text-[#1D4ED8]">{title}</p>
+      {words.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {words.map((word) => (
+            <span key={`${title}-${word}`} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-lg font-black text-[#0F172A] shadow-sm">
+              {word}
+            </span>
+          ))}
+        </div>
+      ) : emptyText ? (
+        <p className="mt-2 text-sm font-semibold text-slate-500">{emptyText}</p>
+      ) : null}
+    </div>
+  )
+}
+
+const SOUND_TILE_PATTERNS = ['th', 'oo', 'ai', 'oa', 'ie', 'ee', 'or', 'ng', 'ch', 'sh', 'qu', 'ou', 'oi', 'ue', 'er', 'ar', 'ck']
+
+function splitSoundTiles(word: string) {
+  const tiles: string[] = []
+  let index = 0
+  while (index < word.length) {
+    const nextTwo = word.slice(index, index + 2).toLowerCase()
+    if (SOUND_TILE_PATTERNS.includes(nextTwo)) {
+      tiles.push(word.slice(index, index + 2))
+      index += 2
+    } else {
+      tiles.push(word[index])
+      index += 1
+    }
+  }
+  return tiles
+}
+
+function TilePanel({ title, words }: { title: string; words: string[] }) {
+  if (!words.length) return null
+
+  return (
+    <div className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-wide text-[#1D4ED8]">{title}</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {words.slice(0, 8).map((word) => (
+          <div key={`${title}-${word}`} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-3">
+            <p className="text-xl font-black text-[#0F172A]">{word}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {splitSoundTiles(word).map((tile, index) => (
+                <span key={`${word}-${index}`} className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white px-2 text-base font-black text-[#1D4ED8] shadow-sm">
+                  {tile}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
