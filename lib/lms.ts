@@ -788,8 +788,11 @@ export function isCourseFree(course: Pick<Course, 'price' | 'discounted_price' |
 }
 
 export function isCourseCertificateEnabled(course: Course): boolean {
+  if (typeof course.certificate_enabled === 'boolean') return course.certificate_enabled
+  const metaEnabled = metadata(course).certificateEnabled
+  if (typeof metaEnabled === 'boolean') return metaEnabled
   if (isJollyPhonicsFreeVersion(course)) return false
-  return (course.certificate_enabled ?? metadata(course).certificateEnabled) !== false
+  return true
 }
 
 export function getCourseCertificatePrice(course: Course): number {

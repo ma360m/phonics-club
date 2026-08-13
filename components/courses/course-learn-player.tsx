@@ -679,7 +679,7 @@ function CurriculumSidebar({
           <p className="text-xs font-bold text-[#1D4ED8]">{progress}%</p>
           <Progress value={progress} className="mt-2 h-1.5" />
         </div>
-        <div className="space-y-2 overflow-y-auto pb-4">
+        <div className="space-y-2 overflow-y-auto pb-10">
           {lessons.map((lesson, index) => {
             const locked = isLocked(index)
             const active = activeLessonId === lesson.id
@@ -739,7 +739,7 @@ function CurriculumSidebar({
         </div>
       </div>
 
-      <div className="h-[calc(100%-132px)] overflow-y-auto px-3 py-3">
+      <div className="h-[calc(100%-132px)] overflow-y-auto px-3 pb-10 pt-3">
         <Accordion type="multiple" value={openModules} onValueChange={onOpenModulesChange} className="space-y-2">
           {modules.map((module, moduleIndex) => (
             <AccordionItem key={module.id} value={module.id} className="rounded-xl border border-slate-200 bg-white px-3">

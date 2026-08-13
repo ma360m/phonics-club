@@ -1,5 +1,5 @@
 import { requireAdmin } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export type CustomerReportRow = {
   key: string
@@ -103,14 +103,46 @@ function upsertCustomer(
 
 export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? await createServiceClient() : await createClient()
   const [ordersResult, enrollmentsResult, paymentsResult, registrationsResult, courseInvoicesResult] = await Promise.all([
     supabase.from('orders').select('id, user_id, guest_email, phone, shipping_address, items, invoice_number, coupon_code, member_id, created_at'),
-    supabase.from('enrollments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email,username)'),
-    supabase.from('course_payments').select('id, user_id, course_id, status, created_at, courses(title), profiles(full_name,email,username)'),
+    supabase.from('enrollments').select('id, user_id, course_id, status, created_at'),
+    supabase.from('course_payments').select('id, user_id, course_id, status, created_at'),
     supabase.from('training_registrations').select('id, user_id, full_name, email, phone, event_title, training_type, created_at'),
-    supabase.from('course_invoices').select('id, user_id, course_id, invoice_number, issued_at, courses(title)'),
+    supabase.from('course_invoices').select('id, user_id, course_id, invoice_number, issued_at'),
   ])
+
+  const relatedUserIds = new Set<string>()
+  const relatedCourseIds = new Set<string>()
+  for (const enrollment of enrollmentsResult.data ?? []) {
+    const userId = clean(enrollment.user_id)
+    const courseId = clean(enrollment.course_id)
+    if (userId) relatedUserIds.add(userId)
+    if (courseId) relatedCourseIds.add(courseId)
+  }
+  for (const payment of paymentsResult.data ?? []) {
+    const userId = clean(payment.user_id)
+    const courseId = clean(payment.course_id)
+    if (userId) relatedUserIds.add(userId)
+    if (courseId) relatedCourseIds.add(courseId)
+  }
+  for (const invoice of courseInvoicesResult.data ?? []) {
+    const userId = clean(invoice.user_id)
+    const courseId = clean(invoice.course_id)
+    if (userId) relatedUserIds.add(userId)
+    if (courseId) relatedCourseIds.add(courseId)
+  }
+
+  const [profilesResult, coursesResult] = await Promise.all([
+    relatedUserIds.size
+      ? supabase.from('profiles').select('id, full_name, email, username').in('id', [...relatedUserIds])
+      : Promise.resolve({ data: [] }),
+    relatedCourseIds.size
+      ? supabase.from('courses').select('id, title').in('id', [...relatedCourseIds])
+      : Promise.resolve({ data: [] }),
+  ])
+  const profilesById = new Map((profilesResult.data ?? []).map((profile: any) => [profile.id, profile]))
+  const coursesById = new Map((coursesResult.data ?? []).map((course: any) => [course.id, course]))
 
   const rows = new Map<string, MutableCustomerRow>()
   const userIdToKey = new Map<string, string>()
@@ -139,8 +171,8 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   }
 
   for (const enrollment of enrollmentsResult.data ?? []) {
-    const profile = enrollment.profiles as { full_name?: string | null; email?: string | null; username?: string | null } | null
-    const course = enrollment.courses as { title?: string | null } | null
+    const profile = profilesById.get(enrollment.user_id) as { full_name?: string | null; email?: string | null; username?: string | null } | null
+    const course = coursesById.get(enrollment.course_id) as { title?: string | null } | null
     const key = userIdToKey.get(enrollment.user_id) ?? customerKey({
       userId: enrollment.user_id,
       email: profile?.email,
@@ -159,8 +191,8 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   }
 
   for (const payment of paymentsResult.data ?? []) {
-    const profile = payment.profiles as { full_name?: string | null; email?: string | null; username?: string | null } | null
-    const course = payment.courses as { title?: string | null } | null
+    const profile = profilesById.get(payment.user_id) as { full_name?: string | null; email?: string | null; username?: string | null } | null
+    const course = coursesById.get(payment.course_id) as { title?: string | null } | null
     const key = userIdToKey.get(payment.user_id) ?? customerKey({
       userId: payment.user_id,
       email: profile?.email,
