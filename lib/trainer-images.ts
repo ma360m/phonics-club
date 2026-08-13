@@ -5,6 +5,8 @@ const TRAINER_IMAGE_BY_SLUG: Record<string, string> = {
   'ambreen-owais': '/images/trainers/ambreen.png',
   'anum-zehra-zaidi': '/images/trainers/Anum-Zahra-1.png',
   'anum-zahra-zaidi': '/images/trainers/Anum-Zahra-1.png',
+  'fatima-tuz-zahra': '/images/trainers/dr%20fatima%20tuz%20zahra.jpg',
+  'dr-fatima-tuz-zahra': '/images/trainers/dr%20fatima%20tuz%20zahra.jpg',
   'erum-tehreem': '/images/trainers/erum%20tehreem.png',
   'sadaf-asif': '/images/trainers/sadaf%20asif.png',
   'tahira-sheikh': '/images/trainers/tahira.png',

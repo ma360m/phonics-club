@@ -338,7 +338,7 @@ const DEFAULT_TRAINERS = [
     slug: 'fatima-tuz-zahra',
     title: 'Certified Jolly Phonics Trainer and Literacy Consultant',
     bio: 'Fatima Tuz Zahra leads Phonics Club and supports schools, teachers, parents, and learners through lively Jolly Phonics and Jolly Literacy training.',
-    image_url: null,
+    image_url: '/images/trainers/dr%20fatima%20tuz%20zahra.jpg',
     achievements: ['Founder and lead trainer at Phonics Club', 'Worked with government, foundations, publishers, and schools', 'Designed curricula and training for schools across budget levels'],
     credentials: ['Certified Jolly Phonics trainer', 'Literacy consultant', 'Synthetic Phonics implementation specialist'],
     specialties: ['Jolly Phonics', 'Jolly Literacy Training', 'School implementation', 'Teacher training'],
