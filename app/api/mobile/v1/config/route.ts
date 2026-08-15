@@ -1,6 +1,7 @@
 import { COMPANY } from '@/lib/company'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { getEnabledPaymentMethodSettings } from '@/lib/payment-method-settings'
+import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
 import { createServiceClient } from '@/lib/supabase/server'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { createMobileApiResponse, createMobileRequestId, handleMobileApiError } from '@/lib/mobile-api/response'
@@ -20,9 +21,11 @@ export async function GET(request: Request) {
   try {
     enforceMobileRateLimit(request, 'config', { limit: 120, windowMs: 60_000 })
 
-    const [currencySettings, paymentMethods] = await Promise.all([
+    const [currencySettings, paymentMethods, contactSettings, courseBankDetails] = await Promise.all([
       getCurrencySettings(),
       getEnabledPaymentMethodSettings(),
+      getContactSettings(),
+      getCourseBankDetails(),
     ])
     const supabase = await createServiceClient()
     const { data: mobileSettings } = await supabase
@@ -49,9 +52,16 @@ export async function GET(request: Request) {
           supportedCurrency: method.supportedCurrency,
           proofUploadRequired: method.proofUploadRequired,
         })),
+        courseBankDetails: {
+          bankName: courseBankDetails.bankName,
+          accountTitle: courseBankDetails.accountTitle,
+          accountNumber: courseBankDetails.accountNumber,
+          iban: courseBankDetails.iban,
+          instructions: courseBankDetails.instructions,
+        },
         support: {
           email: COMPANY.email,
-          phone: COMPANY.phoneDisplay,
+          phone: contactSettings.phoneDisplay,
           privacyPolicyUrl: `${appBaseUrl()}/privacy`,
           termsUrl: `${appBaseUrl()}/terms`,
           accountDeletionUrl: `${appBaseUrl()}/account-deletion`,

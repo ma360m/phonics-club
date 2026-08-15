@@ -10,6 +10,7 @@ import { FloatingCartButton } from '@/components/layout/floating-cart-button'
 import { buildMetadata, organizationJsonLd, websiteJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import { getCurrencySettings } from '@/lib/currency-settings'
+import { getContactSettings } from '@/lib/site-content'
 import { CURRENCY_PREFERENCE_KEY, normalizeCurrency } from '@/lib/currency'
 import { getDisplayPreferencesInitScript } from '@/lib/display-preferences/init-script'
 import './globals.css'
@@ -34,7 +35,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const currencySettings = await getCurrencySettings()
+  const [currencySettings, contactSettings] = await Promise.all([
+    getCurrencySettings(),
+    getContactSettings(),
+  ])
   const cookieStore = await cookies()
   const initialCurrency = normalizeCurrency(cookieStore.get(CURRENCY_PREFERENCE_KEY)?.value, currencySettings.usdEnabled)
 
@@ -42,14 +46,14 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
         <script dangerouslySetInnerHTML={{ __html: getDisplayPreferencesInitScript() }} />
-        <JsonLd data={organizationJsonLd()} />
+        <JsonLd data={organizationJsonLd(contactSettings)} />
         <JsonLd data={websiteJsonLd()} />
         <Providers currencySettings={currencySettings} initialCurrency={initialCurrency}>
           {children}
           <ShopNowPopup />
           <FloatingCartButton />
-          <PhonicsAssistant />
-          <WhatsAppFloating />
+          <PhonicsAssistant contactSettings={contactSettings} />
+          <WhatsAppFloating contactSettings={contactSettings} />
         </Providers>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

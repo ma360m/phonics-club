@@ -10,6 +10,7 @@ import { JsonLd } from '@/components/seo/json-ld'
 import { Badge } from '@/components/ui/badge'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { isProductComingSoon, PRODUCT_COMING_SOON_LABEL, PRODUCT_COMING_SOON_MESSAGE } from '@/lib/products/coming-soon'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -36,6 +37,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined)
   const pricing = getProductPricing(product)
   const compareAt = pricing.hasSaleDiscount ? pricing.basePrice : Number(product.compare_at_price ?? 0)
+  const comingSoon = isProductComingSoon(product)
 
   return (
     <main>
@@ -45,11 +47,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <div className="mx-auto max-w-7xl px-4 py-12">
         <BackButton fallbackHref="/shop" />
         <div className="mb-16 grid gap-12 lg:grid-cols-2">
-          <ProductGallery images={product.images} name={product.name} />
+          <ProductGallery images={product.images} name={product.name} comingSoon={comingSoon} />
           <div>
             <div className="mb-4 flex flex-wrap gap-2">
               <Badge>{product.category.replace(/-/g, ' ')}</Badge>
-              {pricing.hasSaleDiscount ? (
+              {comingSoon ? (
+                <Badge className="bg-[#0F172A] text-white">{PRODUCT_COMING_SOON_LABEL}</Badge>
+              ) : null}
+              {pricing.hasSaleDiscount && !comingSoon ? (
                 <Badge className="bg-gradient-to-r from-[#D30000] via-[#F59E0B] to-[#FBBF24] text-white">
                   {pricing.saleBadgeText}
                 </Badge>
@@ -69,6 +74,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </div>
             {product.description ? (
               <p className="mb-6 leading-relaxed text-muted-foreground">{product.description}</p>
+            ) : null}
+            {comingSoon ? (
+              <p className="mb-6 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm font-semibold text-[#1D4ED8]">
+                {PRODUCT_COMING_SOON_MESSAGE}
+              </p>
             ) : null}
             <ProductShopActions product={product} />
           </div>

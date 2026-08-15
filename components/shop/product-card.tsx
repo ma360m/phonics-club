@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { isProductComingSoon, PRODUCT_COMING_SOON_LABEL } from '@/lib/products/coming-soon'
 
 export function ProductCard({ product, wishlistMode = false }: { product: Product; wishlistMode?: boolean }) {
   const [isZoomOpen, setIsZoomOpen] = useState(false)
@@ -20,6 +21,7 @@ export function ProductCard({ product, wishlistMode = false }: { product: Produc
   const pricing = getProductPricing(product)
   const hasDiscount = pricing.hasSaleDiscount || compareAtPrice > pricing.displayPrice
   const crossedOutPrice = pricing.hasSaleDiscount ? pricing.basePrice : compareAtPrice
+  const comingSoon = isProductComingSoon(product)
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-xl">
@@ -28,7 +30,7 @@ export function ProductCard({ product, wishlistMode = false }: { product: Produc
           <ProductImage
             src={image}
             alt={product.name}
-            className="transition-transform duration-500 group-hover:scale-105"
+            className={`transition-transform duration-500 group-hover:scale-105 ${comingSoon ? 'opacity-70 saturate-75' : ''}`}
           />
         </Link>
         {image && (
@@ -47,13 +49,18 @@ export function ProductCard({ product, wishlistMode = false }: { product: Produc
             <ZoomIn className="h-4 w-4" />
           </Button>
         )}
-        {pricing.hasSaleDiscount && (
+        {pricing.hasSaleDiscount && !comingSoon && (
           <div className="pointer-events-none absolute left-0 top-0 z-20 h-24 w-24 overflow-hidden">
             <div className="absolute left-[-34px] top-[18px] w-32 -rotate-45 bg-gradient-to-r from-[#D30000] via-[#F59E0B] to-[#FBBF24] py-1 text-center text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-md">
               {pricing.saleBadgeText}
             </div>
           </div>
         )}
+        {comingSoon ? (
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-20 rounded-full bg-[#0F172A]/90 px-4 py-2 text-center text-xs font-black uppercase tracking-wide text-white shadow-lg backdrop-blur">
+            {PRODUCT_COMING_SOON_LABEL}
+          </div>
+        ) : null}
         {product.featured && (
           <Badge className="absolute bottom-3 left-3 z-20 bg-[#FBBF24] text-foreground">Featured</Badge>
         )}

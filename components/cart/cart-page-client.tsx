@@ -37,6 +37,7 @@ interface CartItem {
     max_purchase_quantity?: number | null
     estimated_availability_date?: string | null
     backorder_message?: string | null
+    metadata?: Record<string, unknown> | null
   }
 }
 
@@ -67,6 +68,7 @@ export function CartPageClient() {
   const subtotal = items.reduce((sum, item) => sum + getProductPricing(item.products).displayPrice * item.quantity, 0)
   const delivery = SHIPPING_FEE_PKR
   const total = subtotal + delivery
+  const hasUnavailableItems = items.some((item) => getProductStockNotice(item.products, item.quantity)?.ok === false)
 
   if (loading) {
     return <p className="text-muted-foreground py-12 text-center">Loading cart...</p>
@@ -156,9 +158,15 @@ export function CartPageClient() {
         </div>
         <CurrencyDisplayNotice className="rounded-xl border bg-muted/50 p-3" />
       </div>
-      <Button asChild className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90 h-12">
-        <Link href="/checkout">Proceed to Checkout</Link>
-      </Button>
+      {hasUnavailableItems ? (
+        <Button disabled className="h-12 w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
+          Remove unavailable items
+        </Button>
+      ) : (
+        <Button asChild className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90 h-12">
+          <Link href="/checkout">Proceed to Checkout</Link>
+        </Button>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY } from '@/lib/company'
-import { getFaqs } from '@/lib/site-content'
+import { getContactSettings, getFaqs } from '@/lib/site-content'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 
@@ -12,7 +12,10 @@ export const metadata = buildMetadata({
 })
 
 export default async function FAQsPage() {
-  const faqs = await getFaqs()
+  const [faqs, contactSettings] = await Promise.all([
+    getFaqs(),
+    getContactSettings(),
+  ])
 
   return (
     <main>
@@ -115,7 +118,7 @@ export default async function FAQsPage() {
           </Accordion>
           <div className="mt-12 text-center">
             <p className="mb-4 text-muted-foreground">Still have questions?</p>
-            <WhatsAppButton />
+            <WhatsAppButton contactSettings={contactSettings} />
           </div>
         </div>
       </section>

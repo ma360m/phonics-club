@@ -24,7 +24,7 @@ import {
 } from '@/lib/lms'
 import { createServiceClient } from '@/lib/supabase/server'
 import { APP_URL } from '@/lib/constants'
-import { getBankDetails } from '@/lib/site-content'
+import { getCourseBankDetails } from '@/lib/site-content'
 import { formatPrice } from '@/utils/format'
 import { Award, CheckCircle2, ChevronLeft, Clock, CreditCard, Download, ExternalLink, ShieldCheck, UploadCloud } from 'lucide-react'
 
@@ -97,7 +97,7 @@ export default async function CertificateStatusPage({
   const certificatePaymentCanUpload = certificatePayment && ['pending', 'processing', 'rejected'].includes(certificatePayment.status)
   const certificatePaymentWaiting = certificatePayment?.status === 'submitted'
   const bankDetails = !managerPreview && certificatePaymentRequired && status.eligible && !certificatePaymentApproved
-    ? await getBankDetails()
+    ? await getCourseBankDetails()
     : null
   const certificateReady = status.eligible && (!certificatePaymentRequired || certificatePaymentApproved)
   const certificateBadgeLabel = certificate
@@ -257,6 +257,11 @@ export default async function CertificateStatusPage({
                   <CertificateField label="IBAN" value={bankDetails.iban || 'Not provided'} />
                 </div>
               )}
+              {bankDetails?.instructions ? (
+                <p className="mt-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm leading-6 text-[#1D4ED8]">
+                  {bankDetails.instructions}
+                </p>
+              ) : null}
 
               {!certificatePayment ? (
                 <form action={startCertificatePaymentFormAction}>

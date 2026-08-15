@@ -1,5 +1,6 @@
 import { slugify } from '@/utils/slug'
 import { PRODUCT_CATEGORIES } from '@/lib/constants'
+import { isProductComingSoon } from '@/lib/products/coming-soon'
 
 export const PRODUCT_EXPORT_COLUMNS = [
   'isbn',
@@ -13,6 +14,7 @@ export const PRODUCT_EXPORT_COLUMNS = [
   'sale_enabled',
   'sale_price',
   'sale_percentage',
+  'coming_soon',
   'featured',
   'published',
   'images',
@@ -30,6 +32,7 @@ export type ProductImportRow = {
   sale_enabled: boolean
   sale_price: number | null
   sale_percentage: number | null
+  coming_soon: boolean
   featured: boolean
   published: boolean
   images: string[]
@@ -110,6 +113,7 @@ export function normalizeImportRow(raw: Record<string, unknown>): ProductImportR
       salePercentage === null || salePercentage === undefined || salePercentage === ''
         ? null
         : parseNumber(salePercentage),
+    coming_soon: parseBoolean(raw.coming_soon ?? raw.ComingSoon ?? raw['coming soon']),
     featured: parseBoolean(raw.featured ?? raw.Featured),
     published: parseBoolean(raw.published ?? raw.Published ?? true),
     images: parseImages(raw.images ?? raw.Images ?? raw.image ?? raw.image_url),
@@ -130,6 +134,7 @@ export function rowToExportRecord(product: Record<string, unknown>) {
     sale_enabled: Boolean(product.sale_enabled),
     sale_price: product.sale_price ? Number(product.sale_price) : '',
     sale_percentage: product.sale_percentage ? Number(product.sale_percentage) : '',
+    coming_soon: isProductComingSoon(product),
     featured: Boolean(product.featured),
     published: Boolean(product.published ?? true),
     images: (images ?? []).join(', '),

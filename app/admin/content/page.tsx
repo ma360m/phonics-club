@@ -7,6 +7,8 @@ import {
   getAboutPageContent,
   getAllSiteContent,
   getBankDetails,
+  getContactSettings,
+  getCourseBankDetails,
   getFaqs,
   getHomepageGallery,
   getInvoiceTemplate,
@@ -22,6 +24,8 @@ import { SiteMediaUpload } from '@/components/admin/site-media-upload'
 import { SiteVideosManager } from '@/components/admin/site-videos-manager'
 import { AboutGalleryManager } from '@/components/admin/about-gallery-manager'
 import { FaqsManager } from '@/components/admin/faqs-manager'
+import { ContactSettingsForm } from '@/components/admin/contact-settings-form'
+import { CourseBankDetailsForm } from '@/components/admin/course-bank-details-form'
 import { SiteContentEditorList } from '@/components/admin/site-content-editor-list'
 
 const SECTIONS = [
@@ -56,6 +60,8 @@ export default async function AdminContentPage() {
     cookiesPolicy,
     invoiceTemplate,
     bankDetails,
+    contactSettings,
+    courseBankDetails,
   ] = await Promise.all([
     getAllSiteContent(),
     getSchoolLogos(),
@@ -71,6 +77,8 @@ export default async function AdminContentPage() {
     getPolicyContent('cookies_policy'),
     getInvoiceTemplate(),
     getBankDetails(),
+    getContactSettings(),
+    getCourseBankDetails(),
   ])
 
   const contentMap = Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content]))
@@ -93,7 +101,7 @@ export default async function AdminContentPage() {
     <div>
       <h1 className="mb-2 text-3xl font-bold">Site Content</h1>
       <p className="mb-8 text-muted-foreground">
-        Manage homepage announcements, website videos, testimonials, reels, Vortex Learning, About, Research, policies, invoice settings, and bank details.
+        Manage homepage announcements, website videos, testimonials, reels, Vortex Learning, About, Research, policies, contact numbers, invoice settings, and bank details.
       </p>
 
       <div className="max-w-4xl space-y-8">
@@ -107,6 +115,8 @@ export default async function AdminContentPage() {
         <SocialReelsManager reels={socialReels} />
         <AboutGalleryManager content={aboutPage} />
         <FaqsManager faqs={faqs} />
+        <ContactSettingsForm settings={contactSettings} />
+        <CourseBankDetailsForm details={courseBankDetails} />
 
         <SiteContentEditorList sections={SECTIONS} contentMap={contentMap} defaults={defaults} />
       </div>

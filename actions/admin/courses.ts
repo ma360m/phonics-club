@@ -438,48 +438,85 @@ export async function getInstructorDashboardData() {
   const actor = await requireAdminOrInstructor()
   const supabase = await createClient()
   const managedCourseIds = await getManagedCourseIds(actor, supabase)
-  if (managedCourseIds && managedCourseIds.length === 0) {
-    return {
-      summary: {
-        publishedCourses: 0,
-        draftCourses: 0,
-        totalStudents: 0,
-        averageCompletion: 0,
-      },
-      courses: [],
-      missingChildrenCourses: [],
-      recentActivity: [],
-      attentionItems: [],
-    }
+  const emptyDashboard = {
+    summary: {
+      publishedCourses: 0,
+      draftCourses: 0,
+      totalStudents: 0,
+      averageCompletion: 0,
+      reviewCount: 0,
+      averageRating: 0,
+    },
+    courses: [],
+    missingChildrenCourses: [],
+    recentActivity: [],
+    attentionItems: [],
+    recentReviews: [],
   }
+  if (managedCourseIds && managedCourseIds.length === 0) {
+    return emptyDashboard
+  }
+  const coursesQueryBase = supabase.from('courses').select('*')
+  const coursesQuery = (managedCourseIds ? coursesQueryBase.in('id', managedCourseIds) : coursesQueryBase)
+    .order('updated_at', { ascending: false })
+  const enrollmentsQueryBase = supabase
+    .from('enrollments')
+    .select('id, user_id, course_id, progress, status, last_accessed_at, enrolled_at')
+  const enrollmentsQuery = managedCourseIds ? enrollmentsQueryBase.in('course_id', managedCourseIds) : enrollmentsQueryBase
+  const modulesQueryBase = supabase.from('course_modules').select('id, course_id, title, sort_order')
+  const modulesQuery = managedCourseIds ? modulesQueryBase.in('course_id', managedCourseIds) : modulesQueryBase
+  const lessonsQueryBase = supabase
+    .from('course_lessons')
+    .select('id, course_id, module_id, title, lesson_type, thumbnail_url, video_url, material_url, article_content, rich_content, sort_order, published')
+  const lessonsQuery = managedCourseIds ? lessonsQueryBase.in('course_id', managedCourseIds) : lessonsQueryBase
+  const quizzesQueryBase = supabase.from('course_quizzes').select('id, course_id, lesson_id, title, published')
+  const quizzesQuery = managedCourseIds ? quizzesQueryBase.in('course_id', managedCourseIds) : quizzesQueryBase
+  const progressQueryBase = supabase
+    .from('lesson_progress')
+    .select('id, user_id, course_id, lesson_id, completed, updated_at, last_accessed_at')
+  const progressQuery = (managedCourseIds ? progressQueryBase.in('course_id', managedCourseIds) : progressQueryBase)
+    .order('updated_at', { ascending: false })
+    .limit(8)
+  const reviewsQueryBase = supabase
+    .from('course_reviews')
+    .select('id, course_id, rating, comment, created_at')
+  const reviewsQuery = (managedCourseIds ? reviewsQueryBase.in('course_id', managedCourseIds) : reviewsQueryBase)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
   const [
     coursesResult,
     enrollmentsResult,
     modulesResult,
     lessonsResult,
     quizzesResult,
-    questionsResult,
     progressResult,
+    reviewsResult,
   ] = await Promise.all([
-    supabase.from('courses').select('*').order('updated_at', { ascending: false }),
-    supabase.from('enrollments').select('id, user_id, course_id, progress, status, last_accessed_at, enrolled_at'),
-    supabase.from('course_modules').select('id, course_id, title, sort_order'),
-    supabase.from('course_lessons').select('id, course_id, module_id, title, lesson_type, thumbnail_url, video_url, material_url, article_content, rich_content, sort_order, published'),
-    supabase.from('course_quizzes').select('id, course_id, lesson_id, title, published'),
-    supabase.from('quiz_questions').select('id, quiz_id'),
-    supabase.from('lesson_progress').select('id, user_id, course_id, lesson_id, completed, updated_at, last_accessed_at').order('updated_at', { ascending: false }).limit(8),
+    coursesQuery,
+    enrollmentsQuery,
+    modulesQuery,
+    lessonsQuery,
+    quizzesQuery,
+    progressQuery,
+    reviewsQuery,
   ])
 
   const dbCourses = (coursesResult.data ?? []) as Course[]
   const allowedCourseIdSet = managedCourseIds ? new Set(managedCourseIds) : null
   const scopedDbCourses = allowedCourseIdSet ? dbCourses.filter((course) => allowedCourseIdSet.has(course.id)) : dbCourses
   const courses = managedCourseIds ? scopedDbCourses : mergeMissingChildrenPhonicsCourses(scopedDbCourses)
-  const enrollments = allowedCourseIdSet ? (enrollmentsResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : enrollmentsResult.data ?? []
-  const modules = allowedCourseIdSet ? (modulesResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : modulesResult.data ?? []
-  const lessons = allowedCourseIdSet ? (lessonsResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : lessonsResult.data ?? []
-  const quizzes = allowedCourseIdSet ? (quizzesResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : quizzesResult.data ?? []
+  const enrollments = enrollmentsResult.data ?? []
+  const modules = modulesResult.data ?? []
+  const lessons = lessonsResult.data ?? []
+  const quizzes = quizzesResult.data ?? []
+  const progress = progressResult.data ?? []
+  const reviews = reviewsResult.data ?? []
+  const quizIds = quizzes.map((quiz: any) => quiz.id).filter(Boolean)
+  const questionsResult = quizIds.length
+    ? await supabase.from('quiz_questions').select('id, quiz_id').in('quiz_id', quizIds)
+    : { data: [] }
   const questions = questionsResult.data ?? []
-  const progress = allowedCourseIdSet ? (progressResult.data ?? []).filter((row: any) => allowedCourseIdSet.has(row.course_id)) : progressResult.data ?? []
 
   const questionsByQuiz = new Map<string, number>()
   questions.forEach((question: any) => {
@@ -495,6 +532,10 @@ export async function getInstructorDashboardData() {
     const courseModules = modules.filter((module: any) => module.course_id === course.id)
     const courseLessons = lessons.filter((lesson: any) => lesson.course_id === course.id)
     const courseQuizzes = quizzes.filter((quiz: any) => quiz.course_id === course.id)
+    const courseReviews = reviews.filter((review: any) => review.course_id === course.id)
+    const averageRating = courseReviews.length
+      ? Number((courseReviews.reduce((sum: number, review: any) => sum + Number(review.rating ?? 0), 0) / courseReviews.length).toFixed(1))
+      : 0
     const issues: string[] = []
 
     if (!course.published) issues.push('Unpublished course')
@@ -511,6 +552,8 @@ export async function getInstructorDashboardData() {
       moduleCount: courseModules.length,
       lessonCount: courseLessons.length,
       quizCount: courseQuizzes.length,
+      reviewCount: courseReviews.length,
+      averageRating,
       issues,
     }
   })
@@ -519,6 +562,10 @@ export async function getInstructorDashboardData() {
   const averageCompletion = enrollments.length
     ? Math.round(enrollments.reduce((sum: number, enrollment: any) => sum + Number(enrollment.progress ?? 0), 0) / enrollments.length)
     : 0
+  const reviewCount = reviews.length
+  const averageRating = reviewCount
+    ? Number((reviews.reduce((sum: number, review: any) => sum + Number(review.rating ?? 0), 0) / reviewCount).toFixed(1))
+    : 0
 
   return {
     summary: {
@@ -526,6 +573,8 @@ export async function getInstructorDashboardData() {
       draftCourses: courses.filter((course) => !course.published).length,
       totalStudents,
       averageCompletion,
+      reviewCount,
+      averageRating,
     },
     courses: courseRows,
     missingChildrenCourses: managedCourseIds ? [] : CHILDREN_PHONICS_COURSES.filter(
@@ -540,6 +589,17 @@ export async function getInstructorDashboardData() {
         lessonTitle: lesson?.title ?? 'Lesson',
         completed: Boolean(item.completed),
         updatedAt: item.last_accessed_at ?? item.updated_at,
+      }
+    }),
+    recentReviews: reviews.slice(0, 8).map((review: any) => {
+      const course = courses.find((row) => row.id === review.course_id)
+      return {
+        id: review.id,
+        courseId: review.course_id,
+        courseTitle: course?.title ?? 'Course',
+        rating: Number(review.rating ?? 0),
+        comment: review.comment ?? null,
+        createdAt: review.created_at,
       }
     }),
     attentionItems: courseRows.flatMap((row) =>

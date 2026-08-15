@@ -5,7 +5,7 @@ import { EagerTrainingVideo } from '@/components/training/eager-training-video'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY, TRAINING_CALENDAR_2026, ONLINE_WEBINARS, WEEKLY_PLAN } from '@/lib/company'
-import { getWebsiteVideos } from '@/lib/site-content'
+import { getContactSettings, getWebsiteVideos } from '@/lib/site-content'
 import { getPublishedTrainingEvents } from '@/actions/training'
 import { formatDate } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
@@ -21,9 +21,10 @@ export const metadata = buildMetadata({
 })
 
 export default async function TrainingsPage() {
-  const [websiteVideos, trainingEvents] = await Promise.all([
+  const [websiteVideos, trainingEvents, contactSettings] = await Promise.all([
     getWebsiteVideos(),
     getPublishedTrainingEvents(),
+    getContactSettings(),
   ])
   const adminOnsiteEvents = trainingEvents
     .filter((event) => event.event_type === 'onsite_training' && event.event_date)
@@ -62,7 +63,7 @@ export default async function TrainingsPage() {
             <h1 className="mb-4 text-4xl font-bold">Professional Training</h1>
             <p className="text-lg text-white/85">{TRAINING_HERO_DESCRIPTION}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <WhatsAppButton />
+              <WhatsAppButton contactSettings={contactSettings} />
             </div>
           </div>
 
@@ -142,7 +143,7 @@ export default async function TrainingsPage() {
               Share your preferred month and approximate participant count in the registration form, or contact Phonics Club for a custom onsite session.
             </p>
             <div className="mt-5 flex justify-center">
-              <WhatsAppButton />
+              <WhatsAppButton contactSettings={contactSettings} />
             </div>
           </div>
         </div>
@@ -178,7 +179,7 @@ export default async function TrainingsPage() {
           <p className="mt-2">
             <a href={`mailto:${COMPANY.email}`} className="text-[#1D4ED8] hover:underline">{COMPANY.email}</a>
             {' - '}
-            WhatsApp: {COMPANY.phone}
+            WhatsApp: {contactSettings.phoneDisplay}
           </p>
         </div>
       </div>

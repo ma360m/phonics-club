@@ -8,6 +8,7 @@ import { getCurrencySettings } from '@/lib/currency-settings'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail, type LowStockEmailAlert } from '@/lib/email/send-order-email'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
+import { isProductComingSoon, PRODUCT_COMING_SOON_MESSAGE } from '@/lib/products/coming-soon'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import { normalizePhone } from '@/lib/validations/checkout'
 import type { MobileAuthContext } from './auth'
@@ -45,6 +46,10 @@ function productImage(product: Product) {
 function validateProductQuantity(product: Product, quantity: number) {
   if (!product.published) {
     throw new MobileApiError('PRODUCT_UNAVAILABLE', `${product.name} is not available.`, 409)
+  }
+
+  if (isProductComingSoon(product)) {
+    throw new MobileApiError('PRODUCT_COMING_SOON', `${product.name}: ${PRODUCT_COMING_SOON_MESSAGE}`, 409)
   }
 
   if (product.max_purchase_quantity && quantity > product.max_purchase_quantity) {

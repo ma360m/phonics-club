@@ -22,7 +22,8 @@ import { ensureChildrenPhonicsCourseInstalledBySlug } from '@/lib/data/children-
 import { isChildrenPhonicsCourseSlug } from '@/lib/data/children-phonics-courses'
 import { getCourseAccessState, getCoursePrice, getUserEnrollment, isCertificatePayment, isCourseFree } from '@/lib/lms'
 import { getEnabledPaymentMethodSettings, DEFAULT_PAYMENT_METHOD_SETTINGS } from '@/lib/payment-method-settings'
-import { getBankDetails } from '@/lib/site-content'
+import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { createClient } from '@/lib/supabase/server'
 import { COURSE_LICENSE_EMAIL_ADDRESS } from '@/lib/email/send-course-license-email'
 import { formatPrice } from '@/utils/format'
@@ -109,13 +110,15 @@ export default async function CoursePaymentPage({
     redirect(`/courses/${slug}?enrollError=${encodeURIComponent(checkout.error ?? 'Payment could not be started')}`)
   }
 
-  const [enrollment, bankDetails, enabledPaymentMethods] = await Promise.all([
+  const [enrollment, bankDetails, enabledPaymentMethods, contactSettings] = await Promise.all([
     getUserEnrollment(user.id, course.id),
-    getBankDetails(),
+    getCourseBankDetails(),
     getEnabledPaymentMethodSettings(Number(payment.amount ?? 0)),
+    getContactSettings(),
   ])
   const access = getCourseAccessState(enrollment as never)
   const active = access.active
+  const contactPhoneLinks = getContactPhoneLinks(contactSettings)
   const enabledCoursePaymentMethods = enabledPaymentMethods.filter((method) => method.method === 'bank_transfer')
   const coursePaymentOptions = enabledCoursePaymentMethods.length
     ? enabledCoursePaymentMethods
@@ -208,12 +211,21 @@ export default async function CoursePaymentPage({
                               </div>
                             ) : null}
                           </dl>
-                          <p className="mt-4 text-sm leading-6 text-slate-600">
-                            Need help? Contact{' '}
-                            <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] hover:underline">0308 4432015</a>
-                            {' '}or{' '}
-                            <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] hover:underline">0300 8079480</a>.
-                          </p>
+                          {bankDetails.instructions ? (
+                            <p className="mt-4 text-sm leading-6 text-slate-600">{bankDetails.instructions}</p>
+                          ) : null}
+                          {contactPhoneLinks.length ? (
+                            <p className="mt-4 text-sm leading-6 text-slate-600">
+                              Need help? Contact{' '}
+                              {contactPhoneLinks.map((phone, index) => (
+                                <span key={phone.href}>
+                                  {index ? ' or ' : null}
+                                  <a href={phone.href} className="font-semibold text-[#1D4ED8] hover:underline">{phone.display}</a>
+                                </span>
+                              ))}
+                              .
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </article>

@@ -3,9 +3,11 @@ import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { buildMetadata } from '@/utils/seo'
 import { getResearchPageContent } from '@/lib/site-content'
+import { listLocalBlogImages } from '@/lib/data/training-events-blog'
+import type { BlogGalleryImage } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ExternalLink, MapPin, School } from 'lucide-react'
+import { ExternalLink, Images, MapPin, School } from 'lucide-react'
 
 export const metadata = buildMetadata({
   title: 'Research',
@@ -13,8 +15,66 @@ export const metadata = buildMetadata({
   path: '/research',
 })
 
+const PILOT_EVALUATION_GALLERY_FOLDERS = [
+  { folder: 'Lahore pilot project evaluation team schools', label: 'Lahore pilot project evaluation team schools' },
+  { folder: 'gujranwala pilot project 2025 fall evaluation team', label: 'Gujranwala pilot project evaluation team' },
+]
+
+function getPilotEvaluationGalleryImages(): BlogGalleryImage[] {
+  return PILOT_EVALUATION_GALLERY_FOLDERS.flatMap(({ folder, label }) =>
+    listLocalBlogImages(folder).map((image, index) => ({
+      ...image,
+      alt: image.alt ?? `${label} photograph ${index + 1}`,
+      caption: label,
+    })),
+  )
+}
+
+function PilotEvaluationGallery({ images }: { images: BlogGalleryImage[] }) {
+  if (!images.length) return null
+
+  return (
+    <details className="group mt-6 rounded-xl border border-[#BFDBFE] bg-[#F8FAFC] p-5">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 outline-none focus-visible:ring-2 focus-visible:ring-[#1D4ED8]/40 sm:flex-row sm:items-center sm:justify-between">
+        <span className="inline-flex items-center gap-2 font-bold text-[#0F172A]">
+          <Images className="h-5 w-5 text-[#1D4ED8]" />
+          2025 Pilot Project Evaluation Gallery
+        </span>
+        <span className="inline-flex w-fit items-center rounded-full border bg-white px-4 py-2 text-sm font-semibold text-[#1D4ED8] transition-colors group-open:bg-[#1D4ED8] group-open:text-white">
+          <span className="group-open:hidden">Show gallery ({images.length})</span>
+          <span className="hidden group-open:inline">Hide gallery</span>
+        </span>
+      </summary>
+      <div className="mt-5 overflow-x-auto pb-4 [scrollbar-color:#1D4ED8_#DBEAFE] [scrollbar-width:thin]" aria-label="2025 pilot project evaluation photographs">
+        <div className="flex snap-x snap-mandatory gap-4">
+          {images.map((image, index) => (
+            <figure key={`${image.src}-${index}`} className="min-w-[82%] snap-start overflow-hidden rounded-lg border bg-white sm:min-w-[46%] lg:min-w-[31%]">
+              <div className="relative aspect-[4/3] bg-slate-50">
+                <Image
+                  src={image.src}
+                  alt={image.alt ?? 'Phonics Club pilot project evaluation photograph'}
+                  fill
+                  className="object-contain p-2"
+                  sizes="(max-width: 640px) 82vw, (max-width: 1024px) 46vw, 31vw"
+                />
+              </div>
+              {image.caption ? <figcaption className="px-4 py-3 text-sm text-muted-foreground">{image.caption}</figcaption> : null}
+            </figure>
+          ))}
+        </div>
+      </div>
+    </details>
+  )
+}
+
+function isCurrentPilotProject(project: { title: string; period?: string; cities?: string[] }) {
+  const label = `${project.title} ${project.period ?? ''}`
+  return /multi-city|2025|2026/i.test(label) || Boolean(project.cities?.some((city) => ['Lahore', 'Gujranwala'].includes(city)))
+}
+
 export default async function ResearchPage() {
   const content = await getResearchPageContent()
+  const pilotEvaluationImages = getPilotEvaluationGalleryImages()
 
   return (
     <main>
@@ -118,6 +178,8 @@ export default async function ResearchPage() {
                     </div>
                   </div>
                 ) : null}
+
+                {isCurrentPilotProject(project) ? <PilotEvaluationGallery images={pilotEvaluationImages} /> : null}
 
                 {project.images?.length ? (
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">

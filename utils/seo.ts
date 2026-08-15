@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { APP_NAME, APP_DESCRIPTION, CANONICAL_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
+import { DEFAULT_CONTACT_SETTINGS, type ContactSettings } from '@/lib/contact-settings'
 import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
+import { isProductComingSoon } from '@/lib/products/coming-soon'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import type { Product, Course, BlogPost } from '@/types/database'
 
@@ -98,7 +100,7 @@ export function buildMetadata({
   }
 }
 
-export function organizationJsonLd() {
+export function organizationJsonLd(contactSettings: ContactSettings = DEFAULT_CONTACT_SETTINGS) {
   const sameAs = [COMPANY.social.instagram, COMPANY.social.facebook, COMPANY.social.youtube].filter(Boolean)
 
   return {
@@ -122,6 +124,7 @@ export function organizationJsonLd() {
       {
         '@type': 'ContactPoint',
         contactType: 'customer support',
+        telephone: contactSettings.phoneIntl || contactSettings.phoneDisplay,
         areaServed: 'PK',
         availableLanguage: ['English', 'Urdu'],
       },
@@ -133,6 +136,7 @@ export function organizationJsonLd() {
 export function productJsonLd(product: Product) {
   const pricing = getProductPricing(product)
   const image = absoluteUrl(product.images[0])
+  const comingSoon = isProductComingSoon(product)
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -146,7 +150,9 @@ export function productJsonLd(product: Product) {
       price: pricing.displayPrice,
       priceCurrency: 'PKR',
       availability:
-        product.stock > 0
+        comingSoon
+          ? 'https://schema.org/OutOfStock'
+          : product.stock > 0
           ? 'https://schema.org/InStock'
           : 'https://schema.org/OutOfStock',
       url: `${CANONICAL_URL}/shop/${product.slug}`,

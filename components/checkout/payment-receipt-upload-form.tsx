@@ -6,15 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { ActionResult } from '@/types'
+import type { ContactPhoneLink } from '@/lib/contact-settings'
 
 const initialState: ActionResult = { success: false }
 
 export function PaymentReceiptUploadForm({
   orderId,
   token,
+  supportPhoneLinks = [],
 }: {
   orderId: string
   token?: string
+  supportPhoneLinks?: ContactPhoneLink[]
 }) {
   const [state, formAction, pending] = useActionState(submitOrderReceiptAction, initialState)
 
@@ -30,9 +33,13 @@ export function PaymentReceiptUploadForm({
       </p>
       <p className="mt-3 rounded-xl bg-[#EFF6FF] px-3 py-2 text-sm text-slate-600">
         Having issue with payment? Contact us at{' '}
-        <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0308 4432015</a>
-        {' '}or{' '}
-        <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0300 8079480</a>.
+        {supportPhoneLinks.map((phone, index) => (
+          <span key={phone.href}>
+            {index ? ' or ' : null}
+            <a href={phone.href} className="font-semibold text-[#1D4ED8] underline underline-offset-4">{phone.display}</a>
+          </span>
+        ))}
+        .
       </p>
 
       {state.error && (

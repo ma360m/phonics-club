@@ -39,6 +39,7 @@ export interface TrainingEventArticle {
   audience?: string
   theme?: string
   galleryFolder: string
+  galleryFolders?: string[]
   originalPostUrls?: string[]
   newsletterUrl?: string | null
   featured?: boolean
@@ -58,7 +59,9 @@ export interface TrainingEventArticle {
 }
 
 const BLOG_IMAGE_ROOT = '/images/blog'
-const LOCAL_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+const EVENT_PHOTO_IMAGE_ROOT = '/images/photos'
+const LOCAL_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'])
+const SKIPPED_EVENT_PHOTO_FOLDERS = [/beginning international/i, /begining international/i, /kips/i]
 
 function escapeHtml(value: string) {
   return value
@@ -93,23 +96,57 @@ function articleContentHtml(article: TrainingEventArticle) {
   return `${paragraphs}${sections}${bullets}`
 }
 
-export function listLocalBlogImages(folder: string): BlogGalleryImage[] {
-  const absoluteFolder = path.join(process.cwd(), 'public', 'images', 'blog', folder)
-  if (!fs.existsSync(absoluteFolder)) return []
+function isSkippedEventPhotoFolder(folder: string) {
+  return SKIPPED_EVENT_PHOTO_FOLDERS.some((pattern) => pattern.test(folder))
+}
 
-  return fs
-    .readdirSync(absoluteFolder)
-    .filter((file) => LOCAL_IMAGE_EXTENSIONS.has(path.extname(file).toLowerCase()))
+function publicImagePath(root: string, folder: string, file: string) {
+  return [
+    root,
+    ...folder.split(/[\\/]+/).filter(Boolean).map((part) => encodeURIComponent(part)),
+    ...file.split(/[\\/]+/).filter(Boolean).map((part) => encodeURIComponent(part)),
+  ].join('/')
+}
+
+function listImageFilesRecursive(folder: string, baseFolder = folder): string[] {
+  if (!fs.existsSync(folder)) return []
+
+  return fs.readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(folder, entry.name)
+    if (entry.isDirectory()) return listImageFilesRecursive(entryPath, baseFolder)
+    if (!entry.isFile() || !LOCAL_IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) return []
+    return [path.relative(baseFolder, entryPath)]
+  })
+}
+
+function listLocalImages(rootDir: 'photos' | 'blog', folder: string, imageRoot: string): BlogGalleryImage[] {
+  if (rootDir === 'photos' && isSkippedEventPhotoFolder(folder)) return []
+
+  const absoluteFolder = path.join(process.cwd(), 'public', 'images', rootDir, folder)
+  const files = listImageFilesRecursive(absoluteFolder)
+  if (!files.length) return []
+
+  return files
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
     .map((file, index) => ({
-      src: `${BLOG_IMAGE_ROOT}/${folder}/${file}`,
-      alt: `${folder.replace(/-/g, ' ')} event photograph ${index + 1}`,
+      src: publicImagePath(imageRoot, folder, file),
+      alt: `${folder.replace(/[-_/\\]+/g, ' ')} event photograph ${index + 1}`,
       caption: null,
     }))
 }
 
+export function listLocalBlogImages(folder: string): BlogGalleryImage[] {
+  const eventPhotos = listLocalImages('photos', folder, EVENT_PHOTO_IMAGE_ROOT)
+  if (eventPhotos.length) return eventPhotos
+  return listLocalImages('blog', folder, BLOG_IMAGE_ROOT)
+}
+
+function getTrainingEventGalleryFolders(article: TrainingEventArticle) {
+  return article.galleryFolders?.length ? article.galleryFolders : [article.galleryFolder]
+}
+
 export function getTrainingEventGallery(article: TrainingEventArticle): BlogGalleryImage[] {
-  return listLocalBlogImages(article.galleryFolder)
+  return getTrainingEventGalleryFolders(article).flatMap((folder) => listLocalBlogImages(folder))
 }
 
 export function getTrainingEventHeroImage(article: TrainingEventArticle): string | null {
@@ -405,6 +442,32 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     ],
   },
   {
+    id: 'event-avalon-high-school-lahore-2025',
+    slug: 'teacher-training-avalon-high-school-lahore-2025',
+    title: '2025 Training at Avalon High School, Lahore',
+    excerpt: 'A professional phonics training session at Avalon High School, Lahore, conducted by Dr. Fatima Tuz Zahra and organized by Phonics Club.',
+    category: 'training',
+    tags: ['Professional Development', 'Lahore', 'Jolly Phonics Training', 'Teacher Training'],
+    location: 'Avalon High School, Wapda Town, Lahore',
+    venue: 'Avalon High School',
+    city: 'Lahore',
+    country: 'Pakistan',
+    dateDisplay: '2025',
+    sortDate: '2025-03-01T00:00:00.000Z',
+    trainer: 'Dr. Fatima Tuz Zahra',
+    organizer: 'Phonics Club',
+    galleryFolder: 'avalon school wapda town lahore',
+    newsletterUrl: null,
+    published: true,
+    seoTitle: 'Teacher Training at Avalon High School Lahore | Phonics Club 2025',
+    seoDescription: 'Phonics Club organized a 2025 teacher training at Avalon High School, Lahore, conducted by Dr. Fatima Tuz Zahra.',
+    body: [
+      'Phonics Club organized a professional training session at Avalon High School, Wapda Town, Lahore, in 2025.',
+      'The session was conducted by Dr. Fatima Tuz Zahra and focused on helping educators strengthen their understanding of phonics-based literacy instruction.',
+      'Through this school-based training, teachers explored practical approaches that support confident classroom implementation and stronger early reading and writing foundations.',
+    ],
+  },
+  {
     id: 'event-akrsp-gilgit-2025',
     slug: 'akrsp-pilot-project-gilgit-training-2025',
     title: 'AKRSP Pilot Project - Gilgit Training',
@@ -419,7 +482,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     sortDate: '2025-04-01T00:00:00.000Z',
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
-    galleryFolder: 'akrsp-gilgit-2025',
+    galleryFolder: 'Gilgit and hunza training  April 2025 pilot project',
     newsletterUrl: null,
     published: true,
     seoTitle: 'Phonics Club Pilot Project Training in Gilgit | April 2025',
@@ -445,7 +508,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     sortDate: '2025-04-02T00:00:00.000Z',
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
-    galleryFolder: 'akrsp-skardu-2025',
+    galleryFolder: 'april 2025 7th and 8th skardu AKRSP training pilot project',
     newsletterUrl: null,
     published: true,
     seoTitle: 'AKRSP Pilot Project Phonics Training in Skardu | Phonics Club',
@@ -472,7 +535,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     organizer: 'Phonics Club',
     partners: ['Jolly Learning', 'AKRSP'],
     collaboration: 'Phonics Club, Jolly Learning and AKRSP',
-    galleryFolder: 'karachi-akrsp-2025',
+    galleryFolder: 'karachi pilot project training',
     originalPostUrls: ['https://www.instagram.com/p/DNNA0InCFqa/'],
     newsletterUrl: null,
     published: true,
@@ -502,7 +565,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     guest: 'Christopher Jolly',
     theme: 'Teaching Jolly Phonics',
     organizer: 'Phonics Club',
-    galleryFolder: 'christopher-jolly-lahore-2025',
+    galleryFolder: 'jolly phonics day morning lahore 2025',
     originalPostUrls: ['https://www.instagram.com/p/DNXk3g1ieq7/'],
     newsletterUrl: null,
     featured: true,
@@ -529,7 +592,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     dateDisplay: 'Date to be added',
     sortDate: '2025-10-01T00:00:00.000Z',
     organizer: 'Phonics Club',
-    galleryFolder: 'jolly-morning-day-2025',
+    galleryFolder: 'jolly phonics day morning lahore 2025',
     originalPostUrls: [
       'https://www.instagram.com/p/DOu7uAkggV3/',
       'https://www.instagram.com/p/DOu7zHPAugs/',
@@ -590,7 +653,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     theme: 'Jolly Experience Day',
     organizer: 'Phonics Club',
     participants: 'Tahira Sheikh, Erum Tehreem, Fatemah Imran, Tamkanat Zafar, Saima Mazhar, Dr. Fatima Tuz Zahra and Christopher Jolly',
-    galleryFolder: 'jolly-experience-day-islamabad-2025',
+    galleryFolder: 'Jolly experience day chris',
     newsletterUrl: null,
     published: true,
     seoTitle: 'Jolly Experience Day Islamabad with Christopher Jolly | 2025',
@@ -617,7 +680,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     sortDate: '2026-04-12T00:00:00.000Z',
     trainer: 'Saima Mazhar',
     organizer: 'Phonics Club',
-    galleryFolder: 'gilgit-hunza-2026',
+    galleryFolder: 'gilgit hunza trading session april 2026',
     originalPostUrls: ['https://www.instagram.com/p/DX1JLIQAq0_/'],
     newsletterUrl: 'https://gnxgopyshgeistkcexib.supabase.co/storage/v1/object/public/newsletters/2026/05-1784009199862-phonics-club-2-.pdf',
     published: true,
@@ -658,7 +721,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     collaboration: 'Starfish Pakistan School',
     partners: ['Starfish Pakistan School'],
     participants: 'Under the leadership of Ms. Caroline White, with special acknowledgment to Professor Irfan Akhtar',
-    galleryFolder: 'lahore-training-april-2026',
+    galleryFolder: 'Lahore spring 2026 training starfish',
     originalPostUrls: ['https://www.instagram.com/p/DX1FqduAvux/'],
     newsletterUrl: null,
     published: true,
@@ -687,7 +750,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
     participants: 'Pilot Project Schools',
-    galleryFolder: 'nscoe-refresher-lahore-2026',
+    galleryFolder: 'lahore refresher trading pilot project 2026 january',
     newsletterUrl: null,
     published: true,
     seoTitle: 'Pilot Project Refresher Training at NSCOE Lahore | 2026',
@@ -714,7 +777,12 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
     participants: 'Pilot Project Schools',
-    galleryFolder: 'nscoe-workshop-lahore-2025',
+    galleryFolder: 'nscoe pilot project training  august 2025',
+    galleryFolders: [
+      'nscoe pilot project training  august 2025',
+      'Nscoe lahore training day 2 august 2025',
+      'lahore pilot project training sessions',
+    ],
     newsletterUrl: null,
     published: true,
     seoTitle: 'Phonics Club Pilot Project Workshop at NSCOE Lahore | August 2025',
@@ -852,7 +920,11 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
     format: 'Pilot Project',
-    galleryFolder: 'gujranwala-pilot-project-training-2025',
+    galleryFolder: 'Gujranwala pilot project training session',
+    galleryFolders: [
+      'Gujranwala pilot project training session',
+      'Gujranwala training session pilot project',
+    ],
     newsletterUrl: null,
     published: true,
     seoTitle: 'Gujranwala Pilot Project Training | Phonics Club 2025',
@@ -882,7 +954,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
     format: 'Pilot Project Refresher Training',
-    galleryFolder: 'gujranwala-pilot-project-refresher-2026',
+    galleryFolder: 'Gujranwala refresher training jan 2026',
     newsletterUrl: null,
     published: true,
     seoTitle: 'Gujranwala Pilot Project Refresher Training | January 2026',
@@ -941,7 +1013,7 @@ const BASE_TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = [
     sortDate: '2024-08-01T00:00:00.000Z',
     trainer: 'Dr. Fatima Tuz Zahra',
     organizer: 'Phonics Club',
-    galleryFolder: 'soar-school-system-2024',
+    galleryFolder: 'Soar stem school system',
     newsletterUrl: null,
     published: true,
     seoTitle: 'Teaching English Through Jolly Phonics at SOAR School System | Phonics Club',
@@ -964,5 +1036,5 @@ export const TRAINING_EVENT_ARTICLES: TrainingEventArticle[] = BASE_TRAINING_EVE
 
 export const PHOTO_FOLDERS_WAITING_FOR_IMAGES = TRAINING_EVENT_ARTICLES.map((article) => ({
   title: article.title,
-  folder: `public/images/blog/${article.galleryFolder}`,
+  folder: getTrainingEventGalleryFolders(article).map((folder) => `public/images/photos/${folder}`).join(', '),
 }))

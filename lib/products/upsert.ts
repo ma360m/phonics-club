@@ -1,4 +1,5 @@
 import { slugify } from '@/utils/slug'
+import { updateProductComingSoonMetadata } from '@/lib/products/coming-soon'
 import type { ProductImportRow } from '@/lib/products/import-export'
 
 export function importRowToDbPayload(row: ProductImportRow) {
@@ -17,7 +18,7 @@ export function importRowToDbPayload(row: ProductImportRow) {
     sale_percentage: row.sale_percentage,
     featured: row.featured,
     published: row.published,
-    metadata: { currency: 'PKR' },
+    metadata: updateProductComingSoonMetadata({ currency: 'PKR' }, row.coming_soon),
   }
 }
 

@@ -135,7 +135,7 @@ function SidebarContent({
       <div className={cn('border-t border-slate-200 p-3', compact && 'px-2')}>
         {(isAdmin || isLmsManager) && (
           <Link
-            href={isAdmin ? '/admin' : '/admin/courses'}
+            href={isAdmin ? '/admin' : '/instructor'}
             onClick={onNavigate}
             aria-label={compact ? (isAdmin ? 'Admin panel' : 'Instructor dashboard') : undefined}
             className={cn(

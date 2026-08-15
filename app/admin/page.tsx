@@ -29,7 +29,7 @@ type CoursePaymentMetricRow = Pick<CoursePayment, 'id' | 'course_id' | 'amount' 
 
 export default async function AdminDashboardPage() {
   const profile = await getProfile()
-  if (profile?.role === 'instructor') redirect('/admin/courses')
+  if (profile?.role === 'instructor') redirect('/instructor')
 
   const [products, courses, posts, users, orders] = await Promise.all([
     getAdminProducts().catch(() => []),

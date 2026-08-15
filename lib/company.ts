@@ -8,13 +8,13 @@ export const COMPANY = {
   email: 'info@phonicsclub.com',
   adminEmail: 'support@phonicsclub.com',
   emails: ['info@phonicsclub.com', 'support@phonicsclub.com'],
-  phone: '03008079480',
-  phoneAlt: '03022220448',
-  phoneDisplay: '+92 300 8079480',
-  phoneAltDisplay: '+92 3022220448',
-  phoneIntl: '+923008079480',
-  phoneAltIntl: '+923022220448',
-  whatsapp: '923008079480',
+  phone: '03022220448',
+  phoneAlt: '',
+  phoneDisplay: '0302 2220448',
+  phoneAltDisplay: '',
+  phoneIntl: '+923022220448',
+  phoneAltIntl: '',
+  whatsapp: '923022220448',
   address: 'Pakistan, LHR',
   website: 'https://www.phonicsclub.com',
   social: {
@@ -30,7 +30,7 @@ export const COMPANY_BANK_DETAILS = {
   accountNumber: '02590104584267',
   iban: '',
   instructions:
-    'Having issue with payment? Contact us at 0308 4432015 or 0300 8079480.',
+    `Having issue with payment? Contact us at ${COMPANY.phoneDisplay}.`,
 } as const
 
 export const TRAINING_MONTHS_2026 = [

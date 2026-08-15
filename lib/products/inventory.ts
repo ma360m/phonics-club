@@ -1,3 +1,5 @@
+import { isProductComingSoon, PRODUCT_COMING_SOON_MESSAGE } from '@/lib/products/coming-soon'
+
 export type ProductStockStatus = 'in_stock' | 'low_stock' | 'backorder' | 'out_of_stock'
 
 export interface InventoryProduct {
@@ -10,6 +12,8 @@ export interface InventoryProduct {
   max_purchase_quantity?: number | null
   estimated_availability_date?: string | null
   backorder_message?: string | null
+  coming_soon?: boolean | null
+  metadata?: Record<string, unknown> | null
 }
 
 export interface ProductOrderability {
@@ -45,6 +49,8 @@ export function getAvailableStock(product: InventoryProduct): number | null {
 }
 
 export function getProductPurchaseLimit(product: InventoryProduct) {
+  if (isProductComingSoon(product)) return 1
+
   const maxPurchase = numberOrNull(product.max_purchase_quantity)
   if (maxPurchase && maxPurchase > 0) return maxPurchase
 
@@ -62,6 +68,17 @@ export function getProductPurchaseLimit(product: InventoryProduct) {
 export function evaluateProductOrderability(product: InventoryProduct, quantity = 1): ProductOrderability {
   const requested = Math.max(1, Math.round(numberOrNull(quantity) ?? 1))
   const maxQuantity = getProductPurchaseLimit(product)
+
+  if (isProductComingSoon(product)) {
+    return {
+      ok: false,
+      status: 'out_of_stock',
+      available: 0,
+      maxQuantity,
+      requiresAdminConfirmation: false,
+      message: PRODUCT_COMING_SOON_MESSAGE,
+    }
+  }
 
   if (requested > maxQuantity) {
     return {

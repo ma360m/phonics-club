@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { productSchema } from '@/lib/validations/product'
+import { updateProductComingSoonMetadata } from '@/lib/products/coming-soon'
 import type { ActionResult } from '@/types'
 
 function parseProductForm(formData: FormData) {
@@ -45,6 +46,7 @@ function parseProductForm(formData: FormData) {
   return {
     parsed,
     collection: collection === 'phonics-club' || collection === 'jolly-learning' ? collection : null,
+    comingSoon: formData.get('coming_soon') === 'on',
   }
 }
 
@@ -53,12 +55,14 @@ export async function createProductAction(
   formData: FormData
 ): Promise<ActionResult> {
   await requireAdmin()
-  const { parsed, collection } = parseProductForm(formData)
+  const { parsed, collection, comingSoon } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
   if (!parsed.data.isbn) return { success: false, error: 'ISBN is required' }
 
   const payload: Record<string, unknown> = { ...parsed.data }
-  if (collection) payload.metadata = { collection }
+  const metadata = updateProductComingSoonMetadata({}, comingSoon)
+  if (collection) metadata.collection = collection
+  payload.metadata = metadata
 
   const supabase = await createClient()
   const { error } = await supabase.from('products').upsert(payload as never, { onConflict: 'isbn' })
@@ -66,6 +70,7 @@ export async function createProductAction(
 
   revalidatePath('/admin/products')
   revalidatePath('/shop')
+  revalidatePath(`/shop/${parsed.data.slug}`)
   return { success: true }
 }
 
@@ -75,7 +80,7 @@ export async function updateProductAction(
   formData: FormData
 ): Promise<ActionResult> {
   await requireAdmin()
-  const { parsed, collection } = parseProductForm(formData)
+  const { parsed, collection, comingSoon } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
 
   const supabase = await createClient()
@@ -85,15 +90,17 @@ export async function updateProductAction(
   }
   if (collection) metadata.collection = collection
   else delete metadata.collection
+  const nextMetadata = updateProductComingSoonMetadata(metadata, comingSoon)
 
   const { error } = await supabase
     .from('products')
-    .update({ ...parsed.data, metadata } as never)
+    .update({ ...parsed.data, metadata: nextMetadata } as never)
     .eq('id', id)
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/products')
   revalidatePath('/shop')
+  revalidatePath(`/shop/${parsed.data.slug}`)
   return { success: true }
 }
 

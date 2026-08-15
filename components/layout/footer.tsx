@@ -1,10 +1,17 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { Fragment, Suspense } from 'react'
 import { Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react'
 import { COMPANY } from '@/lib/company'
 import { APP_NAME } from '@/lib/constants'
 import { PRIMARY_SITE_LINKS } from '@/lib/primary-site-links'
 import { AppearanceAccessibilityLink } from '@/components/display-preferences/appearance-accessibility-link'
+import { getContactSettings } from '@/lib/site-content'
+import {
+  DEFAULT_CONTACT_SETTINGS,
+  getContactPhoneLinks,
+  type ContactSettings,
+} from '@/lib/contact-settings'
 
 const footerLinks = {
   explore: PRIMARY_SITE_LINKS,
@@ -37,6 +44,32 @@ const socialLinks = [
   { name: 'YouTube', icon: Youtube, href: COMPANY.social.youtube },
 ]
 
+function FooterPhoneLine({ settings }: { settings: ContactSettings }) {
+  const phoneLinks = getContactPhoneLinks(settings)
+  if (!phoneLinks.length) return null
+
+  return (
+    <div className="flex items-start gap-3 text-white/70">
+      <Phone className="mt-0.5 h-4 w-4 shrink-0" />
+      <span className="text-sm">
+        {phoneLinks.map((phone, index) => (
+          <Fragment key={phone.href}>
+            {index > 0 ? ', ' : null}
+            <a href={phone.href} className="hover:text-[#60A5FA] transition-colors">
+              {phone.display}
+            </a>
+          </Fragment>
+        ))}
+      </span>
+    </div>
+  )
+}
+
+async function FooterPhoneLineFromSettings() {
+  const settings = await getContactSettings()
+  return <FooterPhoneLine settings={settings} />
+}
+
 export function Footer() {
   return (
     <footer className="bg-[#0F172A] text-white">
@@ -68,15 +101,9 @@ export function Footer() {
                 <Mail className="w-4 h-4 shrink-0" />
                 <span className="text-sm">{COMPANY.email}</span>
               </a>
-              <a
-                href={`tel:${COMPANY.phoneIntl}`}
-                className="flex items-center gap-3 text-white/70 hover:text-[#60A5FA] transition-colors"
-              >
-                <Phone className="w-4 h-4 shrink-0" />
-                <span className="text-sm">
-                  {COMPANY.phoneDisplay}, {COMPANY.phoneAltDisplay}
-                </span>
-              </a>
+              <Suspense fallback={<FooterPhoneLine settings={DEFAULT_CONTACT_SETTINGS} />}>
+                <FooterPhoneLineFromSettings />
+              </Suspense>
               <div className="flex items-center gap-3 text-white/70">
                 <MapPin className="w-4 h-4 shrink-0" />
                 <span className="text-sm">{COMPANY.address}</span>

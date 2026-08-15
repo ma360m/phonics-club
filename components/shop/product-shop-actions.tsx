@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import type { Product } from '@/types/database'
 import { QuantityStepper } from '@/components/shop/quantity-stepper'
 import { evaluateProductOrderability, getProductPurchaseLimit, getProductStockNotice } from '@/lib/products/inventory'
+import { isProductComingSoon } from '@/lib/products/coming-soon'
 
 interface Props {
   product: Product
@@ -24,6 +25,7 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
   const [qty, setQty] = useState(initialQty || 1)
   const [wishlisted, setWishlisted] = useState(inWishlist)
   const [pending, startTransition] = useTransition()
+  const comingSoon = isProductComingSoon(product)
   const orderability = evaluateProductOrderability(product, qty)
   const stockNotice = getProductStockNotice(product, qty)
 
@@ -59,12 +61,12 @@ export function ProductShopActions({ product, initialQty = 0, inWishlist = false
         onChange={setQty}
         min={1}
         max={getProductPurchaseLimit(product)}
-        disabled={pending}
+        disabled={pending || comingSoon}
       />
 
       <Button onClick={addToCart} disabled={pending || !orderability.ok} className="rounded-xl bg-[#1D4ED8]">
         <ShoppingCart className="w-4 h-4 mr-2" />
-        {orderability.status === 'backorder' ? 'Backorder' : 'Add to Cart'}
+        {comingSoon ? 'Coming Soon' : orderability.status === 'backorder' ? 'Backorder' : 'Add to Cart'}
       </Button>
 
       <Button
@@ -93,6 +95,7 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
   const [qty, setQty] = useState(1)
   const [wishlisted, setWishlisted] = useState(wishlistMode)
   const [pending, startTransition] = useTransition()
+  const comingSoon = isProductComingSoon(product)
   const orderability = evaluateProductOrderability(product, qty)
   const stockNotice = getProductStockNotice(product, qty)
 
@@ -140,7 +143,7 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
         onChange={setQty}
         min={1}
         max={getProductPurchaseLimit(product)}
-        disabled={pending}
+        disabled={pending || comingSoon}
         className="rounded-lg"
         buttonClassName="h-8 w-8"
         inputClassName="h-8 w-10 text-xs"
@@ -151,7 +154,7 @@ export function ProductCardActions({ product, wishlistMode = false }: { product:
         className="h-8 flex-1 rounded-lg bg-[#1D4ED8] text-xs"
         onClick={addToCart}
       >
-        <ShoppingCart className="w-3 h-3 mr-1" /> {orderability.status === 'backorder' ? 'Backorder' : 'Add'}
+        <ShoppingCart className="w-3 h-3 mr-1" /> {comingSoon ? 'Soon' : orderability.status === 'backorder' ? 'Backorder' : 'Add'}
       </Button>
       {wishlistMode ? (
         <>

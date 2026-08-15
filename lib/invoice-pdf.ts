@@ -12,6 +12,7 @@ interface InvoiceTemplate {
   header?: string
   tagline?: string
   footer?: string
+  contactPhoneDisplay?: string
   bankDetails?: {
     bankName?: string
     accountTitle?: string
@@ -156,6 +157,7 @@ export async function buildInvoicePdf(
     template?.footer ??
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
   const tagline = invoiceTagline(template?.tagline)
+  const contactPhoneDisplay = template?.contactPhoneDisplay?.trim() || COMPANY.phoneDisplay
   const invoiceNo = order.invoice_number ?? order.id.slice(0, 8).toUpperCase()
 
   const tableBorder = rgb(0.68, 0.76, 0.9)
@@ -404,7 +406,7 @@ export async function buildInvoicePdf(
     page.drawText(line, { x: margin, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
     y -= 10
   }
-  page.drawText(`Contact: ${COMPANY.adminEmail} | 0308 4432015 | 0300 8079480`, {
+  page.drawText(`Contact: ${COMPANY.adminEmail} | ${contactPhoneDisplay}`, {
     x: margin,
     y: y - 4,
     size: 8,

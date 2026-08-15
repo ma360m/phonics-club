@@ -6,6 +6,8 @@ import { ClearGuestCartOnSuccess } from '@/components/checkout/clear-guest-cart-
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
+import { getContactSettings } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import type { OrderItem } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +40,8 @@ export default async function CheckoutSuccessPage({
   const invoiceQuery = authQuery ? `?${authQuery}` : ''
   const invoicePdfQuery = authQuery ? `?format=pdf&${authQuery}` : '?format=pdf'
   let authorizedOrder: AuthorizedOrder | null = null
+  const contactSettings = await getContactSettings()
+  const supportPhoneLinks = getContactPhoneLinks(contactSettings)
 
   if (order) {
     const serviceSupabase = await createServiceClient()
@@ -118,7 +122,12 @@ export default async function CheckoutSuccessPage({
         </div>
         {authorizedOrder && (
           <div className="mt-10 text-left">
-            <CustomerOrderControls order={authorizedOrder} token={token} editToken={editToken} />
+            <CustomerOrderControls
+              order={authorizedOrder}
+              token={token}
+              editToken={editToken}
+              supportPhoneLinks={supportPhoneLinks}
+            />
           </div>
         )}
       </div>

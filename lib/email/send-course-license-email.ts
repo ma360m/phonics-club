@@ -1,6 +1,8 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
 import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { formatPrice } from '@/utils/format'
 import type { Course } from '@/types/database'
 
@@ -40,6 +42,18 @@ function primaryButton(label: string, href: string) {
   `
 }
 
+function supportPhoneLinks(settings: Awaited<ReturnType<typeof getContactSettings>>) {
+  const links = getContactPhoneLinks(settings)
+  if (!links.length) return escapeHtml(COMPANY.phoneDisplay)
+
+  return links
+    .map(
+      (phone) =>
+        `<a href="${escapeHtml(phone.href)}" style="color:#1D4ED8;font-weight:700;text-decoration:none;">${escapeHtml(phone.display)}</a>`
+    )
+    .join(' or ')
+}
+
 export async function sendCourseEnrollmentInvoiceEmail({
   to,
   studentName,
@@ -60,6 +74,8 @@ export async function sendCourseEnrollmentInvoiceEmail({
   const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
   const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
   const safeName = studentName?.trim() || 'Student'
+  const [bankDetails, contactSettings] = await Promise.all([getCourseBankDetails(), getContactSettings()])
+  const supportPhones = supportPhoneLinks(contactSettings)
   const html = `
     <!doctype html>
     <html>
@@ -85,20 +101,25 @@ export async function sendCourseEnrollmentInvoiceEmail({
                     <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">Hi ${escapeHtml(safeName)},</p>
                     <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 22px;">
                       Please complete the manual payment and upload a clear payment screenshot from your course payment page. If you need help, contact us at
-                      <a href="tel:+923084432015" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0308 4432015</a> or
-                      <a href="tel:+923008079480" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0300 8079480</a>.
+                      ${supportPhones}.
                     </p>
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
                       ${detailRow('Invoice number', invoiceNumber)}
                       ${detailRow('Course', course.title)}
                       ${detailRow('Amount due', formatPrice(Number(amount ?? 0), currency ?? course.currency ?? 'PKR'))}
                       ${detailRow('Status', 'Pending payment confirmation')}
+                      ${detailRow('Bank', bankDetails.bankName)}
+                      ${detailRow('Account title', bankDetails.accountTitle)}
+                      ${detailRow('Account number', bankDetails.accountNumber)}
+                      ${bankDetails.iban ? detailRow('IBAN', bankDetails.iban) : ''}
                     </table>
+                    <p style="color:#4b5563;font-size:13px;line-height:1.7;margin:0 0 20px;">
+                      ${escapeHtml(bankDetails.instructions)}
+                    </p>
                     ${primaryButton('Open Payment Page', paymentUrl)}
                     <p style="color:#4b5563;font-size:13px;line-height:1.7;margin:20px 0 0;">
                       Already paid? Submit the screenshot on the payment page. Having issue with payment? Call
-                      <a href="tel:+923084432015" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0308 4432015</a> or
-                      <a href="tel:+923008079480" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0300 8079480</a>.
+                      ${supportPhones}.
                     </p>
                   </td>
                 </tr>
@@ -146,6 +167,8 @@ export async function sendCoursePaymentPendingReminderEmail({
   const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
   const safeName = studentName?.trim() || 'Student'
   const amountLabel = formatPrice(Number(amount ?? course.discounted_price ?? course.price ?? 0), currency ?? course.currency ?? 'PKR')
+  const [bankDetails, contactSettings] = await Promise.all([getCourseBankDetails(), getContactSettings()])
+  const supportPhones = supportPhoneLinks(contactSettings)
   const expiryLabel = requestExpiry.toLocaleString('en-PK', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -199,13 +222,20 @@ export async function sendCoursePaymentPendingReminderEmail({
                       ${detailRow('Amount', amountLabel)}
                       ${detailRow('Status', 'Payment Pending')}
                       ${detailRow('Request Expiry', expiryLabel)}
+                      ${detailRow('Bank', bankDetails.bankName)}
+                      ${detailRow('Account title', bankDetails.accountTitle)}
+                      ${detailRow('Account number', bankDetails.accountNumber)}
+                      ${bankDetails.iban ? detailRow('IBAN', bankDetails.iban) : ''}
                     </table>
+                    <p style="color:#4b5563;font-size:13px;line-height:1.7;margin:0 0 20px;">
+                      ${escapeHtml(bankDetails.instructions)}
+                    </p>
                     ${primaryButton('Upload Payment Slip', paymentUrl)}
                     <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:20px 0 0;">
                       If you have already made the payment, please upload your payment slip as soon as possible.
                     </p>
                     <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:12px 0 0;">
-                      For assistance, contact us at <a href="tel:+923210007079" style="color:#1D4ED8;font-weight:700;text-decoration:none;">0321-0007079</a>.
+                      For assistance, contact us at ${supportPhones}.
                     </p>
                     <p style="color:#111827;font-size:14px;line-height:1.7;margin:22px 0 0;">
                       Regards,<br />

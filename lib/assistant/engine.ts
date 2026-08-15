@@ -1,5 +1,7 @@
 import type { Course, Product, BlogPost } from '@/types/database'
 import { COMPANY } from '@/lib/company'
+import { DEFAULT_COURSE_BANK_DETAILS, type BankDetails } from '@/lib/bank-details'
+import { DEFAULT_CONTACT_SETTINGS, type ContactSettings } from '@/lib/contact-settings'
 import { PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
 import { formatPrice } from '@/utils/format'
 
@@ -7,6 +9,8 @@ export interface AssistantContext {
   courses: Course[]
   products: Product[]
   posts: BlogPost[]
+  contactSettings?: ContactSettings
+  courseBankDetails?: BankDetails
   enrolledCourseTitles?: string[]
   userName?: string
 }
@@ -22,7 +26,14 @@ const STARTER_SUGGESTIONS = [
 
 export { STARTER_SUGGESTIONS }
 
-const CONTACT_REPLY = `For account-specific or complex questions, please contact Phonics Club:\n- ${COMPANY.email}\n- ${COMPANY.adminEmail}\n- ${COMPANY.phoneDisplay}\n- ${COMPANY.phoneAltDisplay}\n- /contact`
+function contactReply(settings: ContactSettings = DEFAULT_CONTACT_SETTINGS) {
+  const phoneLines = [settings.phoneDisplay, settings.phoneAltDisplay]
+    .filter(Boolean)
+    .map((phone) => `- ${phone}`)
+    .join('\n')
+
+  return `For account-specific or complex questions, please contact Phonics Club:\n- ${COMPANY.email}\n- ${COMPANY.adminEmail}\n${phoneLines}\n- /contact`
+}
 
 function words(q: string) {
   return q.toLowerCase().split(/\s+/).filter(Boolean)
@@ -49,8 +60,8 @@ function matchProducts(products: Product[], q: string): Product[] {
   })
 }
 
-function formatCourseList(courses: Course[]): string {
-  if (!courses.length) return `No matching courses found. Browse all programs at /courses.\n\n${CONTACT_REPLY}`
+function formatCourseList(courses: Course[], contactSettings: ContactSettings): string {
+  if (!courses.length) return `No matching courses found. Browse all programs at /courses.\n\n${contactReply(contactSettings)}`
   return courses
     .slice(0, 5)
     .map(
@@ -60,8 +71,8 @@ function formatCourseList(courses: Course[]): string {
     .join('\n')
 }
 
-function formatProductList(products: Product[]): string {
-  if (!products.length) return `No matching products found. Browse the catalog at /shop.\n\n${CONTACT_REPLY}`
+function formatProductList(products: Product[], contactSettings: ContactSettings): string {
+  if (!products.length) return `No matching products found. Browse the catalog at /shop.\n\n${contactReply(contactSettings)}`
   return products
     .slice(0, 5)
     .map((p) => `- **${p.name}**: ${formatPrice(p.price)} | ${PRODUCT_CATEGORY_LABELS[p.category] ?? p.category}\n  /shop/${p.slug}`)
@@ -72,16 +83,21 @@ function coursePolicyReply() {
   return `Classroom course cancellation policy:\n- Cancel 15 or more working days before the course start date: 30% admin fee applies, remaining eligible deposit may be refunded.\n- Cancellation less than 15 working days before the course start date: no refund.\n- If Phonics Club cancels a course because minimum delegates are not reached or a safe training environment is not possible, management may arrange an alternative date or offer a 70% refund.\n- Once login details, online access, course outlines, or live training access have been issued, refunds cannot be granted.\n- Postponement requests must be made at least 5 working days before the course starts.\n\nRefund requests: info@phonicsclub.com`
 }
 
-function paymentReply() {
-  return `Payment options:\n- Cash on Delivery\n- Bank Transfer: MEEZAN BANK, Phonics Club PVT. LTD, A/C No: 02590104584267\n\nAfter bank transfer, upload or share your receipt as requested. Having issue with payment? Contact 0308 4432015, 0300 8079480, or ${COMPANY.email}.`
+function paymentReply(contactSettings: ContactSettings, bankDetails: BankDetails = DEFAULT_COURSE_BANK_DETAILS) {
+  const ibanLine = bankDetails.iban ? `\n- IBAN: ${bankDetails.iban}` : ''
+  const instructions = bankDetails.instructions ? `\n\n${bankDetails.instructions}` : ''
+
+  return `Payment options:\n- Cash on Delivery for eligible shop orders\n- Course Bank Transfer: ${bankDetails.bankName}, ${bankDetails.accountTitle}, A/C No: ${bankDetails.accountNumber}${ibanLine}${instructions}\n\nAfter bank transfer, upload or share your receipt as requested. Having issue with payment? Contact ${contactSettings.phoneDisplay} or ${COMPANY.email}.`
 }
 
 export function generateAssistantReply(input: string, ctx: AssistantContext): string {
   const q = input.toLowerCase().trim()
   const { courses, products, posts, enrolledCourseTitles, userName } = ctx
+  const contactSettings = ctx.contactSettings ?? DEFAULT_CONTACT_SETTINGS
+  const courseBankDetails = ctx.courseBankDetails ?? DEFAULT_COURSE_BANK_DETAILS
   const greeting = userName ? `Hi ${userName}! ` : ''
 
-  if (!q) return `Please type your question and I will help.\n\n${CONTACT_REPLY}`
+  if (!q) return `Please type your question and I will help.\n\n${contactReply(contactSettings)}`
 
   if (includesAny(q, ['hello', 'hi', 'help', 'salam', 'assalam'])) {
     return `${greeting}I am your PHONICS CLUB AI Assistant. I can guide you through courses, products, trainer profiles, payments, refunds, research projects, Vortex Learning, certificates, orders, and support.\n\nTry asking "Which course should I start with?", "Payment methods", "What is Vortex Learning?", or "Show pupil books".`
@@ -99,7 +115,7 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
   }
 
   if (includesAny(q, ['my course', 'enrolled', 'my progress'])) {
-    return `${greeting}I do not see enrolled courses for this session. Browse /courses and enroll, or sign in and check /dashboard/my-courses.\n\n${CONTACT_REPLY}`
+    return `${greeting}I do not see enrolled courses for this session. Browse /courses and enroll, or sign in and check /dashboard/my-courses.\n\n${contactReply(contactSettings)}`
   }
 
   if (includesAny(q, ['refund', 'cancel course', 'course cancel', 'postpone', 'postponement', 'cancellation'])) {
@@ -107,7 +123,7 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
   }
 
   if (includesAny(q, ['payment', 'jazzcash', 'easypaisa', 'bank', 'pay', 'iban', 'account number'])) {
-    return paymentReply()
+    return paymentReply(contactSettings, courseBankDetails)
   }
 
   if (
@@ -138,10 +154,10 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
 
     if (includesAny(q, ['recommend', 'beginner', 'best for', 'start'])) {
       const beginner = courses.filter((c) => c.level === 'beginner' || c.price === 0)
-      return `${greeting}For beginners, I recommend starting with:\n\n${formatCourseList(beginner.length ? beginner : courses.slice(0, 3))}\n\nTell me whether you are a teacher, parent, school leader, or student for a more tailored recommendation.`
+      return `${greeting}For beginners, I recommend starting with:\n\n${formatCourseList(beginner.length ? beginner : courses.slice(0, 3), contactSettings)}\n\nTell me whether you are a teacher, parent, school leader, or student for a more tailored recommendation.`
     }
 
-    return `${greeting}Here are relevant courses:\n\n${formatCourseList(matched)}\n\nFor custom school training or course selection help, contact /contact.`
+    return `${greeting}Here are relevant courses:\n\n${formatCourseList(matched, contactSettings)}\n\nFor custom school training or course selection help, contact /contact.`
   }
 
   if (
@@ -165,10 +181,10 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
 
     if (includesAny(q, ['beginner', 'start', 'recommend'])) {
       const kits = matchProducts(products, 'kit pupil workbook readers')
-      return `${greeting}For beginners starting Jolly Phonics, look at pupil books, workbooks, readers, and classroom kits:\n\n${formatProductList(kits.length ? kits : products.slice(0, 4))}\n\nFor bundle support, WhatsApp ${COMPANY.phoneDisplay}.`
+      return `${greeting}For beginners starting Jolly Phonics, look at pupil books, workbooks, readers, and classroom kits:\n\n${formatProductList(kits.length ? kits : products.slice(0, 4), contactSettings)}\n\nFor bundle support, WhatsApp ${contactSettings.phoneDisplay}.`
     }
 
-    return `${greeting}Relevant products:\n\n${formatProductList(matched.length ? matched : products.slice(0, 5))}\n\nAll prices are in PKR. Bulk orders and school purchases can be discussed on WhatsApp ${COMPANY.phoneDisplay}.`
+    return `${greeting}Relevant products:\n\n${formatProductList(matched.length ? matched : products.slice(0, 5), contactSettings)}\n\nAll prices are in PKR. Bulk orders and school purchases can be discussed on WhatsApp ${contactSettings.phoneDisplay}.`
   }
 
   if (includesAny(q, ['order', 'cart', 'checkout', 'shipping', 'delivery'])) {
@@ -196,12 +212,12 @@ export function generateAssistantReply(input: string, ctx: AssistantContext): st
   }
 
   if (includesAny(q, ['contact', 'email', 'phone', 'whatsapp', 'location', 'address', 'support'])) {
-    return CONTACT_REPLY
+    return contactReply(contactSettings)
   }
 
   if (includesAny(q, ['synthetic phonics', 'what is phonics', 'blending', 'segmenting', 'tricky words'])) {
     return `Synthetic Phonics teaches children letter sounds first, then blending sounds to read words and segmenting sounds to spell. Jolly Phonics supports this through actions, stories, songs, readers, spelling, grammar, and structured classroom routines.\n\nFor full training, explore /courses or contact Phonics Club.`
   }
 
-  return `${greeting}I can help with courses, products, payments, refunds, orders, certificates, trainer profiles, research, Vortex Learning, and Phonics Club information.\n\nI do not want to guess on this question. ${CONTACT_REPLY}`
+  return `${greeting}I can help with courses, products, payments, refunds, orders, certificates, trainer profiles, research, Vortex Learning, and Phonics Club information.\n\nI do not want to guess on this question. ${contactReply(contactSettings)}`
 }

@@ -4,6 +4,8 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { createClient } from '@/lib/supabase/server'
+import { getContactSettings } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { signOutAction } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -89,7 +91,11 @@ function DashboardDisclosureCard({
 export default async function DashboardPage() {
   const user = await requireAuth()
   const profile = await getProfile()
-  const enrollments = await getUserEnrollments()
+  const [enrollments, contactSettings] = await Promise.all([
+    getUserEnrollments(),
+    getContactSettings(),
+  ])
+  const supportPhoneLinks = getContactPhoneLinks(contactSettings)
 
   let orders: {
     id: string
@@ -164,7 +170,7 @@ export default async function DashboardPage() {
           ) : null}
           action={(
             <div className="flex flex-wrap gap-2">
-              <WhatsAppButton className="!px-4 !py-2 !text-sm" />
+              <WhatsAppButton contactSettings={contactSettings} className="!px-4 !py-2 !text-sm" />
               <form action={signOutAction}>
                 <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
                   Sign Out
@@ -230,7 +236,7 @@ export default async function DashboardPage() {
                 { href: '/dashboard#trainings', label: 'Trainings', icon: CalendarDays, detail: 'Your registrations' },
                 ...(isInstructor
                   ? [
-                      { href: '/admin/courses', label: 'Course Builder', icon: Wrench, detail: 'Manage your courses' },
+                      { href: '/instructor', label: 'Instructor Dashboard', icon: Wrench, detail: 'Builder, profile and reviews' },
                       { href: '/dashboard/profile', label: 'Instructor Profile', icon: UserRound, detail: 'Profile and account' },
                     ]
                   : []),
@@ -325,7 +331,7 @@ export default async function DashboardPage() {
                         </Button>
                       </div>
                     </div>
-                    <CustomerOrderControls order={o} />
+                    <CustomerOrderControls order={o} supportPhoneLinks={supportPhoneLinks} />
                   </li>
                 ))}
               </ul>

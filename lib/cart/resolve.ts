@@ -33,6 +33,7 @@ type CartProduct = {
   max_purchase_quantity?: number | null
   estimated_availability_date?: string | null
   backorder_message?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 function resolvedCartItemFromProduct(product: CartProduct, quantity: number): ResolvedCartItem {

@@ -33,8 +33,14 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 
 const instructorLinks = [
+  { href: '/instructor', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/courses', label: 'Course Builder', icon: GraduationCap },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
+]
+
+const adminPrimaryLinks = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
-  { href: '/admin/courses', label: 'My Courses', icon: GraduationCap },
+  { href: '/admin/courses', label: 'Courses', icon: GraduationCap },
   { href: '/admin/users', label: 'Students', icon: Users },
   { href: '/admin/lms-reports', label: 'Reports & Reviews', icon: BarChart3 },
   { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
@@ -82,9 +88,7 @@ function SidebarContent({
   isAdmin: boolean
   roleLabel: string
 }) {
-  const visibleInstructorLinks = isAdmin
-    ? instructorLinks
-    : instructorLinks.filter((link) => ['/admin', '/admin/courses', '/dashboard'].includes(link.href))
+  const visibleInstructorLinks = isAdmin ? adminPrimaryLinks : instructorLinks
 
   return (
     <div className="flex h-full flex-col">
@@ -102,21 +106,23 @@ function SidebarContent({
         </Link>
       </div>
 
-      <div className={`border-b border-slate-200 p-3 ${compact ? 'px-2' : 'px-4'}`}>
-        <Link
-          href="/admin/manual"
-          onClick={onNavigate}
-          aria-label={compact ? 'Admin manual' : undefined}
-          className={cn(
-            'flex items-center gap-3 rounded-2xl border border-[#1D4ED8]/20 bg-[#EFF6FF] px-3 py-2.5 text-sm font-semibold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2',
-            linkActive(pathname, '/admin/manual') && 'bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]',
-            compact && 'justify-center px-2',
-          )}
-        >
-          <BookOpen className="h-4 w-4" />
-          {!compact && 'Admin Manual'}
-        </Link>
-      </div>
+      {isAdmin && (
+        <div className={`border-b border-slate-200 p-3 ${compact ? 'px-2' : 'px-4'}`}>
+          <Link
+            href="/admin/manual"
+            onClick={onNavigate}
+            aria-label={compact ? 'Admin manual' : undefined}
+            className={cn(
+              'flex items-center gap-3 rounded-2xl border border-[#1D4ED8]/20 bg-[#EFF6FF] px-3 py-2.5 text-sm font-semibold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2',
+              linkActive(pathname, '/admin/manual') && 'bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]',
+              compact && 'justify-center px-2',
+            )}
+          >
+            <BookOpen className="h-4 w-4" />
+            {!compact && 'Admin Manual'}
+          </Link>
+        </div>
+      )}
 
       <nav className={`flex-1 overflow-y-auto p-4 ${compact ? 'px-2' : ''}`} aria-label="Admin navigation">
         <div className="space-y-1">

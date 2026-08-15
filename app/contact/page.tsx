@@ -2,6 +2,8 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { ContactForm } from '@/components/contact/contact-form'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { COMPANY } from '@/lib/company'
+import { getContactSettings } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { buildMetadata } from '@/utils/seo'
 import { Mail, Phone, MapPin } from 'lucide-react'
 
@@ -11,7 +13,10 @@ export const metadata = buildMetadata({
   path: '/contact',
 })
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const contactSettings = await getContactSettings()
+  const phoneLinks = getContactPhoneLinks(contactSettings)
+
   return (
     <main>
       <AnnouncementBar />
@@ -30,19 +35,17 @@ export default function ContactPage() {
               <Mail className="w-5 h-5 shrink-0" />
               <span>{COMPANY.email}</span>
             </a>
-            <a href={`tel:${COMPANY.phoneIntl}`} className="flex items-center gap-3 text-muted-foreground hover:text-[#1D4ED8]">
-              <Phone className="w-5 h-5 shrink-0" />
-              <span>{COMPANY.phoneDisplay}</span>
-            </a>
-            <a href={`tel:${COMPANY.phoneAltIntl}`} className="flex items-center gap-3 text-muted-foreground hover:text-[#1D4ED8]">
-              <Phone className="w-5 h-5 shrink-0" />
-              <span>{COMPANY.phoneAltDisplay}</span>
-            </a>
+            {phoneLinks.map((phone) => (
+              <a key={phone.href} href={phone.href} className="flex items-center gap-3 text-muted-foreground hover:text-[#1D4ED8]">
+                <Phone className="w-5 h-5 shrink-0" />
+                <span>{phone.display}</span>
+              </a>
+            ))}
             <p className="flex items-center gap-3 text-muted-foreground">
               <MapPin className="w-5 h-5 shrink-0" />
               {COMPANY.address}
             </p>
-            <WhatsAppButton />
+            <WhatsAppButton contactSettings={contactSettings} />
           </div>
 
           <ContactForm />

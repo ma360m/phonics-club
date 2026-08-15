@@ -2,7 +2,8 @@ import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
 import { getSession, getProfile } from '@/lib/auth'
 import { resolveCartForCheckout } from '@/lib/cart/resolve'
-import { getBankDetails } from '@/lib/site-content'
+import { getBankDetails, getContactSettings } from '@/lib/site-content'
+import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { getEnabledPaymentMethodSettings } from '@/lib/payment-method-settings'
 import { CheckoutForm } from '@/components/checkout/checkout-form'
 import { redirect } from 'next/navigation'
@@ -15,7 +16,10 @@ export default async function CheckoutPage() {
   const user = await getSession()
   const profile = user ? await getProfile() : null
   const cartItems = await resolveCartForCheckout(user?.id ?? null, null)
-  const bankDetails = await getBankDetails()
+  const [bankDetails, contactSettings] = await Promise.all([
+    getBankDetails(),
+    getContactSettings(),
+  ])
 
   if (!cartItems.length) redirect('/cart')
 
@@ -44,6 +48,7 @@ export default async function CheckoutPage() {
           email={profile?.email}
           bankDetails={bankDetails}
           isGuest={!user}
+          supportPhoneLinks={getContactPhoneLinks(contactSettings)}
           paymentOptions={enabledPaymentMethods.map((method) => ({
             value: method.method,
             title: method.displayName,

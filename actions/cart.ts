@@ -3,7 +3,36 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
+import { evaluateProductOrderability } from '@/lib/products/inventory'
 import type { ActionResult } from '@/types'
+
+async function validateCartProductQuantity(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+  quantity: number
+): Promise<ActionResult | null> {
+  if (quantity <= 0) return null
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', productId)
+    .single()
+
+  if (error || !product || product.published === false) {
+    return { success: false, error: 'This product is not available.' }
+  }
+
+  const orderability = evaluateProductOrderability(product, quantity)
+  if (!orderability.ok) {
+    return {
+      success: false,
+      error: `${product.name}: ${orderability.message ?? 'This quantity is not available.'}`,
+    }
+  }
+
+  return null
+}
 
 export async function addToCartAction(productId: string): Promise<ActionResult> {
   const user = await getSession()
@@ -17,10 +46,14 @@ export async function addToCartAction(productId: string): Promise<ActionResult> 
     .eq('product_id', productId)
     .single()
 
+  const nextQuantity = (existing?.quantity ?? 0) + 1
+  const unavailable = await validateCartProductQuantity(supabase, productId, nextQuantity)
+  if (unavailable) return unavailable
+
   if (existing) {
     const { error } = await supabase
       .from('cart_items')
-      .update({ quantity: existing.quantity + 1 })
+      .update({ quantity: nextQuantity })
       .eq('id', existing.id)
     if (error) return { success: false, error: error.message }
   } else {
@@ -47,6 +80,9 @@ export async function setProductCartQuantityAction(
   if (quantity <= 0) {
     await supabase.from('cart_items').delete().eq('user_id', user.id).eq('product_id', productId)
   } else {
+    const unavailable = await validateCartProductQuantity(supabase, productId, quantity)
+    if (unavailable) return unavailable
+
     const { data: existing } = await supabase
       .from('cart_items')
       .select('id')
@@ -93,6 +129,17 @@ export async function updateCartQuantityAction(
     const { error } = await supabase.from('cart_items').delete().eq('id', cartItemId).eq('user_id', user.id)
     if (error) return { success: false, error: error.message }
   } else {
+    const { data: item } = await supabase
+      .from('cart_items')
+      .select('product_id')
+      .eq('id', cartItemId)
+      .eq('user_id', user.id)
+      .single()
+    if (!item?.product_id) return { success: false, error: 'Cart item not found.' }
+
+    const unavailable = await validateCartProductQuantity(supabase, item.product_id, quantity)
+    if (unavailable) return unavailable
+
     const { error } = await supabase
       .from('cart_items')
       .update({ quantity })

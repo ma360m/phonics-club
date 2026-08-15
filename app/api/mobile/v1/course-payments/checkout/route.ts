@@ -2,6 +2,7 @@ import { getCoursePrice, isEnrollmentActive } from '@/lib/lms'
 import { COURSE_REGISTRATION_REMINDER_DAYS } from '@/lib/course-payment-workflow'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
+import { getCourseBankDetails } from '@/lib/site-content'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -104,7 +105,10 @@ export async function POST(request: Request) {
       }, { status: 201 })
     }
 
-    const currencySettings = await getCurrencySettings()
+    const [currencySettings, courseBankDetails] = await Promise.all([
+      getCurrencySettings(),
+      getCourseBankDetails(),
+    ])
     const displayCurrency = normalizeCurrency(parsed.data.selectedDisplayCurrency, currencySettings.usdEnabled)
     const idempotencyKey = `mobile:${context.user.id}:${parsed.data.idempotencyKey}`
 
@@ -123,6 +127,13 @@ export async function POST(request: Request) {
           currency: existingPayment.currency,
           courseId: existingPayment.course_id,
           createdAt: existingPayment.created_at,
+        },
+        courseBankDetails: {
+          bankName: courseBankDetails.bankName,
+          accountTitle: courseBankDetails.accountTitle,
+          accountNumber: courseBankDetails.accountNumber,
+          iban: courseBankDetails.iban,
+          instructions: courseBankDetails.instructions,
         },
       })
     }
@@ -205,6 +216,13 @@ export async function POST(request: Request) {
           enrollmentId: enrollment?.id ?? null,
           receiptRequired: true,
           createdAt: payment.created_at,
+        },
+        courseBankDetails: {
+          bankName: courseBankDetails.bankName,
+          accountTitle: courseBankDetails.accountTitle,
+          accountNumber: courseBankDetails.accountNumber,
+          iban: courseBankDetails.iban,
+          instructions: courseBankDetails.instructions,
         },
       },
       { status: 201, headers: { 'X-Request-Id': requestId } },

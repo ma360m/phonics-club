@@ -13,6 +13,7 @@ import { canCustomerEditOrder, getCustomerOrderStatusLabel } from '@/lib/order-s
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt, type ShopPaymentMethod } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import type { ActionResult, OrderItem } from '@/types'
+import type { ContactPhoneLink } from '@/lib/contact-settings'
 
 const initialState: ActionResult = { success: false }
 
@@ -43,10 +44,12 @@ export function CustomerOrderControls({
   order,
   token,
   editToken,
+  supportPhoneLinks = [],
 }: {
   order: CustomerOrder
   token?: string
   editToken?: string
+  supportPhoneLinks?: ContactPhoneLink[]
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [updateState, updateAction, updatePending] = useActionState(updateCustomerOrderDetailsAction, initialState)
@@ -116,7 +119,7 @@ export function CustomerOrderControls({
       )}
 
       {canUploadReceipt && (
-        <PaymentReceiptUploadForm orderId={order.id} token={token} />
+        <PaymentReceiptUploadForm orderId={order.id} token={token} supportPhoneLinks={supportPhoneLinks} />
       )}
 
       {(updateState.error || cancelState.error) && (

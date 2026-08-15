@@ -37,6 +37,7 @@ import { toast } from 'sonner'
 import type { Product } from '@/types/database'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { getProductPricing } from '@/lib/products/sale-pricing'
+import { isProductComingSoon } from '@/lib/products/coming-soon'
 import { ProductForm } from '@/components/admin/product-form'
 
 interface Props {
@@ -283,7 +284,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
       )}
 
       <p className="text-sm text-muted-foreground mb-4">
-        Imports upsert by <strong>ISBN</strong> — existing ISBN updates, new ISBN creates. Columns: isbn, name, slug, description, price, compare_at_price, category, stock, sale_enabled, sale_price, sale_percentage, featured, published, images
+        Imports upsert by <strong>ISBN</strong> — existing ISBN updates, new ISBN creates. Columns: isbn, name, slug, description, price, compare_at_price, category, stock, sale_enabled, sale_price, sale_percentage, coming_soon, featured, published, images
       </p>
 
       {/* Table */}
@@ -317,6 +318,7 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                 const isbn = p.isbn ?? (p.metadata?.isbn as string) ?? '—'
                 const img = p.images?.[0]
                 const pricing = getProductPricing(p)
+                const comingSoon = isProductComingSoon(p)
                 return (
                   <Fragment key={p.id}>
                   <tr className={`border-t ${selected.has(p.id) ? 'bg-[#1D4ED8]/5' : ''}`}>
@@ -326,13 +328,21 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                     <td className="p-2">
                       <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-muted">
                         {img ? (
-                          <Image src={img} alt="" fill className="object-cover" sizes="48px" unoptimized />
+                          <Image src={img} alt="" fill className={`object-cover ${comingSoon ? 'opacity-60 saturate-75' : ''}`} sizes="48px" unoptimized />
                         ) : (
                           <span className="flex items-center justify-center h-full text-lg">📚</span>
                         )}
+                        {comingSoon ? (
+                          <span className="absolute inset-x-0 bottom-0 bg-[#0F172A]/90 px-1 py-0.5 text-center text-[9px] font-black uppercase tracking-wide text-white">
+                            Soon
+                          </span>
+                        ) : null}
                       </div>
                     </td>
-                    <td className="p-3 font-medium max-w-[180px] truncate">{p.name}</td>
+                    <td className="p-3 font-medium max-w-[180px]">
+                      <span className="block truncate">{p.name}</span>
+                      {comingSoon ? <span className="mt-1 block text-xs font-semibold text-[#1D4ED8]">Coming Soon</span> : null}
+                    </td>
                     <td className="p-3 font-mono text-xs">{p.product_number || '--'}</td>
                     <td className="p-3 font-mono text-xs">
                       <span className="block">{isbn}</span>

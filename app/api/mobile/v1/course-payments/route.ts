@@ -1,6 +1,7 @@
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
 import { mobilePaginationSchema } from '@/lib/mobile-api/schemas'
+import { getCourseBankDetails } from '@/lib/site-content'
 import {
   createMobileApiResponse,
   createMobileRequestId,
@@ -22,12 +23,16 @@ export async function GET(request: Request) {
     const from = (pagination.page - 1) * pagination.pageSize
     const to = from + pagination.pageSize - 1
 
-    const { data, count, error } = await context.supabase
-      .from('course_payments')
-      .select('id, course_id, enrollment_id, amount, currency, status, payment_method, transaction_reference, receipt_filename, receipt_mime_type, receipt_size_bytes, submitted_at, created_at, updated_at, courses(id, title, slug, thumbnail_url, image_url)', { count: 'exact' })
-      .eq('user_id', context.user.id)
-      .order('created_at', { ascending: false })
-      .range(from, to)
+    const [courseBankDetails, paymentsResult] = await Promise.all([
+      getCourseBankDetails(),
+      context.supabase
+        .from('course_payments')
+        .select('id, course_id, enrollment_id, amount, currency, status, payment_method, transaction_reference, receipt_filename, receipt_mime_type, receipt_size_bytes, submitted_at, created_at, updated_at, courses(id, title, slug, thumbnail_url, image_url)', { count: 'exact' })
+        .eq('user_id', context.user.id)
+        .order('created_at', { ascending: false })
+        .range(from, to),
+    ])
+    const { data, count, error } = paymentsResult
 
     if (error) throw error
 
@@ -53,6 +58,13 @@ export async function GET(request: Request) {
           createdAt: payment.created_at,
           updatedAt: payment.updated_at,
         })),
+        courseBankDetails: {
+          bankName: courseBankDetails.bankName,
+          accountTitle: courseBankDetails.accountTitle,
+          accountNumber: courseBankDetails.accountNumber,
+          iban: courseBankDetails.iban,
+          instructions: courseBankDetails.instructions,
+        },
         pagination: {
           page: pagination.page,
           pageSize: pagination.pageSize,

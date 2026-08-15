@@ -17,6 +17,7 @@ import { formatCurrency } from '@/lib/currency'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import { evaluateProductOrderability, type ProductStockStatus } from '@/lib/products/inventory'
 import { Minus, Plus, Trash2 } from 'lucide-react'
+import type { ContactPhoneLink } from '@/lib/contact-settings'
 
 const initialState: ActionResult = { success: false }
 
@@ -101,6 +102,7 @@ type ApiCartItem = {
     max_purchase_quantity?: number | null
     estimated_availability_date?: string | null
     backorder_message?: string | null
+    metadata?: Record<string, unknown> | null
   } | null
 }
 
@@ -110,6 +112,7 @@ export function CheckoutForm({
   bankDetails,
   isGuest = false,
   paymentOptions,
+  supportPhoneLinks = [],
 }: {
   subtotal: number
   cartItems: CheckoutItem[]
@@ -117,6 +120,7 @@ export function CheckoutForm({
   bankDetails: BankDetails
   isGuest?: boolean
   paymentOptions: PaymentOption[]
+  supportPhoneLinks?: ContactPhoneLink[]
 }) {
   const { currency, settings, format } = useCurrency()
   const [state, formAction, pending] = useActionState(placeOrderAction, initialState)
@@ -147,6 +151,7 @@ export function CheckoutForm({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
+  const hasUnavailableCheckoutItems = checkoutItems.some((item) => item.stock_status === 'out_of_stock')
 
   useEffect(() => {
     if (isGuest) setGuestCartJson(JSON.stringify(getGuestCart()))
@@ -266,6 +271,11 @@ export function CheckoutForm({
 
     if (!checkoutItems.length) {
       setCartError('Your cart is empty. Add an item before placing an order.')
+      return false
+    }
+
+    if (hasUnavailableCheckoutItems) {
+      setValidationIssue('Remove unavailable items before confirming your order.')
       return false
     }
 
@@ -674,9 +684,13 @@ export function CheckoutForm({
 
           <p className="rounded-lg bg-[#EFF6FF] px-4 py-3 text-sm text-slate-600">
             Having issue with payment? Contact us at{' '}
-            <a href="tel:+923084432015" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0308 4432015</a>
-            {' '}or{' '}
-            <a href="tel:+923008079480" className="font-semibold text-[#1D4ED8] underline underline-offset-4">0300 8079480</a>.
+            {supportPhoneLinks.map((phone, index) => (
+              <span key={phone.href}>
+                {index ? ' or ' : null}
+                <a href={phone.href} className="font-semibold text-[#1D4ED8] underline underline-offset-4">{phone.display}</a>
+              </span>
+            ))}
+            .
           </p>
 
           {receiptRequired && (
@@ -770,7 +784,7 @@ export function CheckoutForm({
             <>
               <Button
                 type="submit"
-                disabled={pending}
+                disabled={pending || hasUnavailableCheckoutItems}
                 onMouseEnter={handleEvasiveConfirmHover}
                 aria-describedby={validationIssue ? 'checkout-validation-guidance' : undefined}
                 style={confirmButtonStyle}
@@ -792,7 +806,7 @@ export function CheckoutForm({
               type="button"
               onMouseEnter={handleEvasiveConfirmHover}
               onClick={showInvoicePreview}
-              disabled={!checkoutItems.length}
+              disabled={!checkoutItems.length || hasUnavailableCheckoutItems}
               aria-describedby={validationIssue ? 'checkout-validation-guidance' : undefined}
               style={confirmButtonStyle}
               className="w-full rounded-lg bg-[#1D4ED8] transition-transform duration-200 motion-reduce:transform-none"

@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { STARTER_SUGGESTIONS } from '@/lib/assistant/engine'
 import { COMPANY } from '@/lib/company'
+import {
+  DEFAULT_CONTACT_SETTINGS,
+  type ContactSettings,
+} from '@/lib/contact-settings'
 
 type Message = { role: 'user' | 'assistant'; text: string }
 
@@ -43,7 +47,11 @@ function renderText(text: string) {
   })
 }
 
-export function PhonicsAssistant() {
+export function PhonicsAssistant({
+  contactSettings = DEFAULT_CONTACT_SETTINGS,
+}: {
+  contactSettings?: ContactSettings
+}) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -79,7 +87,7 @@ export function PhonicsAssistant() {
     } catch {
       setMessages((m) => [
         ...m,
-        { role: 'assistant', text: `Connection issue. Contact us: ${COMPANY.phoneDisplay} or ${COMPANY.adminEmail}` },
+        { role: 'assistant', text: `Connection issue. Contact us: ${contactSettings.phoneDisplay} or ${COMPANY.adminEmail}` },
       ])
     } finally {
       setTyping(false)

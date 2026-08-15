@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { buildMetadata } from '@/utils/seo'
 import { COMPANY } from '@/lib/company'
+import { getContactSettings } from '@/lib/site-content'
 import { Button } from '@/components/ui/button'
 import { WhatsAppButton } from '@/components/layout/whatsapp-button'
 import { ClipboardList, BookOpen, School } from 'lucide-react'
@@ -12,7 +13,9 @@ export const metadata = buildMetadata({
   path: '/consultancy',
 })
 
-export default function ConsultancyPage() {
+export default async function ConsultancyPage() {
+  const contactSettings = await getContactSettings()
+
   return (
     <main>
       <AnnouncementBar />
@@ -34,7 +37,7 @@ export default function ConsultancyPage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-4">
-          <WhatsAppButton />
+          <WhatsAppButton contactSettings={contactSettings} />
           <Button asChild variant="outline" className="rounded-xl">
             <Link href="/contact">Contact Form</Link>
           </Button>

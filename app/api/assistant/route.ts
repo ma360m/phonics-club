@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getProfile } from '@/lib/auth'
 import { getProducts, getCourses, getBlogPosts } from '@/lib/data/queries'
+import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { generateAssistantReply } from '@/lib/assistant/engine'
 
@@ -12,10 +13,12 @@ export async function POST(request: Request) {
     }
 
     const profile = await getProfile()
-    const [courses, products, posts] = await Promise.all([
+    const [courses, products, posts, contactSettings, courseBankDetails] = await Promise.all([
       getCourses(),
       getProducts({ limit: 50 }),
       getBlogPosts({ limit: 5 }),
+      getContactSettings(),
+      getCourseBankDetails(),
     ])
 
     let enrolledCourseTitles: string[] | undefined
@@ -31,6 +34,8 @@ export async function POST(request: Request) {
       courses,
       products,
       posts,
+      contactSettings,
+      courseBankDetails,
       enrolledCourseTitles,
       userName: profile?.full_name ?? undefined,
     })

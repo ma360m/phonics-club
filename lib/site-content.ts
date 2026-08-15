@@ -1,6 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
+import {
+  DEFAULT_CONTACT_SETTINGS,
+  normalizeContactSettings,
+  type ContactSettings,
+} from '@/lib/contact-settings'
+import {
+  DEFAULT_BANK_DETAILS,
+  DEFAULT_COURSE_BANK_DETAILS,
+  normalizeBankDetails,
+  type BankDetails,
+} from '@/lib/bank-details'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import { slugify } from '@/utils/slug'
 
@@ -193,8 +204,9 @@ export const DEFAULT_FAQS: FAQItem[] = [
     q: 'What payment options are available?',
     a: [
       'Cash on Delivery is available for eligible shop orders.',
-      'Bank Transfer: MEEZAN BANK, Account Title: Phonics Club PVT. LTD, A/C No: 02590104584267.',
-      'Having issue with payment? Contact us at 0308 4432015 or 0300 8079480.',
+      `Course Bank Transfer: ${DEFAULT_COURSE_BANK_DETAILS.bankName}, Account Title: ${DEFAULT_COURSE_BANK_DETAILS.accountTitle}, A/C No: ${DEFAULT_COURSE_BANK_DETAILS.accountNumber}.`,
+      `Course IBAN: ${DEFAULT_COURSE_BANK_DETAILS.iban}.`,
+      `Having issue with payment? Contact us at ${COMPANY.phoneDisplay}.`,
     ],
   },
   {
@@ -714,7 +726,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     { label: 'Professional Support', value: 'Online and On-site' },
   ],
   contact: {
-    phones: ['0300-8079480', '0302-2220448'],
+    phones: [COMPANY.phoneDisplay],
     emails: ['info@phonicsclub.com', 'support@phonicsclub.com'],
   },
   cta: {
@@ -1032,6 +1044,11 @@ export async function getWebsiteVideos(): Promise<WebsiteVideos> {
   return normalizeVideoSettings(siteVideos, heroVideo)
 }
 
+export async function getContactSettings(): Promise<ContactSettings> {
+  const settings = await getContent<Partial<ContactSettings>>('contact_settings', DEFAULT_CONTACT_SETTINGS)
+  return normalizeContactSettings(settings)
+}
+
 export async function getInvoiceTemplate() {
   const template = await getContent('invoice_template', {
     header: 'PHONICS CLUB PVT LTD',
@@ -1040,22 +1057,23 @@ export async function getInvoiceTemplate() {
       'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight. Current standard shipping: PKR 550.',
     bankDetails: COMPANY_BANK_DETAILS,
   })
+  const contactSettings = await getContactSettings()
 
   return {
     ...template,
-    bankDetails: {
-      ...(template.bankDetails ?? {}),
-      ...COMPANY_BANK_DETAILS,
-    },
+    contactPhoneDisplay: contactSettings.phoneDisplay,
+    bankDetails: normalizeBankDetails(template.bankDetails, DEFAULT_BANK_DETAILS),
   }
 }
 
-export async function getBankDetails() {
+export async function getBankDetails(): Promise<BankDetails> {
   const details = await getContent('bank_details', COMPANY_BANK_DETAILS)
-  return {
-    ...details,
-    ...COMPANY_BANK_DETAILS,
-  }
+  return normalizeBankDetails(details, DEFAULT_BANK_DETAILS)
+}
+
+export async function getCourseBankDetails(): Promise<BankDetails> {
+  const details = await getContent('course_bank_details', DEFAULT_COURSE_BANK_DETAILS)
+  return normalizeBankDetails(details, DEFAULT_COURSE_BANK_DETAILS)
 }
 
 export async function getAboutPageContent(): Promise<AboutPageContent> {

@@ -9,6 +9,7 @@ interface InvoiceTemplate {
   header?: string
   tagline?: string
   footer?: string
+  contactPhoneDisplay?: string
   bankDetails?: {
     bankName?: string
     accountTitle?: string
@@ -72,6 +73,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
   }
   const showBankDetails = shopPaymentNeedsReceipt(order.payment_method)
   const tagline = invoiceTagline(template?.tagline)
+  const contactPhoneDisplay = template?.contactPhoneDisplay?.trim() || COMPANY.phoneDisplay
   const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
   const exchangeRate = Number(order.exchange_rate ?? 0)
   const displaySubtotal = Number(order.display_subtotal ?? 0)
@@ -184,7 +186,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
 
     <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">
       <p style="margin:0"><strong>Shipping Notice:</strong> ${escapeHtml(footerNote)}</p>
-      <p style="margin:8px 0 0">Contact: ${escapeHtml(COMPANY.adminEmail)} | 0308 4432015 | 0300 8079480</p>
+      <p style="margin:8px 0 0">Contact: ${escapeHtml(COMPANY.adminEmail)} | ${escapeHtml(contactPhoneDisplay)}</p>
     </div>
   </main>
 </body></html>`

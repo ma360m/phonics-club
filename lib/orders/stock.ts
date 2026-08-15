@@ -37,6 +37,7 @@ interface StockProduct {
   max_purchase_quantity?: number | null
   estimated_availability_date?: string | null
   backorder_message?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 function aggregateItemQuantities(items: OrderItem[]) {
@@ -63,7 +64,7 @@ async function validateAndAnnotateStock(items: OrderItem[], previousItems: Order
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, published, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, max_backorder_quantity, max_purchase_quantity, estimated_availability_date, backorder_message')
+    .select('id, name, published, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, max_backorder_quantity, max_purchase_quantity, estimated_availability_date, backorder_message, metadata')
     .in('id', productIds)
 
   if (error) {

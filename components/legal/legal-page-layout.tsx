@@ -1,13 +1,16 @@
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { COMPANY } from '@/lib/company'
+import { getContactSettings } from '@/lib/site-content'
 
-export function LegalPageLayout({
+export async function LegalPageLayout({
   title,
   children,
 }: {
   title: string
   children: React.ReactNode
 }) {
+  const contactSettings = await getContactSettings()
+
   return (
     <main>
       <AnnouncementBar />
@@ -30,7 +33,7 @@ export function LegalPageLayout({
           <p className="font-semibold text-foreground">{COMPANY.name}</p>
           <p>{COMPANY.address}</p>
           <p>
-            {COMPANY.adminEmail} | {COMPANY.phoneDisplay}
+            {COMPANY.adminEmail} | {contactSettings.phoneDisplay}
           </p>
         </div>
       </article>

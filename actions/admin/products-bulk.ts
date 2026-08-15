@@ -118,6 +118,7 @@ export async function importCatalogManifestAction(
     sale_enabled: false,
     sale_price: null,
     sale_percentage: null,
+    coming_soon: false,
     featured: p.featured,
     published: p.published,
     images: p.images,

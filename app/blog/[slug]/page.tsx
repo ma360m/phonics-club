@@ -53,6 +53,12 @@ function usableHeroImage(value?: string | null) {
   return value
 }
 
+function galleryFolderHint(event: { galleryFolder: string; galleryFolders?: string[] } | null) {
+  if (!event) return 'the blog gallery folder'
+  const folders = event.galleryFolders?.length ? event.galleryFolders : [event.galleryFolder]
+  return folders.map((folder) => `public/images/photos/${folder}`).join(', ')
+}
+
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const post = await getBlogPostBySlug(slug)
@@ -145,15 +151,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             />
 
             {showGallery ? (
-              <section className="mt-10" aria-labelledby="blog-gallery-heading">
-                <h2 id="blog-gallery-heading" className="text-2xl font-bold text-[#0F172A]">Event Photo Gallery</h2>
+              <section className="mt-10" aria-label="Event photo gallery">
                 {galleryImages.length ? (
-                  <div className="mt-5">
-                    <BlogGalleryLightbox images={galleryImages} />
-                  </div>
+                  <BlogGalleryLightbox images={galleryImages} />
                 ) : (
                   <div className="mt-5 rounded-lg border border-dashed border-[#BFDBFE] bg-[#EFF6FF] p-6 text-sm leading-6 text-[#1D4ED8]">
-                    Approved event photographs have not been added yet. Add images named 01.jpg, 02.jpg and so on inside <strong>{event ? `public/images/blog/${event.galleryFolder}` : 'the blog gallery folder'}</strong>.
+                    Approved event photographs have not been added yet. Add images named 01.jpg, 02.jpg and so on inside <strong>{galleryFolderHint(event)}</strong>.
                   </div>
                 )}
               </section>

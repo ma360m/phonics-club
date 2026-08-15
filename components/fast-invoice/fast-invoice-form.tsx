@@ -36,6 +36,7 @@ interface FastInvoiceProduct {
   max_purchase_quantity?: number | null
   estimated_availability_date?: string | null
   backorder_message?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 interface PaymentOption {
@@ -167,6 +168,8 @@ export function FastInvoiceForm({
   const totalDiscount = couponPreview?.valid ? couponPreview.discount ?? couponDiscount + memberDiscount : 0
   const payableTotal = Math.max(0, subtotal + chargedShipping - totalDiscount)
   const itemsJson = JSON.stringify(selectedItems)
+  const selectedProduct = selectedProductId ? productMap.get(selectedProductId) : null
+  const selectedProductStock = selectedProduct ? evaluateProductOrderability(selectedProduct, addQuantity) : null
 
   function selectProduct(product: FastInvoiceProduct) {
     setSelectedProductId(product.id)
@@ -283,7 +286,12 @@ export function FastInvoiceForm({
               onChange={setAddQuantity}
               className="w-fit rounded-xl"
             />
-            <Button type="button" className="rounded-xl bg-[#1D4ED8]" onClick={addSelectedProduct} disabled={!selectedProductId}>
+            <Button
+              type="button"
+              className="rounded-xl bg-[#1D4ED8]"
+              onClick={addSelectedProduct}
+              disabled={!selectedProductId || selectedProductStock?.ok === false}
+            >
               <Plus className="h-4 w-4" />
               Add
             </Button>

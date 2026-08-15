@@ -6,7 +6,7 @@ import { submitCoursePaymentReceiptAction, submitOfflineActivityAction } from '@
 import { getCourseAccessState, getCourseWishlist, getOfflineActivityEntries, getUserCoursePayments, isCertificatePayment, isCourseCertificateEnabled } from '@/lib/lms'
 import { getCourses } from '@/lib/data/queries'
 import { requestCourseCancellationAction } from '@/actions/enrollments'
-import { COMPANY_BANK_DETAILS } from '@/lib/company'
+import { getCourseBankDetails } from '@/lib/site-content'
 import { COURSE_LICENSE_EMAIL_ADDRESS } from '@/lib/email/send-course-license-email'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
@@ -34,13 +34,14 @@ async function getUserCertificates(userId: string): Promise<Certificate[]> {
 export default async function MyCoursesPage() {
   const user = await requireAuth()
   const profile = await getProfile()
-  const [enrollments, wishlist, certificates, allCourses, payments, offlineEntries] = await Promise.all([
+  const [enrollments, wishlist, certificates, allCourses, payments, offlineEntries, courseBankDetails] = await Promise.all([
     getUserEnrollments(),
     getCourseWishlist(user.id),
     getUserCertificates(user.id),
     getCourses(),
     getUserCoursePayments(user.id),
     getOfflineActivityEntries(user.id),
+    getCourseBankDetails(),
   ])
 
   const enrolledCourseIds = new Set(enrollments.map((item) => item.course_id))
@@ -223,9 +224,10 @@ export default async function MyCoursesPage() {
                       <div className="rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm leading-6 text-slate-700">
                         <p className="font-semibold text-[#0F172A]">Payment options</p>
                         <p className="mt-1">
-                          {COMPANY_BANK_DETAILS.bankName}: {COMPANY_BANK_DETAILS.accountTitle}, Account {COMPANY_BANK_DETAILS.accountNumber}
+                          {courseBankDetails.bankName}: {courseBankDetails.accountTitle}, Account {courseBankDetails.accountNumber}
                         </p>
-                        <p className="mt-1">{COMPANY_BANK_DETAILS.instructions}</p>
+                        {courseBankDetails.iban ? <p className="mt-1">IBAN: {courseBankDetails.iban}</p> : null}
+                        <p className="mt-1">{courseBankDetails.instructions}</p>
                         <p className="mt-2 font-medium text-[#1D4ED8]">
                           You can pay now and upload the receipt later from this dashboard. Admin approval unlocks the matching course access or certificate request.
                         </p>

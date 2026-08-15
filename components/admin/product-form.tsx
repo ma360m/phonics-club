@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ImageUpload } from './image-upload'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { isProductComingSoon } from '@/lib/products/coming-soon'
 import type { Product } from '@/types/database'
 import type { ActionResult } from '@/types'
 
@@ -198,6 +199,9 @@ export function ProductForm({
         <p className="text-xs text-muted-foreground">Upload one or more supporting pictures. Local images can also be placed in public/images/ and added as paths above.</p>
       </div>
       <div className="flex flex-wrap gap-6">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="coming_soon" defaultChecked={product ? isProductComingSoon(product) : false} /> Coming Soon
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={product?.featured} /> Featured
         </label>
