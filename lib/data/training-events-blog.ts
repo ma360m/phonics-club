@@ -1,7 +1,6 @@
-import fs from 'fs'
-import path from 'path'
 import { CANONICAL_URL, APP_NAME } from '@/lib/constants'
 import type { BlogGalleryImage, BlogPost } from '@/types/database'
+import { EVENT_IMAGE_MANIFEST } from './event-image-manifest'
 import { TRAINING_EVENT_NEWSLETTER_DETAILS } from './training-event-newsletter-details'
 
 export type BlogEventCategory =
@@ -58,9 +57,6 @@ export interface TrainingEventArticle {
   }
 }
 
-const BLOG_IMAGE_ROOT = '/images/blog'
-const EVENT_PHOTO_IMAGE_ROOT = '/images/photos'
-const LOCAL_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'])
 const SKIPPED_EVENT_PHOTO_FOLDERS = [/beginning international/i, /begining international/i, /kips/i]
 
 function escapeHtml(value: string) {
@@ -100,45 +96,15 @@ function isSkippedEventPhotoFolder(folder: string) {
   return SKIPPED_EVENT_PHOTO_FOLDERS.some((pattern) => pattern.test(folder))
 }
 
-function publicImagePath(root: string, folder: string, file: string) {
-  return [
-    root,
-    ...folder.split(/[\\/]+/).filter(Boolean).map((part) => encodeURIComponent(part)),
-    ...file.split(/[\\/]+/).filter(Boolean).map((part) => encodeURIComponent(part)),
-  ].join('/')
-}
-
-function listImageFilesRecursive(folder: string, baseFolder = folder): string[] {
-  if (!fs.existsSync(folder)) return []
-
-  return fs.readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(folder, entry.name)
-    if (entry.isDirectory()) return listImageFilesRecursive(entryPath, baseFolder)
-    if (!entry.isFile() || !LOCAL_IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) return []
-    return [path.relative(baseFolder, entryPath)]
-  })
-}
-
-function listLocalImages(rootDir: 'photos' | 'blog', folder: string, imageRoot: string): BlogGalleryImage[] {
+function listLocalImages(rootDir: 'photos' | 'blog', folder: string): BlogGalleryImage[] {
   if (rootDir === 'photos' && isSkippedEventPhotoFolder(folder)) return []
-
-  const absoluteFolder = path.join(process.cwd(), 'public', 'images', rootDir, folder)
-  const files = listImageFilesRecursive(absoluteFolder)
-  if (!files.length) return []
-
-  return files
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-    .map((file, index) => ({
-      src: publicImagePath(imageRoot, folder, file),
-      alt: `${folder.replace(/[-_/\\]+/g, ' ')} event photograph ${index + 1}`,
-      caption: null,
-    }))
+  return EVENT_IMAGE_MANIFEST[`${rootDir}/${folder}`] ?? []
 }
 
 export function listLocalBlogImages(folder: string): BlogGalleryImage[] {
-  const eventPhotos = listLocalImages('photos', folder, EVENT_PHOTO_IMAGE_ROOT)
+  const eventPhotos = listLocalImages('photos', folder)
   if (eventPhotos.length) return eventPhotos
-  return listLocalImages('blog', folder, BLOG_IMAGE_ROOT)
+  return listLocalImages('blog', folder)
 }
 
 function getTrainingEventGalleryFolders(article: TrainingEventArticle) {

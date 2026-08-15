@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "generate:event-image-manifest": "node scripts/generate-event-image-manifest.mjs",
+    "predev": "npm run generate:event-image-manifest",
     "dev": "next dev",
+    "prebuild": "npm run generate:event-image-manifest",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
