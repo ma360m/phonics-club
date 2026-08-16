@@ -68,6 +68,9 @@ export function BlogForm({ post }: { post?: BlogPost }) {
         <div className="space-y-2 col-span-2">
           <Label>Cover Image URL</Label>
           <Input name="cover_image" defaultValue={post?.cover_image ?? ''} className="rounded-xl" />
+          <p className="text-xs leading-5 text-muted-foreground">
+            This is only the blog/newsletter thumbnail or header image. Event gallery photos below will not be used as thumbnails.
+          </p>
           <ImageUpload folder="phonics-club/blog" onUpload={(url) => {
             const input = document.querySelector<HTMLInputElement>('input[name="cover_image"]')
             if (input) input.value = url
@@ -77,7 +80,7 @@ export function BlogForm({ post }: { post?: BlogPost }) {
           <div>
             <Label>Gallery Images</Label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload supporting pictures for this blog post. They appear in a clean gallery below the article.
+              Add or remove event pictures here. They appear in the moving gallery under the page header.
             </p>
           </div>
           <ImageUpload

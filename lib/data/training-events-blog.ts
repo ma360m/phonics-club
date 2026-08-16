@@ -37,6 +37,7 @@ export interface TrainingEventArticle {
   participants?: string
   audience?: string
   theme?: string
+  coverImage?: string | null
   galleryFolder: string
   galleryFolders?: string[]
   originalPostUrls?: string[]
@@ -116,7 +117,12 @@ export function getTrainingEventGallery(article: TrainingEventArticle): BlogGall
 }
 
 export function getTrainingEventHeroImage(article: TrainingEventArticle): string | null {
-  return getTrainingEventGallery(article)[0]?.src ?? null
+  return article.coverImage ?? null
+}
+
+export function isTrainingEventGalleryImage(article: TrainingEventArticle, src?: string | null) {
+  if (!src) return false
+  return getTrainingEventGallery(article).some((image) => image.src === src)
 }
 
 export function eventCategoryLabel(category: string) {

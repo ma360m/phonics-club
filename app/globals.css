@@ -823,3 +823,38 @@ html[data-pc-theme='midnight-focus'] .pc-course-workspace :where(.text-slate-400
 html[data-pc-theme='midnight-focus'] .pc-course-workspace :where(.bg-white, .bg-card, .bg-\[\#F8FAFC\]) {
   background: var(--pc-course-surface-2) !important;
 }
+
+@keyframes pc-gallery-ticker-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.pc-gallery-ticker {
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+
+.pc-gallery-ticker-track {
+  animation: pc-gallery-ticker-scroll 64s linear infinite;
+  will-change: transform;
+}
+
+.pc-gallery-ticker-track-static {
+  animation: none;
+}
+
+.pc-gallery-ticker:hover .pc-gallery-ticker-track,
+.pc-gallery-ticker:focus-within .pc-gallery-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-gallery-ticker-track {
+    animation: none;
+    transform: none;
+  }
+}

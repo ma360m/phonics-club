@@ -3,6 +3,7 @@ import { COURSE_REGISTRATION_REMINDER_DAYS } from '@/lib/course-payment-workflow
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { getCourseBankDetails } from '@/lib/site-content'
+import { notifyAdminOfCourseEnrollment } from '@/lib/email/send-course-enrollment-admin-email'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -95,6 +96,22 @@ export async function POST(request: Request) {
         throw new MobileApiError('FREE_ENROLLMENT_FAILED', 'Course enrollment could not be created.', 500)
       }
 
+      await notifyAdminOfCourseEnrollment({
+        course: currentCourse,
+        enrollmentId: enrollment.id,
+        student: {
+          id: context.user.id,
+          name: context.profile.full_name ?? context.user.email,
+          email: context.profile.email ?? context.user.email,
+        },
+        status: enrollment.status ?? 'active',
+        paymentStatus: 'free',
+        amount: 0,
+        currency: currentCourse.currency ?? 'PKR',
+        source: 'Mobile free enrollment',
+        enrolledAt: now,
+      })
+
       return createMobileApiResponse({
         enrollment: {
           id: enrollment.id,
@@ -184,6 +201,22 @@ export async function POST(request: Request) {
 
     if (enrollment?.id) {
       await context.supabase.from('course_payments').update({ enrollment_id: enrollment.id } as never).eq('id', payment.id)
+      await notifyAdminOfCourseEnrollment({
+        course: currentCourse,
+        enrollmentId: enrollment.id,
+        paymentId: payment.id,
+        student: {
+          id: context.user.id,
+          name: context.profile.full_name ?? context.user.email,
+          email: context.profile.email ?? context.user.email,
+        },
+        status: 'pending',
+        paymentStatus: payment.status,
+        amount,
+        currency: currentCourse.currency ?? 'PKR',
+        source: 'Mobile paid checkout',
+        enrolledAt: now,
+      })
     }
 
     await context.supabase.from('course_payment_events').insert({

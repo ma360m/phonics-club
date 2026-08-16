@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: event?.seoTitle ?? post.seo_title ?? post.title,
     description: event?.seoDescription ?? post.seo_description ?? post.excerpt ?? undefined,
     path: `/blog/${post.slug}`,
-    image: event ? getTrainingEventHeroImage(event) ?? '/og-default.png' : post.cover_image ?? undefined,
+    image: event ? getTrainingEventHeroImage(event) ?? post.cover_image ?? undefined : post.cover_image ?? undefined,
     type: 'article',
   })
 }
@@ -65,8 +65,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   const event = getTrainingEventBySlug(slug)
-  const galleryImages = event ? getTrainingEventGallery(event) : post.gallery_images ?? []
-  const heroImage = usableHeroImage(event ? getTrainingEventHeroImage(event) : post.cover_image)
+  const galleryImages = post.gallery_images ?? (event ? getTrainingEventGallery(event) : [])
+  const heroImage = usableHeroImage(event ? getTrainingEventHeroImage(event) ?? post.cover_image : post.cover_image)
   const articleUrl = `${CANONICAL_URL}/blog/${post.slug}`
   const related = event ? getRelatedTrainingEvents(event) : []
   const hasRelated = related.length > 0
@@ -112,6 +112,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         </header>
 
+        {showGallery ? (
+          <section className="border-b bg-white" aria-label="Event photo gallery">
+            {galleryImages.length ? (
+              <BlogGalleryLightbox images={galleryImages} />
+            ) : (
+              <div className="mx-auto w-full max-w-none px-6 py-6 sm:px-8 lg:px-10">
+                <div className="rounded-lg border border-dashed border-[#BFDBFE] bg-[#EFF6FF] p-6 text-sm leading-6 text-[#1D4ED8]">
+                  Approved event photographs have not been added yet. Add images named 01.jpg, 02.jpg and so on inside <strong>{galleryFolderHint(event)}</strong>.
+                </div>
+              </div>
+            )}
+          </section>
+        ) : null}
+
         {heroImage ? (
           <section className="mx-auto w-full max-w-none px-6 py-5 sm:px-8 lg:px-10">
             <div className="relative aspect-[18/5] max-h-[300px] min-h-[170px] overflow-hidden rounded-lg border bg-[#EFF6FF] shadow-sm">
@@ -149,18 +163,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               className="pc-blog-content prose prose-lg w-full max-w-none rounded-lg border border-slate-200 bg-white p-6 leading-8 shadow-sm prose-headings:text-[#0F172A] prose-a:text-[#1D4ED8] sm:p-8"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
-
-            {showGallery ? (
-              <section className="mt-10" aria-label="Event photo gallery">
-                {galleryImages.length ? (
-                  <BlogGalleryLightbox images={galleryImages} />
-                ) : (
-                  <div className="mt-5 rounded-lg border border-dashed border-[#BFDBFE] bg-[#EFF6FF] p-6 text-sm leading-6 text-[#1D4ED8]">
-                    Approved event photographs have not been added yet. Add images named 01.jpg, 02.jpg and so on inside <strong>{galleryFolderHint(event)}</strong>.
-                  </div>
-                )}
-              </section>
-            ) : null}
 
             {event?.originalPostUrls?.length || event ? (
               <section className="mt-8 flex flex-wrap gap-3">

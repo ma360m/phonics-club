@@ -451,27 +451,27 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/17.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/18.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 6",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/18.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/44444.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 7",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/44444.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/1212131.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 8",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/1212131.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/dwedw.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 9",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/dwedw.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/Screenshot%202026-08-16%20112421.png",
       "alt": "Gujranwala pilot project training session event photograph 10",
       "caption": null
     },
@@ -660,13 +660,18 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
       "caption": null
     },
     {
-      "src": "/images/photos/Jolly%20experience%20day%20chris/x.jpeg",
+      "src": "/images/photos/Jolly%20experience%20day%20chris/WhatsApp%20Image%202026-08-13%20at%2012.57.02%20PM.jpeg",
       "alt": "Jolly experience day chris event photograph 23",
       "caption": null
     },
     {
-      "src": "/images/photos/Jolly%20experience%20day%20chris/y.jpeg",
+      "src": "/images/photos/Jolly%20experience%20day%20chris/x.jpeg",
       "alt": "Jolly experience day chris event photograph 24",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Jolly%20experience%20day%20chris/y.jpeg",
+      "alt": "Jolly experience day chris event photograph 25",
       "caption": null
     }
   ],

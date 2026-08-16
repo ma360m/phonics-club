@@ -20,6 +20,7 @@ import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lm
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { APP_URL } from '@/lib/constants'
 import { sendCourseEnrollmentInvoiceEmail, sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
+import { notifyAdminOfCourseEnrollment } from '@/lib/email/send-course-enrollment-admin-email'
 import { COURSE_REGISTRATION_REMINDER_DAYS, getCoursePaymentWorkflowStatus } from '@/lib/course-payment-workflow'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
@@ -333,6 +334,26 @@ export async function createCourseCheckoutAction(
         .select('id')
         .single()
       if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      await notifyAdminOfCourseEnrollment({
+        course: currentCourse,
+        enrollmentId: enrollment.id,
+        student: {
+          id: user.id,
+          name: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+          email: firstString((profile as { email?: string | null } | null)?.email, user.email),
+        },
+        status: 'active',
+        paymentStatus: 'free',
+        amount: 0,
+        currency: currentCourse.currency ?? 'PKR',
+        source: 'Website free enrollment',
+        enrolledAt: now,
+      })
       revalidatePath('/dashboard/my-courses')
       revalidatePath(`/courses/${currentCourse.slug}`)
       return { success: true, data: { enrollmentId: enrollment.id, redirectTo: `/course/${courseId}/learn` } }
@@ -411,6 +432,24 @@ export async function createCourseCheckoutAction(
       to: firstString((profile as { email?: string | null } | null)?.email, user.email),
       studentName: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
     })
+    if (!existingPayment) {
+      await notifyAdminOfCourseEnrollment({
+        course: currentCourse,
+        enrollmentId: enrollment.id,
+        paymentId: payment.id,
+        student: {
+          id: user.id,
+          name: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+          email: firstString((profile as { email?: string | null } | null)?.email, user.email),
+        },
+        status: 'pending',
+        paymentStatus: payment.status,
+        amount: price,
+        currency: currentCourse.currency ?? 'PKR',
+        source: 'Website paid checkout',
+        enrolledAt: now,
+      })
+    }
     if (!existingPayment) {
       await supabase.from('course_payment_events').insert({
         payment_id: payment.id,

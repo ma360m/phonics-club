@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { SEED_PRODUCTS, SEED_COURSES, SEED_BLOG_POSTS } from './seed'
 import { CHILDREN_PHONICS_COURSES, mergeMissingChildrenPhonicsCourses, withChildrenPhonicsCourseUpdates } from './children-phonics-courses'
-import { getTrainingEventBlogPosts, getTrainingEventBySlug, trainingEventToBlogPost } from './training-events-blog'
+import { getTrainingEventBlogPosts, getTrainingEventBySlug, isTrainingEventGalleryImage, trainingEventToBlogPost } from './training-events-blog'
 import { filterProductsByCollection } from '@/lib/product-collections'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import type { Product, Course, BlogPost, Profile, Order } from '@/types/database'
@@ -40,6 +40,12 @@ function normalizeCourse(c: Course): Course {
     certificate_background_url: normalizeMediaUrl(c.certificate_background_url),
     hero_video_url: normalizeMediaUrl(c.hero_video_url),
   }
+}
+
+function normalizeBlogPost(post: BlogPost): BlogPost {
+  const event = getTrainingEventBySlug(post.slug)
+  if (!event || !isTrainingEventGalleryImage(event, post.cover_image)) return post
+  return { ...post, cover_image: null }
 }
 
 export async function getProducts(options?: {
@@ -193,7 +199,7 @@ export async function getBlogPosts(options?: {
   if (options?.limit) query = query.limit(options.limit)
 
   const { data } = await query.order('created_at', { ascending: false })
-  const databasePosts = (data as BlogPost[]) ?? []
+  const databasePosts = ((data as BlogPost[]) ?? []).map(normalizeBlogPost)
   const databaseSlugs = new Set(databasePosts.map((post) => post.slug))
   const seedPosts = SEED_BLOG_POSTS.filter((post) => (!options?.category || post.category === options.category) && !databaseSlugs.has(post.slug))
   const merged = [
@@ -219,7 +225,7 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
     .eq('published', true)
     .single()
 
-  if (data) return data as BlogPost
+  if (data) return normalizeBlogPost(data as BlogPost)
 
   const event = getTrainingEventBySlug(slug)
   if (event) return trainingEventToBlogPost(event)
