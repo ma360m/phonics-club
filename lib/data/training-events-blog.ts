@@ -194,6 +194,59 @@ export function getRelatedTrainingEvents(article: TrainingEventArticle, limit = 
   return scored.slice(0, limit).map((item) => trainingEventToBlogPost(item.candidate))
 }
 
+function normalizePersonName(value?: string | null) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/\b(dr|mr|mrs|ms|miss|prof|professor)\.?\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function containsNormalizedName(text: string, normalizedName: string) {
+  if (!normalizedName) return false
+  return ` ${text} `.includes(` ${normalizedName} `)
+}
+
+function trainingEventSearchText(article: TrainingEventArticle) {
+  const sectionText = article.sections
+    ?.flatMap((section) => [section.title, ...(section.paragraphs ?? []), ...(section.items ?? [])])
+    .join(' ')
+  const bulletText = article.bulletSection?.items.join(' ')
+
+  return [
+    article.title,
+    article.excerpt,
+    article.trainer,
+    article.guest,
+    article.organizer,
+    article.collaboration,
+    article.participants,
+    article.audience,
+    article.theme,
+    article.tags.join(' '),
+    article.body.join(' '),
+    sectionText,
+    bulletText,
+  ].filter(Boolean).join(' ')
+}
+
+export function getTrainingEventsForTrainer(trainerName: string) {
+  const normalizedTrainerName = normalizePersonName(trainerName)
+  if (!normalizedTrainerName) return []
+
+  return TRAINING_EVENT_ARTICLES
+    .filter((article) => {
+      if (!article.published) return false
+      const directNames = [article.trainer, article.guest].map(normalizePersonName)
+      if (directNames.includes(normalizedTrainerName)) return true
+
+      const haystack = normalizePersonName(trainingEventSearchText(article))
+      return containsNormalizedName(haystack, normalizedTrainerName)
+    })
+    .sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime())
+}
+
 export function trainingEventJsonLd(article: TrainingEventArticle) {
   const image = getTrainingEventHeroImage(article)
   const location = article.venue || article.location || article.city

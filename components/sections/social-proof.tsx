@@ -54,6 +54,9 @@ export function SocialProof({
             <Instagram className="h-5 w-5" />
             @phonics.club
           </Link>
+          <p className="mx-auto mt-5 max-w-4xl text-base font-bold leading-7 text-[#0F172A] sm:text-lg">
+            Learning in Action | At Beginning International School, Kashmir | Ms Nadia Habib
+          </p>
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">

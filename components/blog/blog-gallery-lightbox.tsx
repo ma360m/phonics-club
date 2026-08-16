@@ -1,7 +1,15 @@
 import Image from 'next/image'
 import type { BlogGalleryImage } from '@/types/database'
 
-export function BlogGalleryLightbox({ images }: { images: BlogGalleryImage[] }) {
+export function BlogGalleryLightbox({
+  images,
+  eyebrow = 'Gallery',
+  title = 'Event Photo Gallery',
+}: {
+  images: BlogGalleryImage[]
+  eyebrow?: string
+  title?: string
+}) {
   if (!images.length) return null
 
   const tickerImages = images.length > 1 ? [...images, ...images] : images
@@ -11,8 +19,8 @@ export function BlogGalleryLightbox({ images }: { images: BlogGalleryImage[] }) 
       <div className="mx-auto w-full max-w-none px-6 py-6 sm:px-8 lg:px-10">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">Gallery</p>
-            <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">Event Photo Gallery</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">{eyebrow}</p>
+            <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">{title}</h2>
           </div>
           <p className="text-sm font-semibold text-slate-500">{images.length} photo{images.length === 1 ? '' : 's'}</p>
         </div>

@@ -4,12 +4,20 @@ import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { AnnouncementBar, Navbar, Footer } from '@/components/layout'
 import { BackButton } from '@/components/layout/back-button'
+import { BlogGalleryLightbox } from '@/components/blog/blog-gallery-lightbox'
 import { buildMetadata } from '@/utils/seo'
+import { getBlogPosts } from '@/lib/data/queries'
+import {
+  eventCategoryLabel,
+  getTrainingEventGallery,
+  getTrainingEventsForTrainer,
+} from '@/lib/data/training-events-blog'
 import { getTrainerBySlug } from '@/lib/site-content'
 import { getTrainerDisplayName } from '@/lib/trainer-display'
 import { getTrainerImageUrl } from '@/lib/trainer-images'
 import { cn } from '@/lib/utils'
-import { Award, CheckCircle2, GraduationCap, Star } from 'lucide-react'
+import { Award, CalendarDays, CheckCircle2, ExternalLink, GraduationCap, Images, Star } from 'lucide-react'
+import type { BlogGalleryImage } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -55,6 +63,96 @@ function DetailList({
   )
 }
 
+function uniqueGalleryImages(images: BlogGalleryImage[]) {
+  const seen = new Set<string>()
+  return images.filter((image) => {
+    if (seen.has(image.src)) return false
+    seen.add(image.src)
+    return true
+  })
+}
+
+function EmptyProfileSection({
+  title,
+  body,
+  icon,
+}: {
+  title: string
+  body: string
+  icon: ReactNode
+}) {
+  return (
+    <section className="mt-8 rounded-lg border border-dashed border-[#BFDBFE] bg-[#EFF6FF] p-6 text-center">
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-white text-[#1D4ED8]">
+        {icon}
+      </div>
+      <h2 className="mt-3 text-xl font-bold text-[#0F172A]">{title}</h2>
+      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[#1D4ED8]">{body}</p>
+    </section>
+  )
+}
+
+function RelatedArticlesSection({
+  trainerName,
+  articles,
+}: {
+  trainerName: string
+  articles: {
+    slug: string
+    title: string
+    excerpt?: string | null
+    dateDisplay: string
+    category: string
+    location?: string | null
+  }[]
+}) {
+  if (!articles.length) {
+    return (
+      <EmptyProfileSection
+        title="Related Articles"
+        body={`Related articles for ${trainerName} will appear here as soon as matching event updates are published.`}
+        icon={<ExternalLink className="h-5 w-5" />}
+      />
+    )
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Articles</p>
+          <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">Related Articles & Newsletters</h2>
+        </div>
+        <p className="text-sm font-semibold text-slate-500">{articles.length} update{articles.length === 1 ? '' : 's'}</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {articles.map((article) => (
+          <Link
+            key={article.slug}
+            href={`/blog/${article.slug}`}
+            className="group rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <p className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-[#1D4ED8]" />
+                {article.dateDisplay}
+              </span>
+              <span>{eventCategoryLabel(article.category)}</span>
+              {article.location ? <span>{article.location}</span> : null}
+            </p>
+            <h3 className="mt-3 text-lg font-bold leading-6 text-[#0F172A] group-hover:text-[#1D4ED8]">{article.title}</h3>
+            {article.excerpt ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">{article.excerpt}</p> : null}
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#1D4ED8]">
+              Read article
+              <ExternalLink className="h-4 w-4" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default async function CertifiedTrainerProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const trainer = await getTrainerBySlug(slug)
@@ -62,6 +160,24 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
   const trainerImageUrl = getTrainerImageUrl(trainer)
   const trainerDisplayName = getTrainerDisplayName(trainer)
   const isFatimaProfile = trainer.slug === 'fatima-tuz-zahra' || trainer.slug === 'dr-fatima-tuz-zahra'
+  const relatedEvents = getTrainingEventsForTrainer(trainerDisplayName)
+  const blogPosts = relatedEvents.length ? await getBlogPosts() : []
+  const blogPostBySlug = new Map(blogPosts.map((post) => [post.slug, post]))
+  const relatedArticles = relatedEvents.map((event) => {
+    const post = blogPostBySlug.get(event.slug)
+    const galleryImages = post?.gallery_images ?? getTrainingEventGallery(event)
+
+    return {
+      slug: event.slug,
+      title: post?.title ?? event.title,
+      excerpt: post?.excerpt ?? event.excerpt,
+      dateDisplay: event.dateDisplay,
+      category: event.category,
+      location: event.location ?? event.city ?? null,
+      galleryImages,
+    }
+  })
+  const trainerGalleryImages = uniqueGalleryImages(relatedArticles.flatMap((article) => article.galleryImages))
 
   return (
     <main>
@@ -98,6 +214,24 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
           <DetailList title="Credentials" items={trainer.credentials} icon={<GraduationCap className="h-5 w-5 text-[#1D4ED8]" />} />
           <DetailList title="Specialties" items={trainer.specialties} icon={<Award className="h-5 w-5 text-[#FBBF24]" />} />
         </div>
+
+        <RelatedArticlesSection trainerName={trainerDisplayName} articles={relatedArticles} />
+
+        {trainerGalleryImages.length ? (
+          <section className="mt-8 overflow-hidden rounded-lg border bg-white shadow-sm" aria-label={`${trainerDisplayName} event gallery`}>
+            <BlogGalleryLightbox
+              images={trainerGalleryImages}
+              eyebrow="Trainer Events"
+              title={`${trainerDisplayName} Event Gallery`}
+            />
+          </section>
+        ) : (
+          <EmptyProfileSection
+            title="Event Gallery"
+            body={`Event photos for ${trainerDisplayName} will appear here when matching event galleries are added.`}
+            icon={<Images className="h-5 w-5" />}
+          />
+        )}
 
         <div className="mt-10 rounded-lg border bg-[#F8FAFC] p-6 text-center">
           <h2 className="text-2xl font-bold">Interested in training with {trainerDisplayName}?</h2>
