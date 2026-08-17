@@ -19,8 +19,10 @@ import { buildCertificatePdf } from '@/lib/certificate-pdf'
 import { getSignedCourseResourceUrl, LMS_BUCKETS, uploadLmsFile } from '@/lib/lms-storage'
 import { friendlyErrorMessage, toError } from '@/lib/friendly-error'
 import { APP_URL } from '@/lib/constants'
-import { sendCourseEnrollmentInvoiceEmail, sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
+import { sendCourseCertificateIssuedEmail, sendCourseEnrollmentInvoiceEmail, sendCourseLicenseEmail } from '@/lib/email/send-course-license-email'
 import { notifyAdminOfCourseEnrollment } from '@/lib/email/send-course-enrollment-admin-email'
+import { notifyAdminOfCertificateRequest } from '@/lib/email/send-certificate-request-admin-email'
+import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
 import { COURSE_REGISTRATION_REMINDER_DAYS, getCoursePaymentWorkflowStatus } from '@/lib/course-payment-workflow'
 import type { ActionResult } from '@/types'
 import type { Course, CoursePaymentStatus, CourseResource, Profile, QuizQuestion } from '@/types/database'
@@ -546,6 +548,26 @@ export async function createCertificatePaymentAction(
         event_type: 'certificate_checkout_created',
         payload: { amount: price, currency: course.currency ?? 'PKR' },
       } as never)
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      await notifyAdminOfCertificateRequest({
+        course,
+        paymentId: payment.id,
+        student: {
+          id: user.id,
+          name: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+          email: firstString((profile as { email?: string | null } | null)?.email, user.email),
+        },
+        amount: price,
+        currency: course.currency ?? 'PKR',
+        status: 'payment_started',
+        source: 'Certificate bank transfer request',
+        requestedAt: now,
+      })
     } else if (!isCertificatePaymentPaid(payment) && (Number(payment.amount ?? 0) !== price || payment.currency !== (course.currency ?? 'PKR'))) {
       await supabase
         .from('course_payments')
@@ -620,6 +642,56 @@ export async function submitCoursePaymentReceiptAction(
       event_type: certificatePayment ? 'certificate_receipt_submitted' : 'manual_receipt_submitted',
       payload: { transactionReference, receiptPath: uploaded.path },
     } as never)
+
+    const [{ data: profile }, course] = await Promise.all([
+      supabase.from('profiles').select('email, full_name').eq('id', user.id).maybeSingle(),
+      getCourseById(payment.course_id, { includeUnpublished: true }),
+    ])
+    const student = {
+      id: user.id,
+      name: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+      email: firstString((profile as { email?: string | null } | null)?.email, user.email),
+    }
+
+    await notifyAdminOfPaymentReceipt({
+      type: certificatePayment ? 'certificate' : 'course',
+      source: certificatePayment ? 'Certificate receipt upload' : 'Course payment receipt upload',
+      paymentId,
+      courseId: payment.course_id,
+      reference: transactionReference || paymentId,
+      status: 'submitted',
+      paymentMethod: payment.payment_method,
+      transactionReference,
+      amount: Number(payment.amount ?? 0),
+      currency: payment.currency ?? course?.currency ?? 'PKR',
+      customer: student,
+      course: course ? { title: course.title, slug: course.slug } : null,
+      receipt: {
+        filename: uploaded.filename,
+        mimeType: uploaded.mimeType,
+        sizeBytes: uploaded.sizeBytes,
+        storageBucket: uploaded.bucket,
+        storagePath: uploaded.path,
+      },
+      adminUrl: `${appBaseUrl()}/admin/course-payments?status=submitted`,
+      uploadedAt: new Date(),
+      attachmentFile: receipt,
+    })
+
+    if (certificatePayment) {
+      if (course) {
+        await notifyAdminOfCertificateRequest({
+          course,
+          paymentId,
+          student,
+          amount: Number(payment.amount ?? 0),
+          currency: payment.currency ?? course.currency ?? 'PKR',
+          status: 'receipt_uploaded',
+          source: 'Certificate receipt upload',
+          requestedAt: new Date(),
+        })
+      }
+    }
 
     revalidatePath('/dashboard/my-courses')
     const courseSlug = (payment.courses as { slug?: string } | null)?.slug
@@ -778,6 +850,29 @@ export async function approveCoursePaymentAction(
         actor_id: admin.id,
         payload: { amount: Number(payment.amount ?? 0), currency: payment.currency ?? 'PKR' },
       } as never)
+
+      const studentProfile = profile as { email?: string | null; full_name?: string | null } | null
+      const issueResult = await issueCourseCertificateForUser({
+        supabase,
+        course: currentCourse,
+        userId: payment.user_id,
+        userEmail: firstString(
+          studentProfile?.email,
+          paymentMetadata.studentEmail,
+          paymentMetadata.student_email,
+          paymentMetadata.customerEmail,
+          paymentMetadata.email,
+        ),
+        source: 'Certificate payment approved',
+      })
+      if (!issueResult.success) {
+        console.error('[Certificate payment] Automatic certificate issue failed after approval', {
+          paymentId,
+          courseId: payment.course_id,
+          userId: payment.user_id,
+          error: issueResult.error,
+        })
+      }
 
       revalidatePath('/admin/course-payments')
       revalidatePath('/dashboard/my-courses')
@@ -1241,6 +1336,8 @@ export async function submitOfflineActivityAction(formData: FormData): Promise<A
     const activityType = String(formData.get('activity_type') ?? '').trim()
     const description = String(formData.get('description') ?? '').trim()
     const status = formData.get('save_draft') === 'on' ? 'draft' : 'submitted'
+    const evidenceFile = formData.get('evidence_file') as File | null
+    const evidence = evidenceFile && evidenceFile.size > 0 ? evidenceFile : null
     if (!courseId || !activityDate || !startTime || !endTime || !activityType) {
       return { success: false, error: 'Fill the offline activity details' }
     }
@@ -1252,6 +1349,9 @@ export async function submitOfflineActivityAction(formData: FormData): Promise<A
     const claimedMinutes = parseOfflineMinutes(activityDate, startTime, endTime)
     const maxEntry = Number(course?.max_offline_entry_minutes ?? 360)
     if (claimedMinutes > maxEntry) return { success: false, error: `One entry cannot exceed ${maxEntry} minutes` }
+    if (course?.offline_evidence_required && !evidence) {
+      return { success: false, error: 'Upload evidence for this offline activity' }
+    }
 
     const supabase = await getServiceSupabase()
     const { data: overlaps } = await supabase
@@ -1265,7 +1365,13 @@ export async function submitOfflineActivityAction(formData: FormData): Promise<A
       return { success: false, error: 'Check existing entries for this date before adding another activity' }
     }
 
-    const { error } = await supabase.from('offline_activity_entries').insert({
+    const uploadedEvidence = evidence
+      ? await uploadLmsFile(LMS_BUCKETS.offlineEvidence, evidence, `${user.id}/${courseId}/offline`, {
+          maxBytes: 50 * 1024 * 1024,
+        })
+      : null
+
+    const { data: entry, error } = await supabase.from('offline_activity_entries').insert({
       user_id: user.id,
       course_id: courseId,
       activity_date: activityDate,
@@ -1277,10 +1383,23 @@ export async function submitOfflineActivityAction(formData: FormData): Promise<A
       student_declaration: formData.get('student_declaration') === 'on',
       status,
       submitted_at: status === 'submitted' ? new Date().toISOString() : null,
-    } as never)
+    } as never).select('id').single()
     if (error) return { success: false, error: friendlyErrorMessage(error, 'The LMS request could not be saved.') }
 
+    if (uploadedEvidence && entry?.id) {
+      const { error: fileError } = await supabase.from('offline_activity_files').insert({
+        entry_id: entry.id,
+        storage_bucket: uploadedEvidence.bucket,
+        storage_path: uploadedEvidence.path,
+        original_filename: uploadedEvidence.filename,
+        mime_type: uploadedEvidence.mimeType,
+        file_size_bytes: uploadedEvidence.sizeBytes,
+      } as never)
+      if (fileError) return { success: false, error: friendlyErrorMessage(fileError, 'The evidence file could not be attached.') }
+    }
+
     revalidatePath('/dashboard/my-courses')
+    revalidatePath(`/course/${courseId}/learn`)
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Unable to submit offline activity.') }
@@ -1332,6 +1451,121 @@ export async function reviewOfflineActivityAction(
   }
 }
 
+async function issueCourseCertificateForUser({
+  supabase,
+  course,
+  userId,
+  userEmail,
+  source = 'Certificate generated',
+}: {
+  supabase: Awaited<ReturnType<typeof getServiceSupabase>>
+  course: Course
+  userId: string
+  userEmail?: string | null
+  source?: string
+}): Promise<ActionResult<{ created: boolean }>> {
+  const checklist = await evaluateCourseCompletion(course, userId)
+  if (!checklist.eligible) {
+    return { success: false, error: 'Complete all enabled course requirements before requesting a certificate' }
+  }
+
+  const [{ data: profile }, { data: existing }, { data: completion }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    supabase
+      .from('certificates')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('course_id', course.id)
+      .neq('status', 'revoked')
+      .maybeSingle(),
+    supabase
+      .from('course_completion_status')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('course_id', course.id)
+      .maybeSingle(),
+  ])
+
+  if (existing) return { success: true, data: { created: false } }
+
+  const profileRow = profile as Profile | null
+  const certificateNumber = `PC-${new Date().getFullYear()}-${course.id.slice(0, 4).toUpperCase()}-${userId.slice(0, 6).toUpperCase()}`
+  const verificationCode = crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()
+  const verificationUrl = `${appBaseUrl()}/certificates/verify/${verificationCode}`
+  const studentName = profileRow?.full_name || profileRow?.email || userEmail || 'Phonics Club Student'
+  const pdfBytes = await buildCertificatePdf({
+    certificateNumber,
+    studentName,
+    course,
+    issuedAt: new Date(),
+    onlineMinutes: checklist.online.minutes,
+    offlineMinutes: checklist.offline.minutes,
+    finalScore: checklist.quiz.score,
+    verificationUrl,
+  })
+  const pdfPath = `${course.id}/${userId}/${certificateNumber.toLowerCase()}.pdf`
+  const { error: uploadError } = await supabase.storage
+    .from(LMS_BUCKETS.generatedCertificates)
+    .upload(pdfPath, Buffer.from(pdfBytes), { contentType: 'application/pdf', upsert: false })
+  if (uploadError) return { success: false, error: uploadError.message }
+
+  const { error } = await supabase.from('certificates').insert({
+    user_id: userId,
+    course_id: course.id,
+    certificate_number: certificateNumber,
+    student_name: studentName,
+    course_title: course.title,
+    instructor_name: course.instructor,
+    completion_status_id: completion?.id ?? null,
+    online_minutes: checklist.online.minutes,
+    offline_minutes: checklist.offline.minutes,
+    final_score: checklist.quiz.score,
+    verification_code: verificationCode,
+    verification_url: verificationUrl,
+    pdf_bucket: LMS_BUCKETS.generatedCertificates,
+    pdf_path: pdfPath,
+    status: 'issued',
+  } as never)
+
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Certificate request could not be saved.') }
+
+  const studentEmail = firstString(profileRow?.email, userEmail)
+  if (studentEmail) {
+    try {
+      await sendCourseCertificateIssuedEmail({
+        to: studentEmail,
+        studentName,
+        course,
+        certificateNumber,
+        verificationUrl,
+        pdfBytes,
+      })
+    } catch (emailError) {
+      console.error('[Certificate request] Student certificate email failed', {
+        courseId: course.id,
+        userId,
+        error: emailError,
+      })
+    }
+  }
+
+  await notifyAdminOfCertificateRequest({
+    course,
+    student: {
+      id: userId,
+      name: studentName,
+      email: studentEmail,
+    },
+    amount: courseRequiresCertificatePayment(course) ? getCourseCertificatePrice(course) : 0,
+    currency: course.currency ?? 'PKR',
+    status: 'certificate_issued',
+    source,
+    requestedAt: new Date(),
+  })
+
+  return { success: true, data: { created: true } }
+}
+
 export async function requestCertificateAction(courseId: string): Promise<ActionResult> {
   try {
     const user = await requireCurrentUser()
@@ -1350,65 +1584,15 @@ export async function requestCertificateAction(courseId: string): Promise<Action
     }
 
     const supabase = await getServiceSupabase()
-    const [{ data: profile }, { data: existing }, { data: completion }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-      supabase
-        .from('certificates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('course_id', courseId)
-        .neq('status', 'revoked')
-        .maybeSingle(),
-      supabase
-        .from('course_completion_status')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('course_id', courseId)
-        .maybeSingle(),
-    ])
-
-    if (existing) return { success: true }
-
-    const profileRow = profile as Profile | null
-    const certificateNumber = `PC-${new Date().getFullYear()}-${courseId.slice(0, 4).toUpperCase()}-${user.id.slice(0, 6).toUpperCase()}`
-    const verificationCode = crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()
-    const verificationUrl = `${appBaseUrl()}/certificates/verify/${verificationCode}`
-    const studentName = profileRow?.full_name || profileRow?.email || user.email || 'Phonics Club Student'
-    const pdfBytes = await buildCertificatePdf({
-      certificateNumber,
-      studentName,
+    const issueResult = await issueCourseCertificateForUser({
+      supabase,
       course: course as Course,
-      issuedAt: new Date(),
-      onlineMinutes: checklist.online.minutes,
-      offlineMinutes: checklist.offline.minutes,
-      finalScore: checklist.quiz.score,
-      verificationUrl,
+      userId: user.id,
+      userEmail: user.email,
+      source: 'Certificate requested by learner',
     })
-    const pdfPath = `${courseId}/${user.id}/${certificateNumber.toLowerCase()}.pdf`
-    const { error: uploadError } = await supabase.storage
-      .from(LMS_BUCKETS.generatedCertificates)
-      .upload(pdfPath, Buffer.from(pdfBytes), { contentType: 'application/pdf', upsert: false })
-    if (uploadError) return { success: false, error: uploadError.message }
+    if (!issueResult.success) return { success: false, error: issueResult.error }
 
-    const { error } = await supabase.from('certificates').insert({
-      user_id: user.id,
-      course_id: courseId,
-      certificate_number: certificateNumber,
-      student_name: studentName,
-      course_title: (course as Course).title,
-      instructor_name: (course as Course).instructor,
-      completion_status_id: completion?.id ?? null,
-      online_minutes: checklist.online.minutes,
-      offline_minutes: checklist.offline.minutes,
-      final_score: checklist.quiz.score,
-      verification_code: verificationCode,
-      verification_url: verificationUrl,
-      pdf_bucket: LMS_BUCKETS.generatedCertificates,
-      pdf_path: pdfPath,
-      status: 'issued',
-    } as never)
-
-    if (error) return { success: false, error: friendlyErrorMessage(error, 'Certificate request could not be saved.') }
     revalidatePath(`/course/${courseId}/certificate`)
     revalidatePath('/dashboard/my-courses')
     return { success: true }

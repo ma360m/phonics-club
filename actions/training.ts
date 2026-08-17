@@ -6,6 +6,7 @@ import { getSession, requireAdmin } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { TRAINING_MONTHS_2026 } from '@/lib/company'
+import { notifyAdminOfTrainingRegistration } from '@/lib/email/send-training-registration-admin-email'
 import { z } from 'zod'
 import type { ActionResult } from '@/types'
 import type { TrainingEvent } from '@/types/database'
@@ -53,8 +54,35 @@ const trainingCertificateSchema = z.object({
   certificate_notes: z.string().trim().max(1000).optional(),
 })
 
+const deleteRegistrationSchema = z.object({
+  id: z.string().uuid(),
+  confirm: z.literal('DELETE'),
+})
+
 function trainingEventsTableMissing(error: { code?: string; message?: string } | null | undefined) {
   return Boolean(error?.code === '42P01' || /training_events|schema cache/i.test(error?.message ?? ''))
+}
+
+async function notifyTrainingRegistrationAdmin(
+  input: z.infer<typeof registrationSchema>,
+  options: { userId?: string | null; registrationId?: string | null; source?: string | null } = {},
+) {
+  await notifyAdminOfTrainingRegistration({
+    registrationId: options.registrationId,
+    userId: options.userId,
+    trainingType: input.training_type,
+    eventTitle: input.event_title,
+    eventDate: input.event_date ?? null,
+    preferredMonth: input.preferred_month,
+    approxParticipants: input.approx_participants,
+    fullName: input.full_name,
+    email: input.email,
+    phone: input.phone ?? null,
+    organization: input.organization ?? null,
+    message: input.message ?? null,
+    source: options.source,
+    requestedAt: new Date(),
+  })
 }
 
 export async function submitTrainingRegistrationAction(
@@ -112,6 +140,10 @@ export async function submitTrainingRegistrationAction(
         } as never)
 
         if (!retryError) {
+          await notifyTrainingRegistrationAdmin(parsed.data, {
+            userId: user?.id ?? null,
+            source: 'Website trainings page',
+          })
           revalidatePath('/trainings')
           revalidatePath('/admin/trainings')
           return { success: true }
@@ -125,9 +157,17 @@ export async function submitTrainingRegistrationAction(
 
     revalidatePath('/trainings')
     revalidatePath('/admin/trainings')
+    await notifyTrainingRegistrationAdmin(parsed.data, {
+      userId: user?.id ?? null,
+      source: 'Website trainings page',
+    })
     return { success: true }
   } catch {
     console.log('Training registration (demo):', parsed.data)
+    await notifyTrainingRegistrationAdmin(parsed.data, {
+      userId: user?.id ?? null,
+      source: 'Website trainings page fallback',
+    })
     return { success: true }
   }
 }
@@ -172,6 +212,29 @@ export async function updateTrainingRegistrationCertificateAction(formData: Form
 
   revalidatePath('/admin/trainings')
   revalidatePath('/dashboard')
+}
+
+export async function deleteTrainingRegistrationAction(
+  id: string,
+  confirm: string,
+): Promise<ActionResult> {
+  await requireAdmin()
+  const parsed = deleteRegistrationSchema.safeParse({ id, confirm })
+  if (!parsed.success) return { success: false, error: 'Type DELETE to confirm registration deletion.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('training_registrations')
+    .delete()
+    .eq('id', parsed.data.id)
+
+  if (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Registration could not be deleted.') }
+  }
+
+  revalidatePath('/admin/trainings')
+  revalidatePath('/dashboard')
+  return { success: true }
 }
 
 export async function getPublishedTrainingEvents(): Promise<TrainingEvent[]> {

@@ -817,7 +817,7 @@ export function CheckoutForm({
           <p className="text-center text-xs text-muted-foreground">
             {currency === 'USD'
               ? `Your prices are displayed in USD. Payment will be processed in PKR using 1 USD = ${settings.usdToPkrRate.toLocaleString('en-PK')} PKR.`
-              : 'Confirmation emails with the invoice are sent to the customer and admin.'}
+              : 'confirmation emails are sent to inbox.'}
           </p>
         </div>
       </aside>

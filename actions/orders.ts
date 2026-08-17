@@ -15,6 +15,7 @@ import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { buildInvoicePdf, generateOrderAccessToken } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail } from '@/lib/email/send-order-email'
+import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
 import { uploadOrderReceiptFile, type OrderReceiptUpload } from '@/lib/orders/receipt-upload'
 import { applyStockChangesForOrder, applyStockDeltaForOrderEdit, validateAndAnnotateEditedOrderStock, validateAndAnnotateOrderStock } from '@/lib/orders/stock'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
@@ -68,11 +69,71 @@ function errorForLog(error: unknown) {
   return { message: String(error ?? 'Unknown error') }
 }
 
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value ?? '').trim()
+    if (text) return text
+  }
+  return ''
+}
+
+function orderReceiptViewUrl(orderId: string, token?: string | null) {
+  const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `${appBaseUrl()}/api/orders/${orderId}/receipt${tokenQuery}`
+}
+
+async function notifyAdminOfOrderReceiptUpload(input: {
+  orderId: string
+  invoiceNumber?: string | null
+  total?: number | string | null
+  status?: string | null
+  paymentMethod?: string | null
+  shippingAddress?: unknown
+  fallbackEmail?: string | null
+  fallbackPhone?: string | null
+  receiptUpload: OrderReceiptUpload
+  receiptFile: File
+  receiptViewToken?: string | null
+  source: string
+}) {
+  const shippingAddress = objectRecord(input.shippingAddress)
+  await notifyAdminOfPaymentReceipt({
+    type: 'order',
+    source: input.source,
+    orderId: input.orderId,
+    reference: input.invoiceNumber ? `Invoice ${input.invoiceNumber}` : input.orderId,
+    status: input.status ?? 'payment_submitted',
+    paymentMethod: input.paymentMethod,
+    amount: input.total,
+    currency: 'PKR',
+    customer: {
+      name: firstText(shippingAddress.fullName, shippingAddress.name, input.fallbackEmail),
+      email: firstText(shippingAddress.email, input.fallbackEmail),
+      phone: firstText(shippingAddress.phone, input.fallbackPhone),
+    },
+    receipt: {
+      filename: input.receiptUpload.filename,
+      mimeType: input.receiptUpload.mimeType,
+      sizeBytes: input.receiptUpload.sizeBytes,
+      storageBucket: input.receiptUpload.bucket,
+      storagePath: input.receiptUpload.path,
+      viewUrl: orderReceiptViewUrl(input.orderId, input.receiptViewToken),
+    },
+    adminUrl: `${appBaseUrl()}/admin/orders#order-${input.orderId}`,
+    uploadedAt: new Date(),
+    attachmentFile: input.receiptFile,
+  })
+}
+
 async function getAuthorizedCustomerOrder(orderId: string, token?: string, editToken?: string) {
   const serviceSupabase = await createServiceClient()
   const { data: order, error } = await serviceSupabase
     .from('orders')
-    .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason')
+    .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason')
     .eq('id', orderId)
     .single()
 
@@ -616,6 +677,23 @@ export async function placeOrderAction(
     })
   }
 
+  if (receiptUpload && receiptFile && receiptFile.size > 0) {
+    await notifyAdminOfOrderReceiptUpload({
+      orderId: order.id,
+      invoiceNumber,
+      total: Number(order.total ?? total),
+      status: order.status,
+      paymentMethod,
+      shippingAddress,
+      fallbackEmail: parsed.data.email,
+      fallbackPhone: shippingAddress.phone,
+      receiptUpload,
+      receiptFile,
+      receiptViewToken: accessToken,
+      source: 'Website checkout receipt upload',
+    })
+  }
+
   try {
     await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
   } catch (stockEmailError) {
@@ -659,7 +737,7 @@ export async function submitOrderReceiptAction(
     const serviceSupabase = await createServiceClient()
     const { data: order, error: fetchError } = await serviceSupabase
       .from('orders')
-      .select('id, user_id, access_token, status')
+      .select('id, user_id, access_token, status, invoice_number, total, payment_method, phone, guest_email, shipping_address')
       .eq('id', parsed.data.orderId)
       .single()
 
@@ -699,6 +777,21 @@ export async function submitOrderReceiptAction(
     if (updateError) {
       return { success: false, error: friendlyErrorMessage(updateError, 'Receipt was uploaded, but the order could not be updated.') }
     }
+
+    await notifyAdminOfOrderReceiptUpload({
+      orderId: order.id,
+      invoiceNumber: String(order.invoice_number ?? ''),
+      total: Number(order.total ?? 0),
+      status: 'payment_submitted',
+      paymentMethod,
+      shippingAddress: order.shipping_address,
+      fallbackEmail: String(order.guest_email ?? user?.email ?? ''),
+      fallbackPhone: String(order.phone ?? ''),
+      receiptUpload,
+      receiptFile,
+      receiptViewToken: parsed.data.token,
+      source: 'Customer order receipt upload',
+    })
 
     revalidatePath('/checkout/success')
     revalidatePath('/dashboard')
@@ -821,6 +914,23 @@ export async function updateCustomerOrderDetailsAction(
       .eq('id', result.order.id)
 
     if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be updated.') }
+
+    if (receiptUpload && receiptFile && receiptFile.size > 0) {
+      await notifyAdminOfOrderReceiptUpload({
+        orderId: result.order.id,
+        invoiceNumber: String(result.order.invoice_number ?? ''),
+        total: editedTotals?.total ?? result.order.total,
+        status,
+        paymentMethod,
+        shippingAddress,
+        fallbackEmail: parsed.data.email,
+        fallbackPhone: shippingAddress.phone,
+        receiptUpload,
+        receiptFile,
+        receiptViewToken: parsed.data.token,
+        source: 'Customer order edit receipt upload',
+      })
+    }
 
     if (editedTotals) {
       const lowStockAlerts = await applyStockDeltaForOrderEdit(result.order.id, existingItems, editedTotals.items)

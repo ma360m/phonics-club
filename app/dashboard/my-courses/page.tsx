@@ -159,7 +159,16 @@ export default async function MyCoursesPage() {
                     Activity
                     <input name="activity_type" placeholder="Activity type" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
                   </label>
-                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-6">
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-3">
+                    Evidence file
+                    <input
+                      name="evidence_file"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.mov,.webm,.zip"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#EFF6FF] file:px-3 file:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-3">
                     Description
                     <textarea name="description" placeholder="Description and evidence notes" className="min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]" />
                   </label>

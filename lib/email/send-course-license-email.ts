@@ -347,3 +347,86 @@ export async function sendCourseLicenseEmail({
 
   return { sent: result.ok, result, from }
 }
+
+export async function sendCourseCertificateIssuedEmail({
+  to,
+  studentName,
+  course,
+  certificateNumber,
+  verificationUrl,
+  pdfBytes,
+}: {
+  to: string
+  studentName?: string | null
+  course: Course
+  certificateNumber: string
+  verificationUrl?: string | null
+  pdfBytes: Uint8Array
+}) {
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const safeName = studentName?.trim() || 'Student'
+  const certificateUrl = `${baseUrl()}/course/${course.id}/certificate`
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Your Phonics Club certificate</title>
+      </head>
+      <body style="margin:0;padding:0;background:#f3f6fb;color:#111827;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6fb;width:100%;">
+          <tr>
+            <td align="center" style="padding:28px 14px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+                <tr>
+                  <td style="background:#1D4ED8;color:#ffffff;padding:30px;">
+                    <p style="font-size:13px;font-weight:800;letter-spacing:.08em;margin:0 0 14px;text-transform:uppercase;">Phonics Club certificate</p>
+                    <h1 style="font-size:30px;line-height:1.18;margin:0 0 12px;">Your certificate is ready</h1>
+                    <p style="color:#dbeafe;font-size:15px;line-height:1.6;margin:0;">Congratulations on completing ${escapeHtml(course.title)}.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:30px;">
+                    <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">Hi ${escapeHtml(safeName)},</p>
+                    <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 22px;">
+                      Your certificate has been issued. The PDF is attached to this email, and you can also view it from your Phonics Club certificate page.
+                    </p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
+                      ${detailRow('Certificate number', certificateNumber)}
+                      ${detailRow('Course', course.title)}
+                      ${verificationUrl ? detailRow('Verification link', verificationUrl) : ''}
+                    </table>
+                    ${primaryButton('Open Certificate Page', certificateUrl)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#111827;color:#d1d5db;font-size:12px;line-height:1.7;padding:22px 30px;text-align:center;">
+                    This certificate was issued by ${escapeHtml(COMPANY.name)}.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `
+
+  const result = await sendTransactionalEmail({
+    from,
+    to: [to],
+    subject: `Your certificate for ${course.title}`,
+    html,
+    attachments: [
+      {
+        filename: `${certificateNumber}.pdf`,
+        content: Buffer.from(pdfBytes).toString('base64'),
+        contentType: 'application/pdf',
+      },
+    ],
+  })
+
+  return { sent: result.ok, result, from }
+}

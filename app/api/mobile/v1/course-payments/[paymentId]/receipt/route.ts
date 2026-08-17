@@ -1,4 +1,6 @@
 import { LMS_BUCKETS } from '@/lib/lms-storage'
+import { isCertificatePayment } from '@/lib/lms'
+import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -26,7 +28,7 @@ export async function POST(
 
     const { data: payment, error: paymentError } = await context.supabase
       .from('course_payments')
-      .select('*')
+      .select('*, courses(id, title, slug, currency)')
       .eq('id', paymentId)
       .maybeSingle()
 
@@ -106,6 +108,36 @@ export async function POST(
       entityType: 'course_payment',
       entityId: payment.id,
       metadata: { courseId: payment.course_id, mimeType: uploaded.mimeType, sizeBytes: uploaded.sizeBytes },
+    })
+
+    const course = payment.courses as { id?: string | null; title?: string | null; slug?: string | null; currency?: string | null } | null
+    const certificatePayment = isCertificatePayment(payment)
+    await notifyAdminOfPaymentReceipt({
+      type: certificatePayment ? 'certificate' : 'course',
+      source: certificatePayment ? 'Mobile certificate receipt upload' : 'Mobile course payment receipt upload',
+      paymentId: payment.id,
+      courseId: payment.course_id,
+      reference: metadata.transactionReference || payment.id,
+      status: 'submitted',
+      paymentMethod: payment.payment_method,
+      transactionReference: metadata.transactionReference ?? null,
+      amount: Number(payment.amount ?? 0),
+      currency: payment.currency ?? course?.currency ?? 'PKR',
+      customer: {
+        name: context.profile.full_name ?? context.user.email,
+        email: context.profile.email ?? context.user.email,
+      },
+      course: course ? { title: course.title, slug: course.slug } : null,
+      receipt: {
+        filename: uploaded.filename,
+        mimeType: uploaded.mimeType,
+        sizeBytes: uploaded.sizeBytes,
+        storageBucket: uploaded.bucket,
+        storagePath: uploaded.path,
+      },
+      adminUrl: `${new URL('/admin/course-payments?status=submitted', request.url).toString()}`,
+      uploadedAt: now,
+      attachmentFile: file,
     })
 
     return createMobileApiResponse(

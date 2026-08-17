@@ -17,6 +17,8 @@ import {
   ImageIcon,
   ChevronDown,
   ChevronUp,
+  Search,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +40,7 @@ import type { Product } from '@/types/database'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import { isProductComingSoon } from '@/lib/products/coming-soon'
+import { searchProducts } from '@/lib/products/search'
 import { ProductForm } from '@/components/admin/product-form'
 
 interface Props {
@@ -51,16 +54,24 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
   const [pending, startTransition] = useTransition()
   const [importing, setImporting] = useState(false)
   const [uploadIsbn, setUploadIsbn] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [quickEditId, setQuickEditId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const replaceFileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  const allSelected = selected.size === initialProducts.length && initialProducts.length > 0
+  const displayedProducts = searchProducts(initialProducts, searchQuery)
+  const allSelected = displayedProducts.length > 0 && displayedProducts.every((p) => selected.has(p.id))
 
   function toggleAll() {
-    if (allSelected) setSelected(new Set())
-    else setSelected(new Set(initialProducts.map((p) => p.id)))
+    const visibleIds = displayedProducts.map((p) => p.id)
+    if (allSelected) {
+      const next = new Set(selected)
+      visibleIds.forEach((id) => next.delete(id))
+      setSelected(next)
+    } else {
+      setSelected(new Set([...Array.from(selected), ...visibleIds]))
+    }
   }
 
   function toggleOne(id: string) {
@@ -253,6 +264,37 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
         )}
       </div>
 
+      <div className="mb-4 rounded-2xl border bg-card p-4">
+        <Label htmlFor="admin-products-search" className="sr-only">Search products</Label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="admin-products-search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, ISBN, SKU, barcode, product #, category"
+              className="rounded-xl pl-10 pr-10"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear product search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">
+            {searchQuery
+              ? `${displayedProducts.length} of ${initialProducts.length} products`
+              : `${initialProducts.length} products`}
+          </p>
+        </div>
+      </div>
+
       {/* Bulk actions */}
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-3 mb-4 p-4 bg-muted/50 rounded-2xl border">
@@ -313,8 +355,14 @@ export function ProductsManager({ products: initialProducts, supabaseConnected }
                   No products in database. Click &quot;Import Catalog&quot; or import a CSV/Excel file.
                 </td>
               </tr>
+            ) : displayedProducts.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="p-12 text-center text-muted-foreground">
+                  No products match &quot;{searchQuery}&quot;.
+                </td>
+              </tr>
             ) : (
-              initialProducts.map((p) => {
+              displayedProducts.map((p) => {
                 const isbn = p.isbn ?? (p.metadata?.isbn as string) ?? '—'
                 const img = p.images?.[0]
                 const pricing = getProductPricing(p)

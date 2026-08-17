@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { notifyAdminOfTrainingRegistration } from '@/lib/email/send-training-registration-admin-email'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -87,6 +88,23 @@ export async function POST(
       entityType: 'training_registration',
       entityId: registration.id,
       metadata: { trainingId, trainingType: parsed.data.trainingType },
+    })
+
+    await notifyAdminOfTrainingRegistration({
+      registrationId: registration.id,
+      userId,
+      trainingType: parsed.data.trainingType,
+      eventTitle,
+      eventDate: parsed.data.eventDate || null,
+      preferredMonth: parsed.data.preferredMonth,
+      approxParticipants: parsed.data.approxParticipants,
+      fullName: parsed.data.fullName,
+      email: parsed.data.email.trim(),
+      phone: parsed.data.phone ?? null,
+      organization: parsed.data.organization ?? null,
+      message: parsed.data.message ?? null,
+      source: 'Mobile app training registration',
+      requestedAt: registration.created_at,
     })
 
     return createMobileApiResponse(

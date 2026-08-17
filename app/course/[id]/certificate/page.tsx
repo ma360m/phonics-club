@@ -176,7 +176,7 @@ export default async function CertificateStatusPage({
           )}
 
           {isCourseCertificateEnabled(course) && course.certificate_background_url && !certificate && (
-            <CertificateTemplatePreview src={course.certificate_background_url} title={course.title} />
+            <CertificateTemplatePreview src={course.certificate_background_url} title={course.title} clearPreview={managerPreview} />
           )}
 
           {!isCourseCertificateEnabled(course) ? (
@@ -236,7 +236,7 @@ export default async function CertificateStatusPage({
                 </div>
               )}
               <p className="mt-5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm leading-6 text-[#1D4ED8]">
-                If your name or any certificate detail needs correction, email support@phonicsclub.com.
+                A copy of this certificate is sent to your registered email when it is issued. If your name or any certificate detail needs correction, email support@phonicsclub.com.
               </p>
             </section>
           ) : status.eligible && certificatePaymentRequired && !certificatePaymentApproved ? (
@@ -246,8 +246,14 @@ export default async function CertificateStatusPage({
                 Certificate payment required
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Your course requirements are complete. Pay {formatPrice(certificatePrice, course.currency ?? 'PKR')} and upload the receipt so admin can approve the certificate request.
+                Your course requirements are complete. Pay the certificate fee by bank transfer, then upload your receipt here.
+                Admin confirmation usually takes 1-2 working days. After approval, your certificate can be issued and emailed to your registered inbox.
               </p>
+
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Certificate amount required</p>
+                <p className="mt-2 text-3xl font-black text-[#0F172A]">{formatPrice(certificatePrice, course.currency ?? 'PKR')}</p>
+              </div>
 
               {bankDetails && (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -267,7 +273,7 @@ export default async function CertificateStatusPage({
                 <form action={startCertificatePaymentFormAction}>
                   <Button type="submit" className="mt-5 rounded-xl bg-[#8B1E2D] hover:bg-[#8B1E2D]/90">
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Start Certificate Payment
+                    Bank Transfer Now
                   </Button>
                 </form>
               ) : certificatePaymentCanUpload ? (
@@ -276,6 +282,9 @@ export default async function CertificateStatusPage({
                     <UploadCloud className="h-5 w-5 text-[#1D4ED8]" />
                     Upload certificate payment receipt
                   </div>
+                  <p className="mb-4 text-sm leading-6 text-slate-600">
+                    Upload a clear transfer receipt. Admin will review it within 1-2 working days before the certificate is issued by email.
+                  </p>
                   <CoursePaymentReceiptForm
                     paymentId={certificatePayment.id}
                     redirectTo={`/course/${course.id}/certificate?paymentId=${certificatePayment.id}`}
@@ -289,7 +298,7 @@ export default async function CertificateStatusPage({
                 </div>
               ) : certificatePaymentWaiting ? (
                 <div className="mt-5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm leading-6 text-[#1D4ED8]">
-                  Receipt received. The certificate request unlocks after admin confirms the payment.
+                  Receipt received. Admin will confirm the certificate payment within 1-2 working days. After approval, your certificate can be issued and emailed to your registered inbox.
                 </div>
               ) : (
                 <div className="mt-5 rounded-xl border border-slate-200 bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
@@ -304,7 +313,7 @@ export default async function CertificateStatusPage({
                 You are eligible for a certificate
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-700">
-                Request your certificate now. The existing certificate workflow will generate and store the PDF when configured.
+                Request your certificate now. The certificate PDF will be generated and emailed to your registered inbox.
               </p>
               <p className="mt-3 text-sm leading-6 text-emerald-700">
                 The certificate will use your profile name. For name corrections, email support@phonicsclub.com.
@@ -353,33 +362,37 @@ function CertificateField({ label, value }: { label: string; value: string | num
   )
 }
 
-function CertificateTemplatePreview({ src, title }: { src: string; title: string }) {
+function CertificateTemplatePreview({ src, title, clearPreview = false }: { src: string; title: string; clearPreview?: boolean }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="mb-4 flex items-center gap-2 font-semibold text-[#0F172A]">
         <Award className="h-5 w-5 text-[#8B1E2D]" />
-        Certificate template preview
+        {clearPreview ? 'Admin certificate template preview' : 'Certificate template preview'}
       </div>
       <div className="relative aspect-[1.414/1] max-h-[440px] overflow-hidden rounded-xl border border-slate-200 bg-[#F8FAFC]">
         <img
           src={src}
           alt={`${title} certificate template preview`}
           draggable={false}
-          className="h-full w-full select-none object-cover opacity-80 blur-md"
+          className={`h-full w-full select-none ${clearPreview ? 'object-contain' : 'object-cover opacity-80 blur-md'}`}
         />
-        <div className="absolute inset-0 bg-white/25" />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(-24deg, rgba(15, 23, 42, 0.10) 0px, rgba(15, 23, 42, 0.10) 1px, transparent 1px, transparent 34px)',
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="rounded-full border border-white/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 shadow-sm">
-            Preview
-          </span>
-        </div>
+        {!clearPreview && (
+          <>
+            <div className="absolute inset-0 bg-white/25" />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(-24deg, rgba(15, 23, 42, 0.10) 0px, rgba(15, 23, 42, 0.10) 1px, transparent 1px, transparent 34px)',
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="rounded-full border border-white/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 shadow-sm">
+                Preview
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </section>
   )

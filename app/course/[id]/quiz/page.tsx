@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { getProfile, isAdminRole, isLmsManagerRole, requireAuth } from '@/lib/auth'
 import { canManageCourseId } from '@/lib/admin/course-scope'
 import { LmsShell } from '@/components/lms/lms-shell'
-import { getCourseById, getCourseModules, getLessonProgress, getQuizForCourse, getUserEnrollment, isEnrollmentActive } from '@/lib/lms'
+import { getCourseById, getCourseModules, getCourseQuizzes, getLessonProgress, getQuizForCourse, getUserEnrollment, isCourseCertificateEnabled, isEnrollmentActive } from '@/lib/lms'
 import { ChevronLeft, CircleAlert } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -44,6 +44,17 @@ export default async function QuizPage({
     quizId: query?.quizId,
   })
   const learnHref = managerPreview ? `/course/${course.id}/learn?preview=admin` : `/course/${course.id}/learn`
+  const courseQuizzes = quizBundle
+    ? await getCourseQuizzes(id, { includeUnpublished: managerPreview })
+    : []
+  const finalQuiz = courseQuizzes[courseQuizzes.length - 1]
+  const certificateHref =
+    !managerPreview &&
+    quizBundle &&
+    finalQuiz?.id === quizBundle.quiz.id &&
+    isCourseCertificateEnabled(course)
+      ? `/course/${course.id}/certificate`
+      : undefined
 
   if (quizBundle && !managerPreview) {
     const modules = await getCourseModules(course)
@@ -81,6 +92,7 @@ export default async function QuizPage({
             questions={quizBundle.questions}
             attempts={quizBundle.attempts}
             previewMode={managerPreview}
+            certificateHref={certificateHref}
           />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">

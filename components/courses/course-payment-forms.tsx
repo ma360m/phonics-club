@@ -31,7 +31,7 @@ export function CoursePaymentReceiptForm({
     if (!state.success) return
     toast.success(
       isCertificatePayment
-        ? 'Certificate payment screenshot submitted. Admin will review it before enabling the certificate request.'
+        ? 'Certificate payment receipt submitted. Admin will review it within 1-2 working days.'
         : 'Payment screenshot submitted. Admin will review it before issuing the licence key.'
     )
     router.refresh()
@@ -50,7 +50,7 @@ export function CoursePaymentReceiptForm({
       {state.success && (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
           {isCertificatePayment
-            ? 'Screenshot received. Your certificate request remains locked until admin confirms the payment.'
+            ? 'Receipt received. Admin will confirm within 1-2 working days, then your certificate can be issued by email.'
             : 'Screenshot received. Your course remains locked until admin confirms the payment and sends your licence key.'}
         </p>
       )}
@@ -66,7 +66,7 @@ export function CoursePaymentReceiptForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="course-payment-receipt">Payment screenshot *</Label>
+          <Label htmlFor="course-payment-receipt">{isCertificatePayment ? 'Payment receipt *' : 'Payment screenshot *'}</Label>
           <Input
             id="course-payment-receipt"
             name="receipt"
@@ -83,7 +83,7 @@ export function CoursePaymentReceiptForm({
       </p>
 
       <Button type="submit" disabled={pending || state.success} className="w-full rounded-xl bg-[#1D4ED8]">
-        {pending ? 'Submitting...' : state.success ? 'Screenshot Submitted' : 'Submit Payment Screenshot'}
+        {pending ? 'Submitting...' : state.success ? 'Receipt Submitted' : isCertificatePayment ? 'Submit Certificate Receipt' : 'Submit Payment Screenshot'}
       </Button>
     </form>
   )

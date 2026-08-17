@@ -10,6 +10,7 @@ import {
   MobileApiError,
 } from '@/lib/mobile-api/response'
 import { shopPaymentNeedsReceipt } from '@/lib/payment-methods'
+import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
 
 const lockedReceiptStatuses = new Set([
   'payment_confirmed',
@@ -19,6 +20,18 @@ const lockedReceiptStatuses = new Set([
   'delivered',
   'cancelled',
 ])
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value ?? '').trim()
+    if (text) return text
+  }
+  return ''
+}
 
 export async function POST(
   request: Request,
@@ -33,7 +46,7 @@ export async function POST(
 
     const { data: order, error: orderError } = await context.supabase
       .from('orders')
-      .select('id, user_id, status, payment_method')
+      .select('id, user_id, status, payment_method, invoice_number, total, phone, guest_email, shipping_address')
       .eq('id', orderId)
       .maybeSingle()
 
@@ -113,6 +126,32 @@ export async function POST(
       entityType: 'order',
       entityId: order.id,
       metadata: { mimeType: uploaded.mimeType, sizeBytes: uploaded.sizeBytes },
+    })
+
+    const shippingAddress = objectRecord(order.shipping_address)
+    await notifyAdminOfPaymentReceipt({
+      type: 'order',
+      source: 'Mobile order receipt upload',
+      orderId: order.id,
+      reference: order.invoice_number ? `Invoice ${order.invoice_number}` : order.id,
+      status: 'payment_submitted',
+      paymentMethod: order.payment_method,
+      amount: Number(order.total ?? 0),
+      currency: 'PKR',
+      customer: {
+        name: firstText(shippingAddress.fullName, context.profile.full_name, context.user.email),
+        email: firstText(shippingAddress.email, context.profile.email, order.guest_email, context.user.email),
+        phone: firstText(shippingAddress.phone, order.phone),
+      },
+      receipt: {
+        filename: uploaded.filename,
+        mimeType: uploaded.mimeType,
+        sizeBytes: uploaded.sizeBytes,
+        storageBucket: uploaded.bucket,
+        storagePath: uploaded.path,
+      },
+      uploadedAt: now,
+      attachmentFile: file,
     })
 
     return createMobileApiResponse(

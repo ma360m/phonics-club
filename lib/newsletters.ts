@@ -118,6 +118,31 @@ export async function uploadNewsletterIssue(input: {
   return normalizeNewsletterIssue(data as NewsletterIssue)
 }
 
+export async function updateNewsletterIssue(input: {
+  id: string
+  title: string
+  month: number
+  year: number
+  published: boolean
+}): Promise<NewsletterIssue> {
+  const supabase = await createServiceClient()
+  const { data, error } = await supabase
+    .from('newsletter_issues')
+    .update({
+      title: input.title,
+      month: input.month,
+      year: input.year,
+      published: input.published,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.id)
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+  return normalizeNewsletterIssue(data as NewsletterIssue)
+}
+
 export async function deleteNewsletterIssue(id: string): Promise<void> {
   const supabase = await createServiceClient()
   const { data, error: fetchError } = await supabase

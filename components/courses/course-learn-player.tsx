@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from 'react'
 import Link from 'next/link'
 import {
   BookOpen,
@@ -21,6 +21,7 @@ import {
   PanelTop,
   PlayCircle,
   Sparkles,
+  UploadCloud,
   Video,
   Volume2,
   type LucideIcon,
@@ -31,12 +32,15 @@ import {
   markLessonCompleteAction,
   recordLearningHeartbeatAction,
   startLearningSessionAction,
+  submitOfflineActivityAction,
 } from '@/actions/lms'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Textarea } from '@/components/ui/textarea'
 import { jollyActivityForLesson } from '@/lib/data/jolly-phonics-sound-data'
 import { cn } from '@/lib/utils'
 import type { Course, CourseLesson, CourseQuiz, CourseResource, LessonProgress, LessonReadingType } from '@/types/database'
@@ -519,6 +523,8 @@ export function CourseLearnPlayer({
         <aside className="hidden lg:block">{desktopCurriculum}</aside>
 
         <main key={activeLesson.id} className="pc-course-main min-w-0 space-y-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
+          {!previewMode && <OfflineMinutesPanel course={course} />}
+
           <section className="pc-course-card pc-course-player-card relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {completionBurst && (
               <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
@@ -628,6 +634,135 @@ export function CourseLearnPlayer({
         </Button>
       </div>
     </div>
+  )
+}
+
+function OfflineMinutesPanel({ course }: { course: Course }) {
+  const formRef = useRef<HTMLFormElement>(null)
+  const [open, setOpen] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const requiredMinutes = Number(course.required_offline_minutes ?? 0)
+  const maxEntryMinutes = Number(course.max_offline_entry_minutes ?? 360)
+  const evidenceRequired = Boolean(course.offline_evidence_required)
+
+  function submitOfflineMinutes(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const formData = new FormData(form)
+
+    startTransition(async () => {
+      const result = await submitOfflineActivityAction(formData)
+      if (result.success) {
+        form.reset()
+        setOpen(false)
+        setSubmitted(true)
+        toast.success('Offline minutes submitted for admin review')
+      } else {
+        setSubmitted(false)
+        toast.error(result.error ?? 'Offline minutes could not be submitted')
+      }
+    })
+  }
+
+  return (
+    <section className="rounded-2xl border border-[#BFDBFE] bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#1D4ED8]">
+            <UploadCloud className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#1D4ED8]">Offline minutes</p>
+            <h2 className="text-lg font-bold tracking-normal text-[#0F172A]">Upload offline minutes</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Submit classroom practice or learning time completed away from the online player.
+            </p>
+            {submitted && (
+              <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                Submitted for admin review.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {requiredMinutes > 0 && (
+            <span className="rounded-full border border-slate-200 bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-slate-600">
+              {requiredMinutes} min required
+            </span>
+          )}
+          <span className="rounded-full border border-slate-200 bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-slate-600">
+            Max {maxEntryMinutes} min per entry
+          </span>
+          <Button
+            type="button"
+            variant={open ? 'outline' : 'default'}
+            className={open ? 'rounded-xl border-slate-200 bg-white' : 'rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90'}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? 'Hide form' : 'Add minutes'}
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <form ref={formRef} onSubmit={submitOfflineMinutes} className="mt-4 grid gap-3 border-t border-slate-200 pt-4 lg:grid-cols-6">
+          <input type="hidden" name="course_id" value={course.id} />
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-2">
+            Date
+            <Input name="activity_date" type="date" required max={today} className="h-10 rounded-xl bg-white" />
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+            Start
+            <Input name="start_time" type="time" required className="h-10 rounded-xl bg-white" />
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A]">
+            End
+            <Input name="end_time" type="time" required className="h-10 rounded-xl bg-white" />
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-2">
+            Activity
+            <select
+              name="activity_type"
+              required
+              defaultValue=""
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA]"
+            >
+              <option value="" disabled>Select activity</option>
+              <option value="classroom_practice">Classroom practice</option>
+              <option value="home_practice">Home practice</option>
+              <option value="assignment">Assignment work</option>
+              <option value="reading_practice">Reading practice</option>
+              <option value="other">Other learning activity</option>
+            </select>
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-3">
+            Evidence file {evidenceRequired ? '*' : '(optional)'}
+            <Input
+              name="evidence_file"
+              type="file"
+              required={evidenceRequired}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.mov,.webm,.zip"
+              className="h-10 rounded-xl bg-white file:mr-3 file:rounded-lg file:bg-[#EFF6FF] file:px-3 file:text-[#1D4ED8]"
+            />
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-[#0F172A] lg:col-span-3">
+            Notes
+            <Textarea name="description" rows={3} placeholder="What did you complete offline?" className="rounded-xl bg-white" />
+          </label>
+          <label className="flex items-center gap-2 rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm text-slate-600 lg:col-span-4">
+            <input type="checkbox" name="student_declaration" required />
+            I confirm this offline activity entry is accurate.
+          </label>
+          <Button type="submit" disabled={pending} className="h-11 rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 lg:col-span-2">
+            <UploadCloud className="mr-2 h-4 w-4" aria-hidden="true" />
+            {pending ? 'Submitting...' : 'Submit for Review'}
+          </Button>
+        </form>
+      )}
+    </section>
   )
 }
 

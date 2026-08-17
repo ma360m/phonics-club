@@ -7,6 +7,8 @@ import { ArrowRight, ExternalLink } from 'lucide-react'
 import type { VortexLearning } from '@/lib/site-content'
 
 export function VortexLearningSection({ data }: { data: VortexLearning }) {
+  const title = data.title.replace(/\s+Partnership$/i, '').trim() || data.title
+
   return (
     <section className="py-20 bg-gradient-to-br from-[#0F172A] to-[#1e3a5f] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,8 +28,8 @@ export function VortexLearningSection({ data }: { data: VortexLearning }) {
               priority={false}
             />
           </div>
-          <span className="text-sm font-semibold text-[#60A5FA] uppercase tracking-wider">Partnership</span>
-          <h2 className="text-3xl lg:text-4xl font-bold mt-2 mb-4">{data.title}</h2>
+          <span className="text-sm font-semibold text-[#60A5FA] uppercase tracking-wider">A project of Phonics Club</span>
+          <h2 className="text-3xl lg:text-4xl font-bold mt-2 mb-4">{title}</h2>
           <p className="text-white/80 max-w-3xl mx-auto leading-relaxed">{data.description}</p>
           <a
             href={data.websiteUrl}

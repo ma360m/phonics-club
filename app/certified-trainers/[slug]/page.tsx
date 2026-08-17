@@ -12,11 +12,11 @@ import {
   getTrainingEventGallery,
   getTrainingEventsForTrainer,
 } from '@/lib/data/training-events-blog'
-import { getTrainerBySlug } from '@/lib/site-content'
+import { getTrainerBySlug, getTrainerProfileAttachment, type TrainerProfileLink } from '@/lib/site-content'
 import { getTrainerDisplayName } from '@/lib/trainer-display'
 import { getTrainerImageUrl } from '@/lib/trainer-images'
 import { cn } from '@/lib/utils'
-import { Award, CalendarDays, CheckCircle2, ExternalLink, GraduationCap, Images, Star } from 'lucide-react'
+import { Award, CalendarDays, CheckCircle2, ExternalLink, GraduationCap, Images, Link2, Star } from 'lucide-react'
 import type { BlogGalleryImage } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -72,6 +72,21 @@ function uniqueGalleryImages(images: BlogGalleryImage[]) {
   })
 }
 
+function uniqueArticles<T extends { slug: string }>(articles: T[]) {
+  const seen = new Set<string>()
+  return articles.filter((article) => {
+    if (seen.has(article.slug)) return false
+    seen.add(article.slug)
+    return true
+  })
+}
+
+function formatPostDate(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return 'Recent update'
+  return date.toLocaleDateString('en-PK', { dateStyle: 'medium' })
+}
+
 function EmptyProfileSection({
   title,
   body,
@@ -109,8 +124,8 @@ function RelatedArticlesSection({
   if (!articles.length) {
     return (
       <EmptyProfileSection
-        title="Related Articles"
-        body={`Related articles for ${trainerName} will appear here as soon as matching event updates are published.`}
+        title="Related Posts"
+        body={`Related posts for ${trainerName} will appear here as soon as matching event updates are published.`}
         icon={<ExternalLink className="h-5 w-5" />}
       />
     )
@@ -120,8 +135,8 @@ function RelatedArticlesSection({
     <section className="mt-8">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Articles</p>
-          <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">Related Articles & Newsletters</h2>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Posts</p>
+          <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">Related Posts, Articles & Newsletters</h2>
         </div>
         <p className="text-sm font-semibold text-slate-500">{articles.length} update{articles.length === 1 ? '' : 's'}</p>
       </div>
@@ -153,6 +168,63 @@ function RelatedArticlesSection({
   )
 }
 
+function isExternalHref(href: string) {
+  return /^(https?:)?\/\//i.test(href) || /^(mailto:|tel:)/i.test(href)
+}
+
+function RelatedLinksSection({ links }: { links: TrainerProfileLink[] }) {
+  if (!links.length) return null
+
+  return (
+    <section className="mt-8">
+      <div className="mb-5">
+        <p className="text-sm font-semibold uppercase tracking-wide text-[#D30000]">Links</p>
+        <h2 className="mt-2 text-2xl font-bold text-[#0F172A]">Related Links</h2>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {links.map((link) => {
+          const external = isExternalHref(link.href)
+          const content = (
+            <>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#1D4ED8]">
+                <Link2 className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-bold text-[#0F172A] group-hover:text-[#1D4ED8]">{link.label}</span>
+                {link.description ? <span className="mt-1 block text-sm leading-6 text-muted-foreground">{link.description}</span> : null}
+                <span className="mt-2 inline-flex items-center gap-1.5 break-all text-xs font-semibold text-[#1D4ED8]">
+                  {link.href}
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                </span>
+              </span>
+            </>
+          )
+
+          return external ? (
+            <a
+              key={`${link.label}-${link.href}`}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="group flex gap-3 rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              {content}
+            </a>
+          ) : (
+            <Link
+              key={`${link.label}-${link.href}`}
+              href={link.href}
+              className="group flex gap-3 rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              {content}
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default async function CertifiedTrainerProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const trainer = await getTrainerBySlug(slug)
@@ -160,10 +232,11 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
   const trainerImageUrl = getTrainerImageUrl(trainer)
   const trainerDisplayName = getTrainerDisplayName(trainer)
   const isFatimaProfile = trainer.slug === 'fatima-tuz-zahra' || trainer.slug === 'dr-fatima-tuz-zahra'
+  const trainerAttachment = await getTrainerProfileAttachment(slug)
   const relatedEvents = getTrainingEventsForTrainer(trainerDisplayName)
-  const blogPosts = relatedEvents.length ? await getBlogPosts() : []
+  const blogPosts = relatedEvents.length || trainerAttachment.articleSlugs.length ? await getBlogPosts() : []
   const blogPostBySlug = new Map(blogPosts.map((post) => [post.slug, post]))
-  const relatedArticles = relatedEvents.map((event) => {
+  const automaticArticles = relatedEvents.map((event) => {
     const post = blogPostBySlug.get(event.slug)
     const galleryImages = post?.gallery_images ?? getTrainingEventGallery(event)
 
@@ -177,7 +250,30 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
       galleryImages,
     }
   })
-  const trainerGalleryImages = uniqueGalleryImages(relatedArticles.flatMap((article) => article.galleryImages))
+  const attachedArticles = trainerAttachment.articleSlugs.map((articleSlug) => {
+    const post = blogPostBySlug.get(articleSlug)
+    if (!post) return null
+    return {
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      dateDisplay: formatPostDate(post.created_at),
+      category: post.category,
+      location: null,
+      galleryImages: post.gallery_images ?? [],
+    }
+  }).filter(Boolean) as typeof automaticArticles
+  const relatedArticles = uniqueArticles([
+    ...attachedArticles,
+    ...(trainerAttachment.includeAutoArticles ? automaticArticles : []),
+  ])
+  const galleryArticleImages = trainerAttachment.includeAutoGallery
+    ? uniqueArticles([...attachedArticles, ...automaticArticles]).flatMap((article) => article.galleryImages)
+    : []
+  const trainerGalleryImages = uniqueGalleryImages([
+    ...trainerAttachment.galleryImages,
+    ...galleryArticleImages,
+  ])
 
   return (
     <main>
@@ -216,6 +312,7 @@ export default async function CertifiedTrainerProfilePage({ params }: { params: 
         </div>
 
         <RelatedArticlesSection trainerName={trainerDisplayName} articles={relatedArticles} />
+        <RelatedLinksSection links={trainerAttachment.relatedLinks} />
 
         {trainerGalleryImages.length ? (
           <section className="mt-8 overflow-hidden rounded-lg border bg-white shadow-sm" aria-label={`${trainerDisplayName} event gallery`}>

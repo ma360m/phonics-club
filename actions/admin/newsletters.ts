@@ -6,6 +6,7 @@ import {
   NEWSLETTER_MAX_FILE_SIZE_BYTES,
   NEWSLETTER_MAX_FILE_SIZE_MB,
   deleteNewsletterIssue,
+  updateNewsletterIssue,
   uploadNewsletterIssue,
 } from '@/lib/newsletters'
 import type { ActionResult } from '@/types'
@@ -62,4 +63,24 @@ export async function deleteNewsletterFormAction(formData: FormData): Promise<vo
   const id = String(formData.get('id') ?? '')
   if (!id) throw new Error('Missing newsletter id')
   await deleteNewsletterAction(id)
+}
+
+export async function updateNewsletterFormAction(formData: FormData): Promise<void> {
+  await requireAdmin()
+
+  const id = String(formData.get('id') ?? '').trim()
+  const title = String(formData.get('title') ?? '').trim()
+  if (!id) throw new Error('Missing newsletter id')
+  if (!title) throw new Error('Newsletter title is required')
+
+  await updateNewsletterIssue({
+    id,
+    title,
+    month: parseMonth(formData.get('month')),
+    year: parseYear(formData.get('year')),
+    published: formData.get('published') === 'on',
+  })
+
+  revalidatePath('/admin/newsletters')
+  revalidatePath('/newsletters')
 }

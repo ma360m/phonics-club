@@ -7,7 +7,7 @@ import { CatalogManager } from '@/components/shop/catalog-manager'
 import { CategoryFilter } from '@/components/shop/category-filter'
 import { getProducts } from '@/lib/data/queries'
 import { PRODUCT_COLLECTIONS, isProductCollection } from '@/lib/product-collections'
-import { PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
+import { searchProducts } from '@/lib/products/search'
 import { buildMetadata } from '@/utils/seo'
 import { Search } from 'lucide-react'
 
@@ -25,14 +25,14 @@ export default async function ShopPage({
   const { category, collection, q } = await searchParams
   const activeCollection = isProductCollection(collection) ? collection : undefined
   const searchQuery = (q ?? '').trim()
-  const collectionProducts = activeCollection || searchQuery
-    ? await getProducts(activeCollection ? { collection: activeCollection } : undefined)
-    : []
+  const collectionProducts = await getProducts(activeCollection ? { collection: activeCollection } : undefined)
   const categorizedProducts = category
     ? collectionProducts.filter((product) => product.category === category)
     : collectionProducts
-  const products = searchQuery ? categorizedProducts.filter((product) => productMatchesSearch(product, searchQuery)) : categorizedProducts
+  const products = searchQuery ? searchProducts(categorizedProducts, searchQuery) : categorizedProducts
   const availableCategories = Array.from(new Set(collectionProducts.map((product) => product.category)))
+  const activeCollectionLabel = PRODUCT_COLLECTIONS.find((item) => item.slug === activeCollection)?.shortLabel
+  const hasActiveFilters = Boolean(activeCollection || category || searchQuery)
 
   return (
     <main>
@@ -61,8 +61,6 @@ export default async function ShopPage({
             </p>
 
             <form action="/shop" className="mt-7">
-              {activeCollection ? <input type="hidden" name="collection" value={activeCollection} /> : null}
-              {category ? <input type="hidden" name="category" value={category} /> : null}
               <label htmlFor="shop-search" className="sr-only">Search products</label>
               <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="relative">
@@ -92,6 +90,16 @@ export default async function ShopPage({
 
         <div className="mb-8 overflow-x-auto pb-2">
           <div className="flex min-w-max gap-3">
+            <a
+              href="/shop"
+              className={`rounded-full border px-5 py-3 text-sm font-semibold transition-colors ${
+                !activeCollection
+                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                  : 'border-border bg-background text-foreground hover:border-[#1D4ED8] hover:text-[#1D4ED8]'
+              }`}
+            >
+              All products
+            </a>
             {PRODUCT_COLLECTIONS.map((item) => (
               <a
                 key={item.slug}
@@ -112,7 +120,7 @@ export default async function ShopPage({
           <CatalogManager activeCollection={activeCollection} />
         </div>
 
-        {activeCollection && (
+        {availableCategories.length > 0 && (
           <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
             <CategoryFilter
               currentCategory={category}
@@ -122,27 +130,24 @@ export default async function ShopPage({
           </div>
         )}
 
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-muted-foreground">
+            Showing {products.length} {products.length === 1 ? 'product' : 'products'}
+            {searchQuery ? ` for "${searchQuery}"` : ''}
+            {activeCollectionLabel ? ` in ${activeCollectionLabel}` : ''}
+          </p>
+          {hasActiveFilters ? (
+            <a
+              href="/shop"
+              className="w-fit rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
+            >
+              Clear filters
+            </a>
+          ) : null}
+        </div>
+
         <Suspense fallback={<div className="grid grid-cols-3 gap-6">Loading...</div>}>
-          {!activeCollection ? (
-            searchQuery ? (
-              products.length === 0 ? (
-                <p className="py-20 text-center text-muted-foreground">No products found for &ldquo;{searchQuery}&rdquo;.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="rounded-2xl border bg-card p-10 text-center shadow-sm">
-                <h2 className="text-2xl font-bold">Choose a product range</h2>
-                <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-                  Select Jolly Learning Products or Phonics Club Products above to view the catalog.
-                </p>
-              </div>
-            )
-          ) : products.length === 0 ? (
+          {products.length === 0 ? (
             <p className="py-20 text-center text-muted-foreground">
               {searchQuery ? `No products found for "${searchQuery}".` : 'No products found.'}
             </p>
@@ -158,49 +163,4 @@ export default async function ShopPage({
       <Footer />
     </main>
   )
-}
-
-function productMatchesSearch(product: Awaited<ReturnType<typeof getProducts>>[number], query: string) {
-  const normalizedQuery = normalizeSearch(query)
-  const words = normalizedQuery.split(' ').filter(Boolean)
-  const categoryLabel = PRODUCT_CATEGORY_LABELS[product.category] ?? product.category
-  const isbn = product.isbn ?? (product.metadata?.isbn as string | undefined) ?? ''
-  const text = normalizeSearch([
-    product.name,
-    product.description,
-    product.category,
-    categoryLabel,
-    product.product_number,
-    product.sku,
-    product.barcode,
-    product.alternate_barcode,
-    isbn,
-    product.metadata?.collection,
-  ].filter(Boolean).join(' '))
-
-  if (words.every((word) => text.includes(word))) return true
-
-  const categoryAliases: Record<string, string[]> = {
-    'activity-books': ['activity', 'activities'],
-    'pupil-books': ['pupil', 'student', 'students'],
-    workbooks: ['workbook', 'workbooks', 'practice'],
-    'grammar-workbooks': ['grammar workbook', 'grammar practice'],
-    'grammar-pupil-books': ['grammar pupil', 'spelling', 'grammar spelling'],
-    'teachers-books': ['teacher', 'teachers', 'teacher book', "teacher's book"],
-    comprehension: ['comprehension', 'creative writing', 'writing'],
-    readers: ['reader', 'readers', 'reading books'],
-    'teacher-resources': ['resource', 'resources', 'flashcard', 'flashcards', 'teaching resource'],
-    kits: ['kit', 'kits', 'classroom set', 'class set'],
-  }
-
-  return (categoryAliases[product.category] ?? []).some((alias) => normalizedQuery.includes(normalizeSearch(alias)))
-}
-
-function normalizeSearch(value: unknown) {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
 }

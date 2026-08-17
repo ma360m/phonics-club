@@ -12,12 +12,15 @@ VALUES (
     {"id":"lgs","name":"LGS","imageUrl":"/images/logos/lgs.jpg","sortOrder":5},
     {"id":"beaconhouse","name":"Beaconhouse","imageUrl":"/images/logos/beaconhouse.png","sortOrder":6},
     {"id":"rwis","name":"RWIS","imageUrl":"/images/logos/RWIS.jpg","sortOrder":7},
-    {"id":"dynamic","name":"Dynamic International","imageUrl":"","sortOrder":8},
+    {"id":"dynamic","name":"Dynamic International School","imageUrl":"/images/logos/dynamic international.png","sortOrder":8},
     {"id":"academus","name":"Academus","imageUrl":"/images/logos/ACADEMUS.png","sortOrder":9},
     {"id":"alda","name":"ALDA","imageUrl":"/images/logos/ALDA.png","sortOrder":10},
     {"id":"horizon","name":"Horizon School System","imageUrl":"/images/logos/HORIZON.jpg","sortOrder":11},
     {"id":"aksp","name":"AKSP","imageUrl":"/images/logos/AKSP.png","sortOrder":12},
-    {"id":"akrsp","name":"AKRSP","imageUrl":"/images/logos/AKRSP.jpg","sortOrder":13}
+    {"id":"akrsp","name":"AKRSP","imageUrl":"/images/logos/AKRSP.jpg","sortOrder":13},
+    {"id":"beginnings","name":"Beginnings International Schools","imageUrl":"/images/logos/beginnings international school.jpg","sortOrder":14},
+    {"id":"elysian","name":"Elysian","imageUrl":"/images/logos/elysian schhol.jpg","sortOrder":15},
+    {"id":"iiui","name":"IIUI School & College","imageUrl":"/images/logos/iiui schools.jpg","sortOrder":16}
   ]'::jsonb
 )
 ON CONFLICT (key) DO UPDATE SET

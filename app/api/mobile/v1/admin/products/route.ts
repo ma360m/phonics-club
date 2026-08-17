@@ -1,6 +1,7 @@
 import { requireMobileAdminPermission } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
 import { mobilePaginationSchema } from '@/lib/mobile-api/schemas'
+import { buildSupabaseProductSearchOrFilter } from '@/lib/products/search'
 import {
   createMobileApiResponse,
   createMobileRequestId,
@@ -35,13 +36,14 @@ export async function GET(request: Request) {
     let query = context.supabase
       .from('products')
       .select(
-        'id, name, slug, product_number, sku, barcode, category, price, compare_at_price, sale_enabled, sale_price, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, images, featured, published, updated_at',
+        'id, name, slug, description, product_number, sku, barcode, alternate_barcode, isbn, category, price, compare_at_price, sale_enabled, sale_price, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, images, featured, published, metadata, updated_at',
         { count: 'exact' },
       )
       .order('updated_at', { ascending: false })
       .range(from, to)
 
-    if (search) query = query.ilike('name', `%${search}%`)
+    const searchFilter = search ? buildSupabaseProductSearchOrFilter(search) : null
+    if (searchFilter) query = query.or(searchFilter)
     if (status === 'published') query = query.eq('published', true)
     if (status === 'draft') query = query.eq('published', false)
 

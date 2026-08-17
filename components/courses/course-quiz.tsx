@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Award, CheckCircle2, CircleAlert, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { submitQuizAttemptAction } from '@/actions/lms'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ export function CourseQuiz({
   questions,
   attempts,
   previewMode = false,
+  certificateHref,
 }: {
   courseId: string
   courseTitle?: string
@@ -45,6 +46,7 @@ export function CourseQuiz({
   questions: PublicQuizQuestion[]
   attempts: QuizAttempt[]
   previewMode?: boolean
+  certificateHref?: string
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, QuizAnswer>>({})
@@ -93,7 +95,7 @@ export function CourseQuiz({
     )
   }
 
-  if (finalResult && (result || attemptsLeft <= 0)) {
+  if (finalResult && (result || finalResult.passed || attemptsLeft <= 0)) {
     return (
       <div className="mx-auto max-w-5xl space-y-5">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
@@ -113,6 +115,26 @@ export function CourseQuiz({
             {result ? <ResultCard label="Correct" value={`${finalResult.correct}/${finalResult.total}`} /> : <ResultCard label="Attempts" value={`${attemptsUsed}/${quiz.max_attempts}`} />}
             <ResultCard label="Passing" value={`${quiz.passing_score}%`} />
           </div>
+          {finalResult.passed && certificateHref ? (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-left">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
+                    <Award className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h2 className="font-bold text-[#0F172A]">Get your certificate</h2>
+                    <p className="mt-1 text-sm leading-6 text-emerald-800">
+                      You passed the final quiz. Open the certificate page to view the template, see any certificate fee, and upload your bank transfer receipt.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild className="shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-700">
+                  <a href={certificateHref}>Get Certificate</a>
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             {attemptsLeft > 0 && (
               <Button type="button" variant="outline" className="rounded-xl border-slate-200 bg-white" onClick={retake}>

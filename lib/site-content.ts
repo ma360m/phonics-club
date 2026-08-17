@@ -74,6 +74,22 @@ export interface ContentImage {
   caption?: string
 }
 
+export interface TrainerProfileLink {
+  label: string
+  href: string
+  description?: string
+}
+
+export interface TrainerProfileAttachment {
+  articleSlugs: string[]
+  relatedLinks: TrainerProfileLink[]
+  galleryImages: ContentImage[]
+  includeAutoArticles: boolean
+  includeAutoGallery: boolean
+}
+
+export type TrainerProfileAttachments = Record<string, TrainerProfileAttachment>
+
 export interface AboutCard {
   title: string
   description?: string
@@ -149,6 +165,7 @@ export interface FAQItem {
 }
 
 export const VORTEX_LEARNING_URL = 'https://officialvortexlear.wixsite.com/vortex-learning'
+export const TRAINER_PROFILE_ATTACHMENTS_KEY = 'trainer_profile_attachments'
 
 const DEFAULT_TESTIMONIALS: Testimonial[] = [
   { id: '1', content: 'Phonics Club transformed our school reading program. Jolly Phonics implementation was seamless.', author: 'Beaconhouse School', role: 'Lahore', rating: 5 },
@@ -320,6 +337,22 @@ const SCHOOL_LOGO_PATHS: Record<string, string> = {
   lgs: '/images/logos/lgs.jpg',
   beaconhouse: '/images/logos/beaconhouse.png',
   rwis: '/images/logos/RWIS.jpg',
+  dynamic: '/images/logos/dynamic international.png',
+  'dynamic-international': '/images/logos/dynamic international.png',
+  'dynamic-international-school': '/images/logos/dynamic international.png',
+  beginnings: '/images/logos/beginnings international school.jpg',
+  'beginning-international': '/images/logos/beginnings international school.jpg',
+  'beginning-international-school': '/images/logos/beginnings international school.jpg',
+  'beginning-international-schools': '/images/logos/beginnings international school.jpg',
+  'beginnings-international': '/images/logos/beginnings international school.jpg',
+  'beginnings-international-school': '/images/logos/beginnings international school.jpg',
+  'beginnings-international-schools': '/images/logos/beginnings international school.jpg',
+  elysian: '/images/logos/elysian schhol.jpg',
+  'elysian-school': '/images/logos/elysian schhol.jpg',
+  iiui: '/images/logos/iiui schools.jpg',
+  'iiui-schools': '/images/logos/iiui schools.jpg',
+  'iiui-school-college': '/images/logos/iiui schools.jpg',
+  'iiui-school-and-college': '/images/logos/iiui schools.jpg',
   academus: '/images/logos/ACADEMUS.png',
   alda: '/images/logos/ALDA.png',
   horizon: '/images/logos/HORIZON.jpg',
@@ -335,12 +368,15 @@ const DEFAULT_SCHOOL_LOGOS: SchoolLogo[] = [
   { id: 'lgs', name: 'LGS', imageUrl: SCHOOL_LOGO_PATHS.lgs, sortOrder: 5 },
   { id: 'beaconhouse', name: 'Beaconhouse', imageUrl: SCHOOL_LOGO_PATHS.beaconhouse, sortOrder: 6 },
   { id: 'rwis', name: 'RWIS', imageUrl: SCHOOL_LOGO_PATHS.rwis, sortOrder: 7 },
-  { id: 'dynamic', name: 'Dynamic International', imageUrl: '', sortOrder: 8 },
+  { id: 'dynamic', name: 'Dynamic International School', imageUrl: SCHOOL_LOGO_PATHS.dynamic, sortOrder: 8 },
   { id: 'academus', name: 'Academus', imageUrl: SCHOOL_LOGO_PATHS.academus, sortOrder: 9 },
   { id: 'alda', name: 'ALDA', imageUrl: SCHOOL_LOGO_PATHS.alda, sortOrder: 10 },
   { id: 'horizon', name: 'Horizon School System', imageUrl: SCHOOL_LOGO_PATHS.horizon, sortOrder: 11 },
   { id: 'aksp', name: 'AKSP', imageUrl: SCHOOL_LOGO_PATHS.aksp, sortOrder: 12 },
   { id: 'akrsp', name: 'AKRSP', imageUrl: SCHOOL_LOGO_PATHS.akrsp, sortOrder: 13 },
+  { id: 'beginnings', name: 'Beginnings International Schools', imageUrl: SCHOOL_LOGO_PATHS.beginnings, sortOrder: 14 },
+  { id: 'elysian', name: 'Elysian', imageUrl: SCHOOL_LOGO_PATHS.elysian, sortOrder: 15 },
+  { id: 'iiui', name: 'IIUI School & College', imageUrl: SCHOOL_LOGO_PATHS.iiui, sortOrder: 16 },
 ]
 
 const DEFAULT_TRAINERS = [
@@ -497,9 +533,9 @@ const DEFAULT_TRAINERS = [
 ]
 
 const DEFAULT_VORTEX: VortexLearning = {
-  title: 'Vortex Learning Partnership',
+  title: 'Vortex Learning',
   description:
-    'Vortex Learning is a company focused on providing students with different courses and online classes all over the world. Phonics Club works alongside Vortex Learning to make high-quality online education easier to access for students and educators.',
+    'Vortex Learning is a project of Phonics Club focused on providing students with different courses and online classes all over the world.',
   websiteUrl: VORTEX_LEARNING_URL,
   courses: [
     { title: 'Online Classes', description: 'Structured online learning support for students across regions', href: '/courses' },
@@ -917,27 +953,86 @@ export async function getContent<T>(key: string, fallback: T): Promise<T> {
   return fallback
 }
 
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function normalizeStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.map((item) => String(item ?? '').trim()).filter(Boolean))]
+    : []
+}
+
+function normalizeContentImage(value: unknown): ContentImage | null {
+  const item = objectRecord(value)
+  const src = normalizeMediaUrl(String(item.src ?? '').trim())
+  if (!src) return null
+  return {
+    src,
+    alt: String(item.alt ?? '').trim() || 'Trainer gallery image',
+    caption: String(item.caption ?? '').trim() || undefined,
+  }
+}
+
+function normalizeProfileLinkUrl(value: unknown): string {
+  const href = String(value ?? '').trim()
+  if (!href) return ''
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(href)) return href
+  if (href.startsWith('/')) return href
+  if (/^www\./i.test(href)) return `https://${href}`
+  return `/${href.replace(/^\/+/, '')}`
+}
+
+function normalizeTrainerProfileLink(value: unknown): TrainerProfileLink | null {
+  const item = objectRecord(value)
+  const href = normalizeProfileLinkUrl(item.href)
+  const label = String(item.label ?? '').trim()
+  if (!href || !label) return null
+  return {
+    label,
+    href,
+    description: String(item.description ?? '').trim() || undefined,
+  }
+}
+
+export function normalizeTrainerProfileAttachment(value: unknown): TrainerProfileAttachment {
+  const item = objectRecord(value)
+  return {
+    articleSlugs: normalizeStringList(item.articleSlugs),
+    relatedLinks: Array.isArray(item.relatedLinks)
+      ? item.relatedLinks.map(normalizeTrainerProfileLink).filter(Boolean) as TrainerProfileLink[]
+      : [],
+    galleryImages: Array.isArray(item.galleryImages)
+      ? item.galleryImages.map(normalizeContentImage).filter(Boolean) as ContentImage[]
+      : [],
+    includeAutoArticles: item.includeAutoArticles !== false,
+    includeAutoGallery: item.includeAutoGallery !== false,
+  }
+}
+
 function logoIdFromName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
 function normalizeLogoUrl(value: string | undefined): string {
   const trimmed = value?.trim() ?? ''
-  if (!trimmed || /\s/.test(trimmed) || trimmed === '/images/schools/logo.png') return ''
+  if (!trimmed || trimmed === '/images/schools/logo.png') return ''
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   if (trimmed.startsWith('/public/')) return trimmed.replace(/^\/public/, '')
   if (trimmed.startsWith('public/')) return `/${trimmed.replace(/^public\//, '')}`
   if (trimmed.startsWith('/')) return trimmed
   if (trimmed.startsWith('images/')) return `/${trimmed}`
+  if (/\s/.test(trimmed)) return ''
   return ''
 }
 
 function normalizeSchoolLogo(logo: SchoolLogo, index: number): SchoolLogo {
   const id = logo.id || logoIdFromName(logo.name)
   const normalizedUrl = normalizeLogoUrl(logo.imageUrl)
+  const mappedUrl = SCHOOL_LOGO_PATHS[id] ?? SCHOOL_LOGO_PATHS[logoIdFromName(logo.name)]
   const imageUrl = /^https?:\/\//i.test(normalizedUrl)
     ? normalizedUrl
-    : SCHOOL_LOGO_PATHS[id] ?? normalizedUrl
+    : mappedUrl ?? normalizedUrl
 
   return {
     ...logo,
@@ -1180,6 +1275,20 @@ export async function getTrainers() {
     .eq('published', true)
     .order('sort_order')
   return data ?? []
+}
+
+export async function getTrainerProfileAttachments(): Promise<TrainerProfileAttachments> {
+  const saved = await getContent<Record<string, unknown>>(TRAINER_PROFILE_ATTACHMENTS_KEY, {})
+  return Object.fromEntries(
+    Object.entries(objectRecord(saved))
+      .map(([slug, value]) => [slug, normalizeTrainerProfileAttachment(value)] as const)
+      .filter(([slug]) => Boolean(slug.trim())),
+  )
+}
+
+export async function getTrainerProfileAttachment(slug: string): Promise<TrainerProfileAttachment> {
+  const attachments = await getTrainerProfileAttachments()
+  return normalizeTrainerProfileAttachment(attachments[slug])
 }
 
 export async function getTrainerBySlug(slug: string) {
