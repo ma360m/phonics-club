@@ -22,3 +22,5 @@ tmp/wpress-analysis/database.sql
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+temp-large-assets/
