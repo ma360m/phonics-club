@@ -13,6 +13,11 @@ import {
   normalizeBankDetails,
   type BankDetails,
 } from '@/lib/bank-details'
+import {
+  DEFAULT_COURSE_CATALOGUE_CONTENT,
+  normalizeCourseCatalogueContent,
+  type CourseCatalogueContent,
+} from '@/lib/course-catalogue-content'
 import { normalizeMediaUrl } from '@/lib/media-url'
 import { slugify } from '@/utils/slug'
 
@@ -1187,12 +1192,25 @@ export async function getInvoiceTemplate() {
 
 export async function getBankDetails(): Promise<BankDetails> {
   const details = await getContent('bank_details', COMPANY_BANK_DETAILS)
-  return normalizeBankDetails(details, DEFAULT_BANK_DETAILS)
+  const normalized = normalizeBankDetails(details, DEFAULT_BANK_DETAILS)
+  const accountNumber = normalized.accountNumber.replace(/\D/g, '')
+  const courseAccountNumber = DEFAULT_COURSE_BANK_DETAILS.accountNumber.replace(/\D/g, '')
+  const looksLikeCourseBankDetails =
+    accountNumber === courseAccountNumber ||
+    normalized.iban === DEFAULT_COURSE_BANK_DETAILS.iban ||
+    normalized.accountTitle.toLowerCase().includes('consultancy')
+
+  return looksLikeCourseBankDetails ? DEFAULT_BANK_DETAILS : normalized
 }
 
 export async function getCourseBankDetails(): Promise<BankDetails> {
   const details = await getContent('course_bank_details', DEFAULT_COURSE_BANK_DETAILS)
   return normalizeBankDetails(details, DEFAULT_COURSE_BANK_DETAILS)
+}
+
+export async function getCourseCatalogueContent(): Promise<CourseCatalogueContent> {
+  const content = await getContent('course_catalogue', DEFAULT_COURSE_CATALOGUE_CONTENT)
+  return normalizeCourseCatalogueContent(content)
 }
 
 export async function getAboutPageContent(): Promise<AboutPageContent> {

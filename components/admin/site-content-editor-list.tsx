@@ -109,7 +109,7 @@ export function SiteContentEditorList({
           <p className="text-xs leading-5 text-muted-foreground">{hint}</p>
           <Textarea
             name="content"
-            rows={key.includes('policy') || key.includes('page') ? 16 : 8}
+            rows={key.includes('policy') || key.includes('page') || key.includes('catalogue') ? 16 : 8}
             className="max-w-full rounded-lg font-mono text-xs leading-5"
             defaultValue={stringifyContent(contentMap[key] ?? defaults[key] ?? [])}
           />

@@ -31,6 +31,8 @@ export async function saveSiteContentAction(key: string, content: unknown): Prom
   revalidatePath('/refunds')
   revalidatePath('/cookies')
   revalidatePath('/checkout')
+  revalidatePath('/courses')
+  revalidatePath('/courses/catalogue')
   revalidatePath('/courses/[slug]/payment', 'page')
   revalidatePath('/course/[id]/certificate', 'page')
   revalidatePath('/dashboard/my-courses')

@@ -671,6 +671,11 @@ export function CheckoutForm({
                           <span className="break-all">{bankDetails.iban}</span>
                         </span>
                       ) : null}
+                      {bankDetails.instructions ? (
+                        <span className="whitespace-pre-line rounded-lg border border-[#BFDBFE] bg-white px-3 py-2 text-xs leading-5 text-slate-600 sm:col-span-2">
+                          {bankDetails.instructions}
+                        </span>
+                      ) : null}
                     </span>
                   )}
                 </span>

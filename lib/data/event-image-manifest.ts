@@ -466,23 +466,33 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/dwedw.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/ccc.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 9",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/Screenshot%202026-08-16%20112421.png",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/dwedw.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 10",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/swdw.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/Screenshot%202026-08-16%20112421.png",
       "alt": "Gujranwala pilot project training session event photograph 11",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/wwded.jpeg",
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/swdw.jpeg",
       "alt": "Gujranwala pilot project training session event photograph 12",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/wwded.jpeg",
+      "alt": "Gujranwala pilot project training session event photograph 13",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Gujranwala%20pilot%20project%20training%20session/wwwww.jpeg",
+      "alt": "Gujranwala pilot project training session event photograph 14",
       "caption": null
     }
   ],
@@ -528,22 +538,22 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/9.jpeg",
+      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/10.jpeg",
       "alt": "Gujranwala refresher training jan 2026 event photograph 9",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/10.jpeg",
+      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/11.jpeg",
       "alt": "Gujranwala refresher training jan 2026 event photograph 10",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/11.jpeg",
+      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/12.jpeg",
       "alt": "Gujranwala refresher training jan 2026 event photograph 11",
       "caption": null
     },
     {
-      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/12.jpeg",
+      "src": "/images/photos/Gujranwala%20refresher%20training%20jan%202026/www.jpeg",
       "alt": "Gujranwala refresher training jan 2026 event photograph 12",
       "caption": null
     }
@@ -754,6 +764,21 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
     {
       "src": "/images/photos/jolly%20phonics%20day%20morning%20lahore%202025/35.jpeg",
       "alt": "jolly phonics day morning lahore 2025 event photograph 16",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/jolly%20phonics%20day%20morning%20lahore%202025/as.jpeg",
+      "alt": "jolly phonics day morning lahore 2025 event photograph 17",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/jolly%20phonics%20day%20morning%20lahore%202025/c.jpeg",
+      "alt": "jolly phonics day morning lahore 2025 event photograph 18",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/jolly%20phonics%20day%20morning%20lahore%202025/sss.jpeg",
+      "alt": "jolly phonics day morning lahore 2025 event photograph 19",
       "caption": null
     }
   ],
@@ -1057,6 +1082,13 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
     {
       "src": "/images/photos/lahore%20pilot%20project%20training%20sessions/nscoe%20pilot%20project%20training%20%20august%202025/21.jpeg",
       "alt": "lahore pilot project training sessions event photograph 30",
+      "caption": null
+    }
+  ],
+  "photos/lahore refresher trading pilot project 2026 january": [
+    {
+      "src": "/images/photos/lahore%20refresher%20trading%20pilot%20project%202026%20january/qq.jpeg",
+      "alt": "lahore refresher trading pilot project 2026 january event photograph 1",
       "caption": null
     }
   ],

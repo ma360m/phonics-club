@@ -110,6 +110,22 @@ function formatAddress(address: OrderEmailShippingAddress | null): string {
   return lines.length ? lines.map(escapeHtml).join('<br />') : 'Not provided'
 }
 
+function formatAdminShippingAddress(
+  address: OrderEmailShippingAddress | null,
+  fallbackPhone: string,
+  invoiceTotal: number
+): string {
+  const phone = address?.phone || fallbackPhone || 'Not provided'
+
+  return `
+    ${formatAddress(address)}
+    <br /><br />
+    <span style="color:#111827;font-weight:700;">Phone:</span> ${escapeHtml(phone)}
+    <br />
+    <span style="color:#111827;font-weight:700;">Invoice total:</span> ${escapeHtml(formatPrice(invoiceTotal))}
+  `
+}
+
 function buildButton(label: string, href: string, background: string, color = '#ffffff'): string {
   return `
     <a href="${escapeHtml(href)}" style="display:inline-block;border-radius:10px;background:${background};color:${color};font-size:14px;font-weight:700;line-height:1;text-decoration:none;padding:14px 20px;margin:6px 8px 6px 0;">
@@ -338,7 +354,7 @@ function buildAdminEmailHtml({
 
         <h2 style="color:#111827;font-size:16px;margin:0 0 12px;">Shipping address</h2>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;color:#374151;font-size:14px;line-height:1.7;margin:0 0 26px;padding:18px;">
-          ${formatAddress(shippingAddress)}
+          ${formatAdminShippingAddress(shippingAddress, customerPhone, total)}
         </div>
 
         <div>

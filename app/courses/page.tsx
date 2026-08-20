@@ -7,6 +7,7 @@ import { CourseOrbitIllustration } from '@/components/courses/course-orbit-illus
 import { Button } from '@/components/ui/button'
 import { getUserEnrollments } from '@/actions/enrollments'
 import { getCourseCatalog, type CourseCatalogFilters } from '@/lib/lms'
+import { getCourseCatalogueContent } from '@/lib/site-content'
 import { buildMetadata } from '@/utils/seo'
 import { BookOpen, Search } from 'lucide-react'
 
@@ -38,9 +39,10 @@ export default async function CoursesPage({
   searchParams: Promise<CourseCatalogFilters>
 }) {
   const params = await searchParams
-  const [catalog, enrollments] = await Promise.all([
+  const [catalog, enrollments, courseCatalogue] = await Promise.all([
     getCourseCatalog(params),
     getUserEnrollments(),
+    getCourseCatalogueContent(),
   ])
   const enrollmentByCourseId = new Map(enrollments.map((item) => [item.course_id, item]))
   const showing = Math.min(catalog.courses.length, catalog.total)
@@ -105,9 +107,19 @@ export default async function CoursesPage({
                 Looking for tutoring for your child or a personalized course plan? Contact us directly for ongoing courses and tailored guidance.
               </p>
             </div>
-            <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
-              <Link href="/contact">Contact us</Link>
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {courseCatalogue.showButton && (
+                <Button asChild className="rounded-xl bg-[#1D4ED8]">
+                  <Link href={courseCatalogue.buttonHref}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    {courseCatalogue.buttonLabel}
+                  </Link>
+                </Button>
+              )}
+              <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+                <Link href="/contact">Contact us</Link>
+              </Button>
+            </div>
           </div>
         </div>
 

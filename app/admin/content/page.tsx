@@ -9,6 +9,7 @@ import {
   getBankDetails,
   getContactSettings,
   getCourseBankDetails,
+  getCourseCatalogueContent,
   getFaqs,
   getHomepageGallery,
   getInvoiceTemplate,
@@ -27,12 +28,14 @@ import { FaqsManager } from '@/components/admin/faqs-manager'
 import { ContactSettingsForm } from '@/components/admin/contact-settings-form'
 import { CourseBankDetailsForm } from '@/components/admin/course-bank-details-form'
 import { SiteContentEditorList } from '@/components/admin/site-content-editor-list'
+import { DEFAULT_COURSE_CATALOGUE_CONTENT } from '@/lib/course-catalogue-content'
 
 const SECTIONS = [
   { key: 'announcements', label: 'Announcement Ticker / Flyers', hint: 'Array of {id, message, linkUrl, linkText, couponCode, active}' },
   { key: 'testimonials', label: 'Homepage Testimonials', hint: 'Array of {id, content, author, role, rating, imageUrl}' },
   { key: 'homepage_gallery', label: 'Homepage Gallery', hint: 'Object with enabled, title, subtitle, and images[]. Set enabled to false to hide this section.' },
   { key: 'vortex_learning', label: 'Vortex Learning Partnership', hint: 'Object with title, description, websiteUrl, courses[]' },
+  { key: 'course_catalogue', label: 'Course Catalogue Preview', hint: 'Object with showButton, buttonLabel, buttonDescription, hero, overview, academies[], pathways[], bundles[], certificateFramework[]. Keep showButton false while the button should stay hidden.' },
   { key: 'about_page', label: 'About Us Page', hint: 'Structured About page content. Add supporting image URLs in supportImages[] and About gallery images in galleryImages[].' },
   { key: 'research_page', label: 'Research Page', hint: 'Structured Research page content. Add project images in projects[].images[] or supportImages[].' },
   { key: 'faqs', label: 'FAQs', hint: 'Array of {q, a}. Use a for answer paragraphs, for example {"q":"Question?","a":["Answer paragraph."]}' },
@@ -62,6 +65,7 @@ export default async function AdminContentPage() {
     bankDetails,
     contactSettings,
     courseBankDetails,
+    courseCatalogue,
   ] = await Promise.all([
     getAllSiteContent(),
     getSchoolLogos(),
@@ -79,6 +83,7 @@ export default async function AdminContentPage() {
     getBankDetails(),
     getContactSettings(),
     getCourseBankDetails(),
+    getCourseCatalogueContent(),
   ])
 
   const contentMap = Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content]))
@@ -95,13 +100,14 @@ export default async function AdminContentPage() {
     cookies_policy: cookiesPolicy ?? DEFAULT_POLICIES.cookies_policy,
     invoice_template: invoiceTemplate,
     bank_details: bankDetails,
+    course_catalogue: courseCatalogue ?? DEFAULT_COURSE_CATALOGUE_CONTENT,
   }
 
   return (
     <div>
       <h1 className="mb-2 text-3xl font-bold">Site Content</h1>
       <p className="mb-8 text-muted-foreground">
-        Manage homepage announcements, website videos, testimonials, reels, Vortex Learning, About, Research, policies, contact numbers, invoice settings, and bank details.
+        Manage homepage announcements, website videos, testimonials, reels, course catalogue preview, Vortex Learning, About, Research, policies, contact numbers, invoice settings, and bank details.
       </p>
 
       <div className="max-w-4xl space-y-8">
