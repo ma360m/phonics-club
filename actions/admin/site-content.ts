@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { DEFAULT_COURSE_BANK_DETAILS, normalizeBankDetails } from '@/lib/bank-details'
@@ -15,6 +15,7 @@ export async function saveSiteContentAction(key: string, content: unknown): Prom
     .upsert({ key, content, updated_at: new Date().toISOString() } as never, { onConflict: 'key' })
 
   if (error) return { success: false, error: error.message }
+  revalidateTag('site-content')
   revalidatePath('/')
   revalidatePath('/', 'layout')
   revalidatePath('/trainings')

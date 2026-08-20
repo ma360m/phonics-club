@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 import { Inter, Poppins } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
@@ -11,7 +10,6 @@ import { buildMetadata, organizationJsonLd, websiteJsonLd } from '@/utils/seo'
 import { JsonLd } from '@/components/seo/json-ld'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { getContactSettings } from '@/lib/site-content'
-import { CURRENCY_PREFERENCE_KEY, normalizeCurrency } from '@/lib/currency'
 import { getDisplayPreferencesInitScript } from '@/lib/display-preferences/init-script'
 import './globals.css'
 
@@ -39,8 +37,7 @@ export default async function RootLayout({
     getCurrencySettings(),
     getContactSettings(),
   ])
-  const cookieStore = await cookies()
-  const initialCurrency = normalizeCurrency(cookieStore.get(CURRENCY_PREFERENCE_KEY)?.value, currencySettings.usdEnabled)
+  const initialCurrency = currencySettings.defaultCurrency
 
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>

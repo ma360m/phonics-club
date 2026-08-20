@@ -320,7 +320,7 @@ export function CourseLearnPlayer({
         route: window.location.pathname,
         clientSentAt: new Date().toISOString(),
       })
-    }, 45_000)
+    }, 60_000)
 
     return () => {
       cancelled = true

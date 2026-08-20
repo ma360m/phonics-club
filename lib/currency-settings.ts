@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { unstable_cache } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import {
   DEFAULT_CURRENCY_SETTINGS,
@@ -16,8 +17,32 @@ interface CurrencySettingsRow {
   updated_at?: string | null
 }
 
+const getCachedCurrencySettingsRow = unstable_cache(
+  async (): Promise<CurrencySettingsRow | null> => {
+    if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null
+    const supabase = await createServiceClient()
+    const { data } = await supabase
+      .from('currency_settings')
+      .select('default_currency, usd_enabled, usd_to_pkr_rate, rate_mode, last_updated_at, updated_at')
+      .eq('id', 1)
+      .maybeSingle()
+
+    return data as CurrencySettingsRow | null
+  },
+  ['currency-settings'],
+  { revalidate: 300, tags: ['currency-settings'] },
+)
+
 export async function getCurrencySettings(): Promise<CurrencySettings> {
   if (!isSupabaseConfigured()) return DEFAULT_CURRENCY_SETTINGS
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return normalizeCurrencySettings(await getCachedCurrencySettingsRow())
+    } catch {
+      return DEFAULT_CURRENCY_SETTINGS
+    }
+  }
 
   try {
     const supabase = await createClient()

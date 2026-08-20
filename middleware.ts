@@ -18,6 +18,9 @@ function matchesRoutePrefix(pathname: string, prefix: string) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const normalizedPathname = pathname.toLowerCase()
+  const isProtected = PROTECTED_PREFIXES.some((p) => matchesRoutePrefix(pathname, p))
+  const isAuthRoute = AUTH_ROUTES.some((p) => matchesRoutePrefix(pathname, p))
+  const isAdmin = pathname.startsWith('/admin')
 
   if (pathname !== normalizedPathname) {
     const url = request.nextUrl.clone()
@@ -29,11 +32,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const { supabaseResponse, user, supabase } = await updateSession(request)
+  if (!isProtected && !isAuthRoute) {
+    return NextResponse.next()
+  }
 
-  const isProtected = PROTECTED_PREFIXES.some((p) => matchesRoutePrefix(pathname, p))
-  const isAuthRoute = AUTH_ROUTES.some((p) => matchesRoutePrefix(pathname, p))
-  const isAdmin = pathname.startsWith('/admin')
+  const { supabaseResponse, user, supabase } = await updateSession(request)
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone()

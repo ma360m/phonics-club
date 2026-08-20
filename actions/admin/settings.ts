@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { normalizeCurrency, validateUsdToPkrRate } from '@/lib/currency'
@@ -84,6 +84,7 @@ export async function updateCurrencySettingsAction(formData: FormData): Promise<
     updated_by: admin.id,
   } as never)
 
+  revalidateTag('currency-settings')
   revalidatePath('/')
   revalidatePath('/admin/settings/currency')
 }

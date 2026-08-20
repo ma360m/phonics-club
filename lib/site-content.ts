@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { unstable_cache } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isSupabaseConfigured } from '@/lib/auth'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
 import {
@@ -941,12 +942,35 @@ export const DEFAULT_POLICIES: Record<string, PolicyContent> = {
   },
 }
 
-export async function getContent<T>(key: string, fallback: T): Promise<T> {
-  if (!isSupabaseConfigured()) return fallback
+const getCachedContent = unstable_cache(
+  async (key: string) => {
+    if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null
+    const supabase = await createServiceClient()
+    const { data } = await supabase.from('site_content').select('content').eq('key', key).single()
+    return data?.content ?? null
+  },
+  ['site-content'],
+  { revalidate: 300, tags: ['site-content'] },
+)
+
+async function getUncachedContent<T>(key: string, fallback: T): Promise<T> {
   try {
     const supabase = await createClient()
     const { data } = await supabase.from('site_content').select('content').eq('key', key).single()
     if (data?.content) return data.content as T
+  } catch {
+    /* use fallback */
+  }
+  return fallback
+}
+
+export async function getContent<T>(key: string, fallback: T): Promise<T> {
+  if (!isSupabaseConfigured()) return fallback
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return getUncachedContent(key, fallback)
+
+  try {
+    const content = await getCachedContent(key)
+    if (content) return content as T
   } catch {
     /* use fallback */
   }

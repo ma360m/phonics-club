@@ -21,5 +21,9 @@ export async function GET(request: Request) {
   }
 
   const announcements = await getAnnouncements()
-  return NextResponse.json(announcements)
+  return NextResponse.json(announcements, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+    },
+  })
 }
