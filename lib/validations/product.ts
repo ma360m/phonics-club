@@ -5,16 +5,27 @@ const imagePath = z.string().refine(
   'Image must be a path or URL'
 )
 
+const emptyStringToNull = (value: unknown) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+const optionalTrimmedText = z.preprocess(
+  emptyStringToNull,
+  z.string().trim().optional().nullable()
+)
+
 export const productSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().trim().min(2),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase with hyphens'),
   description: z.string().optional(),
-  product_number: z.string().trim().optional().nullable(),
-  sku: z.string().trim().optional().nullable(),
-  barcode: z.string().trim().optional().nullable(),
-  alternate_barcode: z.string().trim().optional().nullable(),
-  isbn: z.string().min(3, 'ISBN is required'),
-  price: z.coerce.number().min(0),
+  product_number: optionalTrimmedText,
+  sku: optionalTrimmedText,
+  barcode: optionalTrimmedText,
+  alternate_barcode: optionalTrimmedText,
+  isbn: optionalTrimmedText.refine((value) => !value || value.length >= 3, 'ISBN must be at least 3 characters'),
+  price: z.preprocess((value) => emptyStringToNull(value) ?? 0, z.coerce.number().min(0)),
   compare_at_price: z.coerce.number().min(0).optional().nullable(),
   category: z.string().min(1),
   images: z.array(imagePath).default([]),

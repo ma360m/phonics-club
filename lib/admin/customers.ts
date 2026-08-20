@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export type CustomerReportRow = {
   key: string
+  accountUserIds: string[]
   username: string
   passwordStatus: string
   name: string
@@ -56,6 +57,7 @@ function customerKey(input: { userId?: string | null; email?: string | null; pho
 function createRow(key: string): MutableCustomerRow {
   return {
     key,
+    accountUserIds: [],
     username: '',
     passwordStatus: '',
     name: '',
@@ -271,6 +273,7 @@ export async function getAdminCustomerRows(): Promise<CustomerReportRow[]> {
   return [...rows.values()]
     .map(({ userIds, ...row }) => ({
       ...row,
+      accountUserIds: [...userIds],
       passwordStatus: userIds.size
         ? 'Supabase-managed. Password is not visible or stored here.'
         : 'Guest or external customer. No website password is stored here.',

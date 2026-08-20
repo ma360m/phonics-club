@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
 import { createCourseCheckoutAction } from '@/actions/lms'
-import { getCoursePrice, isCourseFree, isEnrollmentActive } from '@/lib/lms'
+import { getCourseEnrollmentAvailability, getCoursePrice, isCourseFree, isEnrollmentActive } from '@/lib/lms'
 import { notifyAdminOfCourseEnrollment } from '@/lib/email/send-course-enrollment-admin-email'
 import type { ActionResult } from '@/types'
 import { z } from 'zod'
@@ -22,7 +22,7 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
   const supabase = await createClient()
   const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select('id, slug, title, price, discounted_price, currency, is_free, published, access_duration_days')
+    .select('id, slug, title, price, discounted_price, currency, is_free, published, access_duration_days, enrollment_status, coming_soon, enrolment_opens_at, enrolment_closes_at')
     .eq('id', courseId)
     .eq('published', true)
     .in('visibility_status', ['published', 'unlisted'])
@@ -31,13 +31,6 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
 
   if (courseError) return { success: false, error: courseError.message }
   if (!course) return { success: false, error: 'Course not found' }
-
-  const price = getCoursePrice(course as never)
-  if (price > 0 && !isCourseFree(course as never)) {
-    const checkout = await createCourseCheckoutAction(courseId)
-    if (!checkout.success) return { success: false, error: checkout.error }
-    return { success: true, data: { redirectTo: checkout.data?.redirectTo ?? '/dashboard/my-courses?tab=payments' } }
-  }
 
   const { data: existingEnrollment } = await supabase
     .from('enrollments')
@@ -48,6 +41,16 @@ export async function enrollInCourseAction(courseId: string): Promise<ActionResu
 
   if (isEnrollmentActive(existingEnrollment as never)) {
     return { success: true, data: { redirectTo: `/course/${courseId}/learn` } }
+  }
+
+  const availability = getCourseEnrollmentAvailability(course as never)
+  if (!availability.canEnroll) return { success: false, error: availability.message }
+
+  const price = getCoursePrice(course as never)
+  if (price > 0 && !isCourseFree(course as never)) {
+    const checkout = await createCourseCheckoutAction(courseId)
+    if (!checkout.success) return { success: false, error: checkout.error }
+    return { success: true, data: { redirectTo: checkout.data?.redirectTo ?? '/dashboard/my-courses?tab=payments' } }
   }
 
   const now = new Date().toISOString()

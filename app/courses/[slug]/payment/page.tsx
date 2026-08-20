@@ -20,7 +20,7 @@ import { getSession } from '@/lib/auth'
 import { getCourseBySlug } from '@/lib/data/queries'
 import { ensureChildrenPhonicsCourseInstalledBySlug } from '@/lib/data/children-phonics-install'
 import { isChildrenPhonicsCourseSlug } from '@/lib/data/children-phonics-courses'
-import { getCourseAccessState, getCoursePrice, getUserEnrollment, isCertificatePayment, isCourseFree } from '@/lib/lms'
+import { getCourseAccessState, getCourseEnrollmentAvailability, getCoursePrice, getUserEnrollment, isCertificatePayment, isCourseFree } from '@/lib/lms'
 import { getEnabledPaymentMethodSettings, DEFAULT_PAYMENT_METHOD_SETTINGS } from '@/lib/payment-method-settings'
 import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
 import { getContactPhoneLinks } from '@/lib/contact-settings'
@@ -100,6 +100,11 @@ export default async function CoursePaymentPage({
 
   if (getCoursePrice(course) <= 0 || isCourseFree(course)) {
     redirect(`/courses/${slug}/enroll`)
+  }
+
+  const availability = getCourseEnrollmentAvailability(course)
+  if (!availability.canEnroll) {
+    redirect(`/courses/${slug}?enrollError=${encodeURIComponent(availability.message)}`)
   }
 
   let payment = await loadPayment(user.id, course.id, paymentId)

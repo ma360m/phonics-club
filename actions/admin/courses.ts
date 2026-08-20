@@ -50,6 +50,13 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
   const selectedVisibility = ['draft', 'published', 'unlisted', 'archived'].includes(selectedVisibilityRaw)
     ? selectedVisibilityRaw
     : 'draft'
+  const selectedEnrollmentStatusRaw = String(formData.get('enrollment_status') || 'open')
+  const comingSoon = selectedEnrollmentStatusRaw === 'coming_soon' || formData.get('coming_soon') === 'on'
+  const enrollmentStatus = comingSoon
+    ? 'coming_soon'
+    : ['open', 'closed'].includes(selectedEnrollmentStatusRaw)
+      ? selectedEnrollmentStatusRaw
+      : 'open'
   const archived = formData.get('archived') === 'on' || selectedVisibility === 'archived'
   const selectedDraft = selectedVisibility === 'draft'
   const published = !archived && !selectedDraft && (
@@ -108,10 +115,10 @@ function parseCourseForm(formData: FormData, existingMetadata?: unknown) {
     featured: formData.get('featured') === 'on',
     published,
     visibility_status: visibilityStatus,
-    enrollment_status: formData.get('enrollment_status') || 'open',
+    enrollment_status: enrollmentStatus,
     unlisted: visibilityStatus === 'unlisted',
     archived,
-    coming_soon: formData.get('coming_soon') === 'on',
+    coming_soon: comingSoon,
     certificate_enabled: formData.get('certificate_enabled') === 'on',
     certificate_requires_payment: formData.get('certificate_requires_payment') === 'on',
     certificate_price: formData.get('certificate_price') || 0,

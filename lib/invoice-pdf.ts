@@ -2,7 +2,12 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFP
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
-import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import {
+  buildInvoiceSummary,
+  formatDiscountPercent,
+  invoiceHasProvidedDiscount,
+  type InvoiceOrder,
+} from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
@@ -147,6 +152,7 @@ export async function buildInvoicePdf(
   }
 
   const summary = buildInvoiceSummary(order)
+  const showDiscountBreakdown = invoiceHasProvidedDiscount(order)
   const addr = order.shipping_address as Record<string, string> | null
   const bankDetails = {
     ...COMPANY_BANK_DETAILS,
@@ -164,13 +170,20 @@ export async function buildInvoicePdf(
   const tableHeaderFill = rgb(0.92, 0.95, 1)
   const tableX = margin
   const tableWidth = width - margin * 2
-  const tableColumns = [
-    { label: 'Item', x: tableX, width: 222, align: 'left' as const },
-    { label: 'Qty', x: tableX + 222, width: 42, align: 'center' as const },
-    { label: 'Price', x: tableX + 264, width: 74, align: 'right' as const },
-    { label: 'Discount', x: tableX + 338, width: 92, align: 'right' as const },
-    { label: 'Total', x: tableX + 430, width: tableWidth - 430, align: 'right' as const },
-  ]
+  const tableColumns = showDiscountBreakdown
+    ? [
+        { label: 'Item', x: tableX, width: 222, align: 'left' as const },
+        { label: 'Qty', x: tableX + 222, width: 42, align: 'center' as const },
+        { label: 'Price', x: tableX + 264, width: 74, align: 'right' as const },
+        { label: 'Discount', x: tableX + 338, width: 92, align: 'right' as const },
+        { label: 'Total', x: tableX + 430, width: tableWidth - 430, align: 'right' as const },
+      ]
+    : [
+        { label: 'Item', x: tableX, width: 284, align: 'left' as const },
+        { label: 'Qty', x: tableX + 284, width: 42, align: 'center' as const },
+        { label: 'Price', x: tableX + 326, width: 84, align: 'right' as const },
+        { label: 'Total', x: tableX + 410, width: tableWidth - 410, align: 'right' as const },
+      ]
   const headerHeight = 24
 
   function addInvoicePage() {
@@ -264,6 +277,8 @@ export async function buildInvoicePdf(
     const discountLines = line.lineDiscount > 0
       ? [formatDiscountPercent(line.discountPercent), `-${formatPrice(line.lineDiscount)}`]
       : ['-']
+    const totalColumn = tableColumns[showDiscountBreakdown ? 4 : 3]
+    const lineDisplayTotal = showDiscountBreakdown ? line.lineTotal : line.lineSubtotal
 
     for (const column of tableColumns) {
       drawCell(targetPage, column.x, rowBottom, column.width, rowHeight, {
@@ -274,15 +289,17 @@ export async function buildInvoicePdf(
     drawCellLines(targetPage, itemLines, tableColumns[0].x, rowBottom, tableColumns[0].width, rowHeight, 8.5, font)
     drawCellText(targetPage, String(line.item.quantity), tableColumns[1].x, rowBottom, tableColumns[1].width, rowHeight, 8.5, font, 'center')
     drawCellText(targetPage, formatPrice(line.item.price), tableColumns[2].x, rowBottom, tableColumns[2].width, rowHeight, 8.5, font, 'right')
-    drawCellLines(targetPage, discountLines, tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 8, font, 'right', rgb(0.3, 0.36, 0.45))
-    drawCellText(targetPage, formatPrice(line.lineTotal), tableColumns[4].x, rowBottom, tableColumns[4].width, rowHeight, 8.5, fontBold, 'right')
+    if (showDiscountBreakdown) {
+      drawCellLines(targetPage, discountLines, tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 8, font, 'right', rgb(0.3, 0.36, 0.45))
+    }
+    drawCellText(targetPage, formatPrice(lineDisplayTotal), totalColumn.x, rowBottom, totalColumn.width, rowHeight, 8.5, fontBold, 'right')
   }
 
   function lineRowHeight(line: (typeof summary.lines)[number]) {
     const nameLines = wrapText(line.item.name, 34)
     const stockNoteLines = line.item.stock_note ? wrapText(line.item.stock_note, 36).slice(0, 2) : []
     const itemLineCount = nameLines.concat(stockNoteLines).slice(0, 6).length
-    const discountLineCount = line.lineDiscount > 0 ? 2 : 1
+    const discountLineCount = showDiscountBreakdown && line.lineDiscount > 0 ? 2 : 1
     return Math.max(30, Math.max(itemLineCount, discountLineCount) * 11 + 14)
   }
 
@@ -303,15 +320,17 @@ export async function buildInvoicePdf(
   const totalsRows: Array<[string, string, boolean]> = [
     ['Items Total', formatPrice(summary.subtotal), false],
   ]
-  if (summary.discount > 0) {
+  if (showDiscountBreakdown && summary.discount > 0) {
     totalsRows.push([
       `Discount (${formatDiscountPercent(Number(order.discount_percent ?? summary.discountPercent))})`,
       `-${formatPrice(summary.discount)}`,
       false,
     ])
   }
-  totalsRows.push(['Total after Discount', formatPrice(summary.totalAfterDiscount), false])
-  if (order.coupon_code) {
+  if (showDiscountBreakdown) {
+    totalsRows.push(['Total after Discount', formatPrice(summary.totalAfterDiscount), false])
+  }
+  if (showDiscountBreakdown && order.coupon_code) {
     totalsRows.push([
       `Coupon${Number(order.coupon_discount_percent ?? 0) > 0 ? ` ${formatDiscountPercent(Number(order.coupon_discount_percent))}` : ''}`,
       order.coupon_code,
@@ -331,7 +350,7 @@ export async function buildInvoicePdf(
     if (order.display_subtotal) {
       totalsRows.push(['USD Items Total', formatCurrency(Number(order.display_subtotal), 'USD', { freeLabel: false }), false])
     }
-    if (order.display_discount_amount) {
+    if (showDiscountBreakdown && order.display_discount_amount) {
       totalsRows.push(['USD Discount', `-${formatCurrency(Number(order.display_discount_amount), 'USD', { freeLabel: false })}`, false])
     }
     if (order.display_shipping_fee) {

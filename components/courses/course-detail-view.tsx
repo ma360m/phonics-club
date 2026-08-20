@@ -28,6 +28,7 @@ import {
   formatCourseCategory,
   getCourseDisplayMeta,
   getCourseCertificatePrice,
+  getCourseEnrollmentAvailability,
   getCoursePrice,
   slugifyInstructor,
   youtubeEmbedUrl,
@@ -130,6 +131,8 @@ function EnrollmentCard({
   certificateEnabled: boolean
 }) {
   const price = getCoursePrice(course)
+  const availability = getCourseEnrollmentAvailability(course)
+  const previewOnly = !enrolled && !availability.canEnroll
   const helpPackage = instructorHelpPackage(course)
   const certificatePaymentRequired = certificateEnabled && courseRequiresCertificatePayment(course)
   const certificatePrice = getCourseCertificatePrice(course)
@@ -137,45 +140,62 @@ function EnrollmentCard({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="border-b border-slate-200 pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Course access</p>
-        <p className="mt-2 text-3xl font-bold tracking-normal text-[#1D4ED8]">
-          <PriceDisplay amountPkr={price} className="text-3xl font-bold tracking-normal text-[#1D4ED8]" />
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {previewOnly ? 'Course preview' : 'Course access'}
         </p>
-        <CurrencyDisplayNotice className="mt-2" />
-        <div className="mt-4 space-y-2">
-          <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-[#0F172A]">Self-paced course</span>
-              <PriceDisplay amountPkr={price} className="shrink-0 font-bold text-[#1D4ED8]" />
-            </div>
+        {previewOnly ? (
+          <div className="mt-3 rounded-xl border border-[#FBBF24]/60 bg-[#FFFBEB] p-4">
+            <p className="text-lg font-bold text-[#7A1D1D]">{availability.label}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {availability.message} You can view the thumbnail, course details and outline now.
+            </p>
           </div>
-          {helpPackage && (
-            <div className="rounded-xl border border-[#FBBF24]/60 bg-[#FFFBEB] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-[#0F172A]">{helpPackage.label}</span>
-                <PriceDisplay amountPkr={helpPackage.totalPrice} className="shrink-0 font-bold text-[#7A1D1D]" />
+        ) : (
+          <>
+            <p className="mt-2 text-3xl font-bold tracking-normal text-[#1D4ED8]">
+              <PriceDisplay amountPkr={price} className="text-3xl font-bold tracking-normal text-[#1D4ED8]" />
+            </p>
+            <CurrencyDisplayNotice className="mt-2" />
+            <div className="mt-4 space-y-2">
+              <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-[#0F172A]">Self-paced course</span>
+                  <PriceDisplay amountPkr={price} className="shrink-0 font-bold text-[#1D4ED8]" />
+                </div>
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{helpPackage.note}</p>
-              <Button asChild variant="outline" className="mt-3 h-10 w-full rounded-xl border-[#FBBF24]/70 bg-white">
-                {helpPackage.contactUrl.startsWith('http') ? (
-                  <a href={helpPackage.contactUrl} target="_blank" rel="noreferrer">
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    Contact Instructor
-                  </a>
-                ) : (
-                  <Link href={helpPackage.contactUrl}>
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    Contact Instructor
-                  </Link>
-                )}
-              </Button>
+              {helpPackage && (
+                <div className="rounded-xl border border-[#FBBF24]/60 bg-[#FFFBEB] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[#0F172A]">{helpPackage.label}</span>
+                    <PriceDisplay amountPkr={helpPackage.totalPrice} className="shrink-0 font-bold text-[#7A1D1D]" />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{helpPackage.note}</p>
+                  <Button asChild variant="outline" className="mt-3 h-10 w-full rounded-xl border-[#FBBF24]/70 bg-white">
+                    {helpPackage.contactUrl.startsWith('http') ? (
+                      <a href={helpPackage.contactUrl} target="_blank" rel="noreferrer">
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Contact Instructor
+                      </a>
+                    ) : (
+                      <Link href={helpPackage.contactUrl}>
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Contact Instructor
+                      </Link>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
         <div className="mt-4">
           {enrolled ? (
             <Button asChild className="h-11 w-full rounded-xl bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90">
               <Link href={`/course/${course.id}/learn`}>Continue Learning</Link>
+            </Button>
+          ) : previewOnly ? (
+            <Button type="button" disabled className="h-11 w-full rounded-xl bg-[#FBBF24] text-[#0F172A] opacity-100">
+              {availability.label}
             </Button>
           ) : (
             <EnrollButton
@@ -187,7 +207,9 @@ function EnrollmentCard({
           )}
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          {price > 0
+          {previewOnly
+            ? 'Enrollment and payment are disabled until this course is opened by admin.'
+            : price > 0
             ? 'Paid courses open a payment page first. Upload your payment screenshot, then enter the licence key emailed from noreply@phonicsclub.com after admin approval.'
             : 'Enrollment and access checks use the Phonics Club course flow.'}
         </p>
@@ -201,6 +223,8 @@ function EnrollmentCard({
             <CourseFact icon={BookOpen} label="Lessons" value={plural(lessonCount, 'lesson')} />
             <CourseFact icon={HelpCircle} label="Quizzes" value={plural(quizCount, 'quiz', 'quizzes')} />
           </>
+        ) : previewOnly ? (
+          <CourseFact icon={BookOpen} label="Lessons" value="Preview outline" />
         ) : (
           <CourseFact icon={BookOpen} label="Lessons" value="Unlock after enrollment" />
         )}
@@ -231,6 +255,8 @@ export function CourseDetailView({
   const thumbnail = course.thumbnail_url ?? course.image_url
   const bannerImage = course.banner_url ?? thumbnail
   const titleDescription = description || summary
+  const availability = getCourseEnrollmentAvailability(course)
+  const previewOnly = !enrolled && !availability.canEnroll
   const objectives = listOrFallback(course.objectives, [
     'Build confidence with structured phonics routines.',
     'Plan clear lessons for reading, writing and sound recognition.',
@@ -286,6 +312,11 @@ export function CourseDetailView({
               {meta.certificateEnabled && (
                 <Badge className="rounded-full bg-[#FBBF24]/20 px-3 py-1 text-[#7A1D1D] hover:bg-[#FBBF24]/20">
                   Certificate
+                </Badge>
+              )}
+              {previewOnly && (
+                <Badge className="rounded-full bg-[#FBBF24] px-3 py-1 text-[#0F172A] hover:bg-[#FBBF24]">
+                  {availability.label}
                 </Badge>
               )}
             </div>
@@ -382,6 +413,8 @@ export function CourseDetailView({
                     <span className="mt-1 block text-sm font-normal text-slate-500">
                       {enrolled
                         ? `${plural(meta.moduleCount, 'module')} and ${plural(meta.lessonCount, 'lesson')}`
+                        : previewOnly
+                          ? `${plural(meta.moduleCount, 'module')} visible as a course outline.`
                         : `${plural(meta.moduleCount, 'module')} visible. Lesson details unlock after enrollment.`}
                     </span>
                   </span>
@@ -393,9 +426,11 @@ export function CourseDetailView({
                 {modules.map((module, moduleIndex) => (
                   <article key={module.id} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-[#0F172A]">Module {moduleIndex + 1}</h3>
+                      <h3 className="text-sm font-semibold text-[#0F172A]">
+                        Module {moduleIndex + 1}: {module.title}
+                      </h3>
                       <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-slate-600">
-                        Details locked
+                        {previewOnly ? 'Outline' : 'Details locked'}
                       </Badge>
                     </div>
                     {module.description && (

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { productSchema } from '@/lib/validations/product'
 import { updateProductComingSoonMetadata } from '@/lib/products/coming-soon'
+import { slugify } from '@/utils/slug'
 import type { ActionResult } from '@/types'
 
 function parseProductForm(formData: FormData) {
@@ -14,9 +15,13 @@ function parseProductForm(formData: FormData) {
     : []
 
   const collection = String(formData.get('collection') ?? '').trim()
+  const name = String(formData.get('name') ?? '')
+  const requestedSlug = String(formData.get('slug') ?? '')
+  const slug = slugify(requestedSlug || name) || `product-${Date.now().toString(36)}`
+  const comingSoon = formData.get('coming_soon') === 'on'
   const parsed = productSchema.safeParse({
-    name: formData.get('name'),
-    slug: formData.get('slug'),
+    name,
+    slug,
     description: formData.get('description'),
     product_number: formData.get('product_number') || null,
     sku: formData.get('sku') || null,
@@ -46,8 +51,41 @@ function parseProductForm(formData: FormData) {
   return {
     parsed,
     collection: collection === 'phonics-club' || collection === 'jolly-learning' ? collection : null,
-    comingSoon: formData.get('coming_soon') === 'on',
+    comingSoon,
   }
+}
+
+async function getUniqueProductSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  baseSlug: string,
+  ignoreProductId?: string | null
+) {
+  const fallback = `product-${Date.now().toString(36)}`
+  const root = slugify(baseSlug) || fallback
+  let candidate = root
+
+  for (let suffix = 2; suffix <= 50; suffix += 1) {
+    let query = supabase.from('products').select('id').eq('slug', candidate).limit(1)
+    if (ignoreProductId) query = query.neq('id', ignoreProductId)
+
+    const { data, error } = await query.maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) return candidate
+
+    candidate = `${root}-${suffix}`
+  }
+
+  return `${root}-${Date.now().toString(36)}`
+}
+
+async function getProductIdByIsbn(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  isbn: string | null | undefined
+) {
+  if (!isbn) return null
+  const { data, error } = await supabase.from('products').select('id').eq('isbn', isbn).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data?.id ?? null
 }
 
 export async function createProductAction(
@@ -57,20 +95,33 @@ export async function createProductAction(
   await requireAdmin()
   const { parsed, collection, comingSoon } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
-  if (!parsed.data.isbn) return { success: false, error: 'ISBN is required' }
+  if (!comingSoon && !parsed.data.isbn) return { success: false, error: 'ISBN is required' }
 
-  const payload: Record<string, unknown> = { ...parsed.data }
+  const supabase = await createClient()
+  let existingProductId: string | null = null
+  let slug = parsed.data.slug
+
+  try {
+    existingProductId = await getProductIdByIsbn(supabase, parsed.data.isbn)
+    slug = await getUniqueProductSlug(supabase, parsed.data.slug, existingProductId)
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Could not prepare product slug' }
+  }
+
+  const payload: Record<string, unknown> = { ...parsed.data, slug }
   const metadata = updateProductComingSoonMetadata({}, comingSoon)
   if (collection) metadata.collection = collection
   payload.metadata = metadata
 
-  const supabase = await createClient()
-  const { error } = await supabase.from('products').upsert(payload as never, { onConflict: 'isbn' })
+  const mutation = parsed.data.isbn
+    ? supabase.from('products').upsert(payload as never, { onConflict: 'isbn' })
+    : supabase.from('products').insert(payload as never)
+  const { error } = await mutation
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/products')
   revalidatePath('/shop')
-  revalidatePath(`/shop/${parsed.data.slug}`)
+  revalidatePath(`/shop/${slug}`)
   return { success: true }
 }
 
@@ -82,6 +133,7 @@ export async function updateProductAction(
   await requireAdmin()
   const { parsed, collection, comingSoon } = parseProductForm(formData)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
+  if (!comingSoon && !parsed.data.isbn) return { success: false, error: 'ISBN is required' }
 
   const supabase = await createClient()
   const { data: existing } = await supabase.from('products').select('metadata').eq('id', id).single()
@@ -91,16 +143,22 @@ export async function updateProductAction(
   if (collection) metadata.collection = collection
   else delete metadata.collection
   const nextMetadata = updateProductComingSoonMetadata(metadata, comingSoon)
+  let slug = parsed.data.slug
+  try {
+    slug = await getUniqueProductSlug(supabase, parsed.data.slug, id)
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Could not prepare product slug' }
+  }
 
   const { error } = await supabase
     .from('products')
-    .update({ ...parsed.data, metadata: nextMetadata } as never)
+    .update({ ...parsed.data, slug, metadata: nextMetadata } as never)
     .eq('id', id)
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/products')
   revalidatePath('/shop')
-  revalidatePath(`/shop/${parsed.data.slug}`)
+  revalidatePath(`/shop/${slug}`)
   return { success: true }
 }
 

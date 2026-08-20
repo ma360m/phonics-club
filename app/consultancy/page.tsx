@@ -36,6 +36,26 @@ export default async function ConsultancyPage() {
             </div>
           ))}
         </div>
+        <div className="mb-10 rounded-2xl border bg-card p-6">
+          <h2 className="mb-3 text-2xl font-bold">Personalized Learning and Training</h2>
+          <div className="grid gap-4 text-sm leading-7 text-muted-foreground md:grid-cols-2">
+            <p>
+              If you are looking for tutoring for your child or personalized ongoing courses,
+              contact us directly so we can guide you toward the right learning support.
+            </p>
+            <p>
+              We also provide personalized trainings for schools, institutes and organizations
+              according to their needs, including international trainings for partners who want
+              Phonics Club to conduct a programme outside Pakistan.
+            </p>
+          </div>
+          <p className="mt-4 text-sm font-semibold text-[#1D4ED8]">
+            For custom requests, email{' '}
+            <a href="mailto:support@phonicsclub.com" className="hover:underline">
+              support@phonicsclub.com
+            </a>
+          </p>
+        </div>
         <div className="flex flex-wrap gap-4">
           <WhatsAppButton contactSettings={contactSettings} />
           <Button asChild variant="outline" className="rounded-xl">

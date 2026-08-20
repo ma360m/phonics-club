@@ -4,6 +4,7 @@ import { formatDate, formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { APP_URL } from '@/lib/constants'
 import { sendTransactionalEmail, type MailSendResult } from '@/lib/email/mailer'
+import { shopPaymentLabel } from '@/lib/payment-methods'
 
 interface EmailAttachment {
   filename: string
@@ -43,6 +44,7 @@ interface OrderEmailOptions {
   customerPhone: string
   orderDate: string
   paymentStatus: string
+  paymentMethod?: string | null
   total: number
   displayCurrency?: string
   displayTotal?: number
@@ -263,6 +265,7 @@ function buildAdminEmailHtml({
   displayTotal,
   exchangeRate,
   paymentStatus,
+  paymentMethod,
   shippingAddress,
   adminOrderUrl,
   invoicePdfUrl,
@@ -279,6 +282,7 @@ function buildAdminEmailHtml({
   displayTotal?: number
   exchangeRate?: number
   paymentStatus: string
+  paymentMethod?: string | null
   shippingAddress: OrderEmailShippingAddress | null
   adminOrderUrl: string
   invoicePdfUrl: string
@@ -312,6 +316,7 @@ function buildAdminEmailHtml({
           ${buildDetailRow('Phone', customerPhone || 'Not provided')}
           ${buildDetailRow('Invoice number', invoiceNumber)}
           ${buildDetailRow('Payment status', formatStatus(paymentStatus))}
+          ${buildDetailRow('Payment method', shopPaymentLabel(paymentMethod))}
           ${buildDetailRow('Total', formatPrice(total))}
           ${requiresAdminConfirmation ? buildDetailRow('Stock confirmation', 'Required') : ''}
           ${displayCurrency === 'USD' && displayTotal && exchangeRate ? buildDetailRow('Displayed at checkout', `${formatCurrency(displayTotal, 'USD', { freeLabel: false })} (1 USD = ${exchangeRate.toLocaleString('en-PK')} PKR)`) : ''}
@@ -400,6 +405,7 @@ export async function sendOrderConfirmationEmail(
       displayTotal: options.displayTotal,
       exchangeRate: options.exchangeRate,
       paymentStatus: options.paymentStatus,
+      paymentMethod: options.paymentMethod,
       shippingAddress: options.shippingAddress,
       adminOrderUrl,
       invoicePdfUrl,

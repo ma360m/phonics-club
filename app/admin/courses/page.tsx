@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LmsEmptyState, LmsStatCard, LmsStatusBadge } from '@/components/lms/lms-primitives'
-import { formatCourseCategory } from '@/lib/lms'
+import { formatCourseCategory, getCourseEnrollmentAvailability } from '@/lib/lms'
 import { normalizeMediaUrl } from '@/lib/media-url'
 
 export const dynamic = 'force-dynamic'
@@ -82,7 +82,7 @@ export default async function AdminCoursesPage({
     getProfile(),
   ])
   const cleanQuery = q.trim().toLowerCase()
-  const selectedStatus = ['all', 'published', 'draft', 'hidden', 'archived', 'featured'].includes(status) ? status : 'all'
+  const selectedStatus = ['all', 'published', 'draft', 'hidden', 'archived', 'featured', 'coming_soon'].includes(status) ? status : 'all'
   const selectedPageSize = [10, 20, 50].includes(Number(pageSize)) ? Number(pageSize) : 20
   const filteredCourses = dashboard.courses.filter(({ course }) => {
     const statusMatches =
@@ -91,7 +91,8 @@ export default async function AdminCoursesPage({
       (selectedStatus === 'draft' && !course.published) ||
       (selectedStatus === 'hidden' && (course.unlisted || course.visibility_status === 'unlisted')) ||
       (selectedStatus === 'archived' && (course.archived || course.visibility_status === 'archived')) ||
-      (selectedStatus === 'featured' && course.featured)
+      (selectedStatus === 'featured' && course.featured) ||
+      (selectedStatus === 'coming_soon' && getCourseEnrollmentAvailability(course).status === 'coming_soon')
     return statusMatches && courseMatchesQuery(course, cleanQuery)
   })
   const visibleCourses = filteredCourses.slice(0, selectedPageSize)
@@ -222,6 +223,7 @@ export default async function AdminCoursesPage({
               <option value="hidden">Hidden</option>
               <option value="archived">Archived</option>
               <option value="featured">Featured</option>
+              <option value="coming_soon">Coming Soon</option>
             </select>
           </label>
           <label className="space-y-2">
@@ -260,6 +262,7 @@ export default async function AdminCoursesPage({
           <div className="w-full max-w-none space-y-3">
             {visibleCourses.map(({ course, studentCount, averageCompletion }) => {
               const imageUrl = normalizeMediaUrl(course.thumbnail_url ?? course.image_url)
+              const availability = getCourseEnrollmentAvailability(course)
               return (
                 <article key={course.id} className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[#BFDBFE]">
                   <div className="grid min-w-0 gap-4 xl:grid-cols-[128px_minmax(0,1fr)_auto] xl:items-center">
@@ -282,6 +285,7 @@ export default async function AdminCoursesPage({
                           {visibilityLabel(course)}
                         </LmsStatusBadge>
                         {course.featured && <LmsStatusBadge tone="blue">featured</LmsStatusBadge>}
+                        {availability.status === 'coming_soon' && <LmsStatusBadge tone="gold">coming soon</LmsStatusBadge>}
                         <span className="text-xs text-slate-500">{formatCourseCategory(course.category)}</span>
                       </div>
                       <h3 className="truncate text-lg font-bold text-[#0F172A]">{course.title}</h3>

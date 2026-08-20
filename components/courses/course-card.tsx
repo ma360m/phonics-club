@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress'
 import { PriceDisplay } from '@/components/currency/price-display'
 import { CourseImage } from '@/components/courses/course-image'
 import { CourseWishlistButton } from '@/components/courses/course-wishlist-button'
-import { formatCourseCategory, getCourseAccessState, getCourseDisplayMeta, getCoursePrice } from '@/lib/lms'
+import { formatCourseCategory, getCourseAccessState, getCourseDisplayMeta, getCourseEnrollmentAvailability, getCoursePrice } from '@/lib/lms'
 import { ArrowRight, BarChart3, BookOpen, Clock, Layers3, Play, UserRound } from 'lucide-react'
 
 export function CourseCard({
@@ -22,6 +22,9 @@ export function CourseCard({
   const price = getCoursePrice(course)
   const progress = Number(enrollment?.progress ?? 0)
   const access = enrollment ? getCourseAccessState(enrollment) : null
+  const availability = getCourseEnrollmentAvailability(course)
+  const activelyEnrolled = Boolean(enrollment && access?.active)
+  const previewOnly = !activelyEnrolled && !availability.canEnroll
   const lessonsOrModules = meta.lessonCount > 0
     ? `${meta.lessonCount} lesson${meta.lessonCount === 1 ? '' : 's'}`
     : `${meta.moduleCount || 0} module${meta.moduleCount === 1 ? '' : 's'}`
@@ -33,6 +36,11 @@ export function CourseCard({
         {course.featured && (
           <Badge className="absolute left-3 top-3 rounded-full bg-[#1D4ED8] text-white">Featured</Badge>
         )}
+        {previewOnly && (
+          <Badge className="absolute bottom-3 left-3 rounded-full bg-[#FBBF24] text-[#0F172A]">
+            {availability.label}
+          </Badge>
+        )}
         {showWishlist && <CourseWishlistButton courseId={course.id} className="absolute right-3 top-3" />}
       </div>
 
@@ -41,7 +49,9 @@ export function CourseCard({
           <Badge variant="outline" className="rounded-full border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]">
             {formatCourseCategory(course.category)}
           </Badge>
-          {price === 0 ? (
+          {previewOnly ? (
+            <Badge className="rounded-full bg-[#FBBF24]/25 text-[#7A1D1D]">{availability.label}</Badge>
+          ) : price === 0 ? (
             <Badge className="rounded-full bg-emerald-600 text-white">Free</Badge>
           ) : (
             <Badge className="rounded-full bg-[#FBBF24]/25 text-[#7A1D1D]">Paid</Badge>
@@ -89,17 +99,21 @@ export function CourseCard({
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
-          <PriceDisplay amountPkr={price} className="text-xl font-bold text-[#1D4ED8]" />
-          <Button asChild size="sm" className={enrollment && access?.active ? 'rounded-xl bg-[#1D4ED8]' : 'rounded-xl bg-[#D30000] hover:bg-[#D30000]/90'}>
-            <Link href={enrollment && access?.active ? `/course/${course.id}/learn` : `/courses/${course.slug}`}>
-              {enrollment && access?.active ? (
+          {previewOnly ? (
+            <span className="text-sm font-semibold text-[#7A1D1D]">Preview only</span>
+          ) : (
+            <PriceDisplay amountPkr={price} className="text-xl font-bold text-[#1D4ED8]" />
+          )}
+          <Button asChild size="sm" className={activelyEnrolled ? 'rounded-xl bg-[#1D4ED8]' : 'rounded-xl bg-[#D30000] hover:bg-[#D30000]/90'}>
+            <Link href={activelyEnrolled ? `/course/${course.id}/learn` : `/courses/${course.slug}`}>
+              {activelyEnrolled ? (
                 <>
                   Continue
                   <Play className="h-3.5 w-3.5" />
                 </>
               ) : (
                 <>
-                  View Course
+                  {previewOnly ? 'Preview' : 'View Course'}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}

@@ -1,5 +1,10 @@
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
-import { buildInvoiceSummary, formatDiscountPercent, type InvoiceOrder } from '@/lib/invoice-summary'
+import {
+  buildInvoiceSummary,
+  formatDiscountPercent,
+  invoiceHasProvidedDiscount,
+  type InvoiceOrder,
+} from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { shopPaymentLabel, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
@@ -66,6 +71,7 @@ function invoiceTagline(value?: string) {
 
 export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate): string {
   const summary = buildInvoiceSummary(order)
+  const showDiscountBreakdown = invoiceHasProvidedDiscount(order)
   const addr = order.shipping_address as Record<string, string> | null
   const bankDetails = {
     ...COMPANY_BANK_DETAILS,
@@ -92,7 +98,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       ? `<div style="margin-bottom:24px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;padding:14px;color:#1e3a8a">
           <p style="margin:0 0 8px;font-weight:bold">USD Display Summary</p>
           ${displaySubtotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Items Total</span><strong>${formatCurrency(displaySubtotal, 'USD', { freeLabel: false })}</strong></p>` : ''}
-          ${displayDiscount ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Discount</span><strong>-${formatCurrency(displayDiscount, 'USD', { freeLabel: false })}</strong></p>` : ''}
+          ${showDiscountBreakdown && displayDiscount ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Discount</span><strong>-${formatCurrency(displayDiscount, 'USD', { freeLabel: false })}</strong></p>` : ''}
           ${displayShipping ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0 0 4px"><span>Shipping</span><strong>${formatCurrency(displayShipping, 'USD', { freeLabel: false })}</strong></p>` : ''}
           <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:6px 0 0;font-size:1.08em"><span>Displayed Total</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p>
           <p style="margin:8px 0 0;color:#475569;font-size:12px">Official order total remains ${formatCurrency(summary.balanceDue, 'PKR', { freeLabel: false, useCode: true })}. Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR.</p>
@@ -104,6 +110,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       const discountText = line.lineDiscount > 0
         ? `${formatDiscountPercent(line.discountPercent)}<br><span style="color:#64748b">-${formatPrice(line.lineDiscount)}</span>`
         : '-'
+      const lineDisplayTotal = showDiscountBreakdown ? line.lineTotal : line.lineSubtotal
       const stockNote = line.item.stock_note
         ? `<br><span style="display:block;margin-top:4px;color:#b45309;font-size:12px;font-weight:700">${escapeHtml(line.item.stock_note)}</span>`
         : ''
@@ -111,8 +118,8 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${stockNote}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
-        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>
-        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.lineTotal)}</td>
+        ${showDiscountBreakdown ? `<td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>` : ''}
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(lineDisplayTotal)}</td>
       </tr>`
     })
     .join('')
@@ -156,7 +163,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <th style="padding:10px;text-align:left;border:1px solid #b6c3d8">Item</th>
         <th style="padding:10px;text-align:center;border:1px solid #b6c3d8">Qty</th>
         <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Price</th>
-        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Discount</th>
+        ${showDiscountBreakdown ? '<th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Discount</th>' : ''}
         <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Total</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -165,8 +172,8 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="width:340px;border:1px solid #b6c3d8;background:white;border-radius:8px;overflow:hidden">
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
-        ${summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount - ${discountLabel}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
-        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>
+        ${showDiscountBreakdown && summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount - ${discountLabel}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
+        ${showDiscountBreakdown ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>` : ''}
         ${summary.shippingDiscount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Waived${order.shipping_discount_reason ? ` (${escapeHtml(order.shipping_discount_reason)})` : ''}</span><strong>-${formatPrice(summary.shippingDiscount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>

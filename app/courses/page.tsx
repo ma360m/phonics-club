@@ -97,6 +97,20 @@ export default async function CoursesPage({
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <CourseFilters filters={catalog.filters} levels={catalog.levels} />
 
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">Personalized Support</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Looking for tutoring for your child or a personalized course plan? Contact us directly for ongoing courses and tailored guidance.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-xl border-slate-200 bg-white">
+              <Link href="/contact">Contact us</Link>
+            </Button>
+          </div>
+        </div>
+
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-[#0F172A]">

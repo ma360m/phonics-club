@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { createProductAction, updateProductAction } from '@/actions/admin/products'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +11,7 @@ import { ImageUpload } from './image-upload'
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { isProductComingSoon } from '@/lib/products/coming-soon'
+import { slugify } from '@/utils/slug'
 import type { Product } from '@/types/database'
 import type { ActionResult } from '@/types'
 
@@ -40,6 +42,14 @@ export function ProductForm({
     : createProductAction
   const [state, formAction, pending] = useActionState(action, initial)
   const [images, setImages] = useState(product?.images?.join(', ') ?? '')
+  const [name, setName] = useState(product?.name ?? '')
+  const [slug, setSlug] = useState(product?.slug ?? '')
+  const [comingSoon, setComingSoon] = useState(product ? isProductComingSoon(product) : false)
+
+  function handleAutoGenerateSlug() {
+    const nextSlug = slugify(name) || `product-${Date.now().toString(36)}`
+    setSlug(nextSlug)
+  }
 
   return (
     <form action={formAction} className={cn('max-w-2xl space-y-4', className)}>
@@ -48,17 +58,37 @@ export function ProductForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Name</Label>
-          <Input name="name" defaultValue={product?.name} required className="rounded-xl" />
+          <Input name="name" value={name} onChange={(event) => setName(event.target.value)} required className="rounded-xl" />
         </div>
         <div className="space-y-2">
-          <Label>Slug</Label>
-          <Input name="slug" defaultValue={product?.slug} required className="rounded-xl" />
+          <div className="flex items-center justify-between gap-2">
+            <Label>Slug</Label>
+            <Button type="button" variant="outline" size="sm" onClick={handleAutoGenerateSlug} className="rounded-xl">
+              <Sparkles className="h-4 w-4" />
+              Auto gen
+            </Button>
+          </div>
+          <Input
+            name="slug"
+            value={slug}
+            onChange={(event) => setSlug(event.target.value)}
+            placeholder="Auto-generated from name"
+            className="rounded-xl"
+          />
         </div>
       </div>
+      <label className="flex w-fit items-center gap-2 text-sm font-medium">
+        <input
+          type="checkbox"
+          name="coming_soon"
+          checked={comingSoon}
+          onChange={(event) => setComingSoon(event.target.checked)}
+        /> Coming Soon
+      </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>ISBN *</Label>
-          <Input name="isbn" defaultValue={getIsbn(product)} required placeholder="978-969-..." className="rounded-xl" />
+          <Label>ISBN{comingSoon ? '' : ' *'}</Label>
+          <Input name="isbn" defaultValue={getIsbn(product)} required={!comingSoon} placeholder="978-969-..." className="rounded-xl" />
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
@@ -102,7 +132,7 @@ export function ProductForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <Label>Price (PKR)</Label>
-          <Input name="price" type="number" step="1" defaultValue={product?.price} required className="rounded-xl" />
+          <Input name="price" type="number" step="1" defaultValue={product?.price} required={!comingSoon} className="rounded-xl" />
         </div>
         <div className="space-y-2">
           <Label>Compare Price</Label>
@@ -199,9 +229,6 @@ export function ProductForm({
         <p className="text-xs text-muted-foreground">Upload one or more supporting pictures. Local images can also be placed in public/images/ and added as paths above.</p>
       </div>
       <div className="flex flex-wrap gap-6">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="coming_soon" defaultChecked={product ? isProductComingSoon(product) : false} /> Coming Soon
-        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={product?.featured} /> Featured
         </label>

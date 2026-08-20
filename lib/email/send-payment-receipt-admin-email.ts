@@ -245,7 +245,20 @@ export async function sendPaymentReceiptAdminEmail(input: PaymentReceiptAdminEma
 
 export async function notifyAdminOfPaymentReceipt(input: PaymentReceiptAdminEmailInput) {
   try {
-    return await sendPaymentReceiptAdminEmail(input)
+    const result = await sendPaymentReceiptAdminEmail(input)
+    if (!result.sent) {
+      console.error('[Payment receipt] Admin email was not sent', {
+        type: input.type,
+        orderId: input.orderId,
+        paymentId: input.paymentId,
+        courseId: input.courseId,
+        reference: input.reference,
+        reason: 'reason' in result ? result.reason : undefined,
+        provider: 'result' in result ? result.result?.provider : undefined,
+        error: 'result' in result ? result.result?.error : undefined,
+      })
+    }
+    return result
   } catch (error) {
     console.error('[Payment receipt] Admin email failed', {
       type: input.type,

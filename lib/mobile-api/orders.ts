@@ -269,6 +269,7 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
         customerPhone: shippingAddress.phone,
         orderDate: String(createdOrder.created_at ?? new Date().toISOString()),
         paymentStatus: String(createdOrder.status ?? status),
+        paymentMethod,
         total,
         displayCurrency,
         displayTotal: convertCurrency(total, displayCurrency, exchangeRate),

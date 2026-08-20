@@ -90,16 +90,6 @@ export default async function ShopPage({
 
         <div className="mb-8 overflow-x-auto pb-2">
           <div className="flex min-w-max gap-3">
-            <a
-              href="/shop"
-              className={`rounded-full border px-5 py-3 text-sm font-semibold transition-colors ${
-                !activeCollection
-                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
-                  : 'border-border bg-background text-foreground hover:border-[#1D4ED8] hover:text-[#1D4ED8]'
-              }`}
-            >
-              All products
-            </a>
             {PRODUCT_COLLECTIONS.map((item) => (
               <a
                 key={item.slug}

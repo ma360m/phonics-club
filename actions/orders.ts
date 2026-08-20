@@ -657,6 +657,7 @@ export async function placeOrderAction(
       customerPhone: shippingAddress.phone,
       orderDate: order.created_at ?? new Date().toISOString(),
       paymentStatus: order.status,
+      paymentMethod,
       total: Number(order.total ?? total),
       displayCurrency,
       displayTotal: convertCurrency(total, displayCurrency, exchangeRate),

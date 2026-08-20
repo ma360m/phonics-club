@@ -813,6 +813,46 @@ export function getCoursePrice(course: Course): number {
   return Number(course.price ?? 0)
 }
 
+function timestamp(value?: string | null): number | null {
+  if (!value) return null
+  const time = new Date(value).getTime()
+  return Number.isFinite(time) ? time : null
+}
+
+export function getCourseEnrollmentAvailability(
+  course: Pick<Course, 'coming_soon' | 'enrollment_status' | 'enrolment_opens_at' | 'enrolment_closes_at'>,
+  at = new Date(),
+) {
+  const now = at.getTime()
+  const opensAt = timestamp(course.enrolment_opens_at)
+  const closesAt = timestamp(course.enrolment_closes_at)
+
+  if (course.coming_soon || course.enrollment_status === 'coming_soon' || (opensAt !== null && opensAt > now)) {
+    return {
+      status: 'coming_soon' as const,
+      label: 'Coming soon',
+      message: 'This course is published as a preview. Enrollment will open soon.',
+      canEnroll: false,
+    }
+  }
+
+  if (course.enrollment_status === 'closed' || (closesAt !== null && closesAt <= now)) {
+    return {
+      status: 'closed' as const,
+      label: 'Enrollment closed',
+      message: 'Enrollment for this course is currently closed.',
+      canEnroll: false,
+    }
+  }
+
+  return {
+    status: 'open' as const,
+    label: 'Open',
+    message: 'Enrollment is open.',
+    canEnroll: true,
+  }
+}
+
 export function isCertificatePayment(payment: Pick<CoursePayment, 'idempotency_key' | 'metadata'> | null | undefined): boolean {
   if (!payment) return false
   const meta = payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)

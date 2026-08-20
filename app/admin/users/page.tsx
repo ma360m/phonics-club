@@ -18,17 +18,24 @@ function roleTone(role: UserRole): 'default' | 'secondary' | 'outline' {
   return 'secondary'
 }
 
+function rememberCourses(map: Map<string, string[]>, key: string, courses: string[]) {
+  const cleanKey = key.trim().toLowerCase()
+  if (!cleanKey || courses.length === 0) return
+  map.set(cleanKey, Array.from(new Set([...(map.get(cleanKey) ?? []), ...courses])))
+}
+
 export default async function AdminUsersPage() {
   await requireAdmin()
   const [users, customerRows] = await Promise.all([getAllProfiles(), getAdminCustomerRows()])
   const instructors = users.filter((user) => user.role === 'instructor')
   const admins = users.filter((user) => user.role === 'admin')
+  const coursesByUserId = new Map<string, string[]>()
   const coursesByEmail = new Map<string, string[]>()
 
   customerRows.forEach((row) => {
-    const email = row.email.trim().toLowerCase()
     const courses = [...row.enrolledCourses, ...row.coursePaymentCourses].filter(Boolean)
-    if (email && courses.length) coursesByEmail.set(email, Array.from(new Set(courses)))
+    row.accountUserIds.forEach((userId) => rememberCourses(coursesByUserId, userId, courses))
+    rememberCourses(coursesByEmail, row.email, courses)
   })
 
   return (
@@ -115,7 +122,10 @@ export default async function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((user) => {
-                  const courseTitles = coursesByEmail.get(user.email.trim().toLowerCase()) ?? []
+                  const courseTitles =
+                    coursesByUserId.get(user.id.trim().toLowerCase()) ??
+                    coursesByEmail.get(user.email.trim().toLowerCase()) ??
+                    []
 
                   return (
                     <tr key={user.id} className="border-t border-slate-200">

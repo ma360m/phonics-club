@@ -43,6 +43,12 @@ export type InvoiceOrder = Order & {
   display_total?: number | null
 }
 
+export function invoiceHasProvidedDiscount(
+  order: Pick<InvoiceOrder, 'coupon_code' | 'member_id'>
+): boolean {
+  return Boolean(String(order.coupon_code ?? '').trim() || String(order.member_id ?? '').trim())
+}
+
 export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
   const items = order.items as OrderItem[]
   const subtotal = Number(order.subtotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0))

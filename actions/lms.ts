@@ -8,6 +8,7 @@ import {
   courseRequiresCertificatePayment,
   getCourseById,
   getCourseCertificatePrice,
+  getCourseEnrollmentAvailability,
   getCoursePrice,
   getUserCertificatePayment,
   getUserEnrollment,
@@ -314,6 +315,9 @@ export async function createCourseCheckoutAction(
     if (existingEnrollment && isEnrollmentActive(existingEnrollment as never)) {
       return { success: true, data: { enrollmentId: existingEnrollment.id, redirectTo: `/course/${courseId}/learn` } }
     }
+
+    const availability = getCourseEnrollmentAvailability(currentCourse)
+    if (!availability.canEnroll) return { success: false, error: availability.message }
 
     if (price <= 0 || currentCourse.is_free) {
       const expiresAt = addDays(now, Number(currentCourse.access_duration_days ?? 90)).toISOString()

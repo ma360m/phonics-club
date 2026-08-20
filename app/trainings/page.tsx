@@ -142,6 +142,9 @@ export default async function TrainingsPage() {
             <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
               Share your preferred month and approximate participant count in the registration form, or contact Phonics Club for a custom onsite session.
             </p>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
+              International trainings are also available for schools and organizations interested in having Phonics Club conduct a programme outside Pakistan.
+            </p>
             <div className="mt-5 flex justify-center">
               <WhatsAppButton contactSettings={contactSettings} />
             </div>
