@@ -29,8 +29,21 @@ interface InvoiceTemplate {
 
 type PdfColor = ReturnType<typeof rgb>
 
+function pdfText(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\u20A8/g, 'Rs')
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?')
+}
+
 function wrapText(text: string, maxChars: number): string[] {
-  const words = text.split(/\s+/)
+  const words = pdfText(text).split(/\s+/)
   const lines: string[] = []
   let line = ''
   for (const word of words) {
@@ -47,13 +60,15 @@ function wrapText(text: string, maxChars: number): string[] {
 }
 
 function drawRight(page: PDFPage, text: string, xRight: number, y: number, size: number, font: PDFFont, color = rgb(0, 0, 0)) {
-  const width = font.widthOfTextAtSize(text, size)
-  page.drawText(text, { x: xRight - width, y, size, font, color })
+  const safeText = pdfText(text)
+  const width = font.widthOfTextAtSize(safeText, size)
+  page.drawText(safeText, { x: xRight - width, y, size, font, color })
 }
 
 function drawCentered(page: PDFPage, text: string, xCenter: number, y: number, size: number, font: PDFFont, color = rgb(0, 0, 0)) {
-  const textWidth = font.widthOfTextAtSize(text, size)
-  page.drawText(text, { x: xCenter - textWidth / 2, y, size, font, color })
+  const safeText = pdfText(text)
+  const textWidth = font.widthOfTextAtSize(safeText, size)
+  page.drawText(safeText, { x: xCenter - textWidth / 2, y, size, font, color })
 }
 
 function drawCell(
@@ -97,7 +112,7 @@ function drawCellText(
     drawCentered(page, text, x + width / 2, textY, size, font, color)
     return
   }
-  page.drawText(text, { x: x + padding, y: textY, size, font, color })
+  page.drawText(pdfText(text), { x: x + padding, y: textY, size, font, color })
 }
 
 function drawCellLines(
@@ -119,7 +134,7 @@ function drawCellLines(
     if (align === 'right') {
       drawRight(page, line, x + width - padding, textY, size, font, color)
     } else {
-      page.drawText(line, { x: x + padding, y: textY, size, font, color })
+      page.drawText(pdfText(line), { x: x + padding, y: textY, size, font, color })
     }
     textY -= lineHeight
   }
@@ -207,13 +222,13 @@ export async function buildInvoicePdf(
     }
 
     currentY -= 98
-    targetPage.drawText(`Invoice #: ${invoiceNo}`, { x: margin, y: currentY, size: 10, font })
+    targetPage.drawText(pdfText(`Invoice #: ${invoiceNo}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
-    targetPage.drawText(`Status: ${getCustomerOrderStatusLabel(order.status, order.payment_method)}`, { x: margin, y: currentY, size: 10, font })
+    targetPage.drawText(pdfText(`Status: ${getCustomerOrderStatusLabel(order.status, order.payment_method)}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
-    targetPage.drawText(`Date: ${new Date(order.created_at).toLocaleDateString('en-PK')}`, { x: margin, y: currentY, size: 10, font })
+    targetPage.drawText(pdfText(`Date: ${new Date(order.created_at).toLocaleDateString('en-PK')}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
-    targetPage.drawText(`Payment: ${shopPaymentLabel(order.payment_method)}`, { x: margin, y: currentY, size: 10, font })
+    targetPage.drawText(pdfText(`Payment: ${shopPaymentLabel(order.payment_method)}`), { x: margin, y: currentY, size: 10, font })
 
     let billY = height - 146
     targetPage.drawText('Bill To:', { x: 330, y: billY, size: 10, font: fontBold })
@@ -227,7 +242,7 @@ export async function buildInvoicePdf(
       addr?.country ?? 'Pakistan',
     ].filter(Boolean)) {
       for (const wrapped of wrapText(line, 36)) {
-        targetPage.drawText(wrapped, { x: 330, y: billY, size: 9, font })
+        targetPage.drawText(pdfText(wrapped), { x: 330, y: billY, size: 9, font })
         billY -= 12
       }
     }
@@ -245,7 +260,7 @@ export async function buildInvoicePdf(
     }
 
     drawCentered(targetPage, template?.header ?? 'PHONICS CLUB PVT LTD', width / 2, topY, 14, fontBold, rgb(0.11, 0.31, 0.85))
-    targetPage.drawText(`Invoice #: ${invoiceNo} | ${label}`, {
+    targetPage.drawText(pdfText(`Invoice #: ${invoiceNo} | ${label}`), {
       x: margin,
       y: topY - 56,
       size: 9,
@@ -411,21 +426,21 @@ export async function buildInvoicePdf(
     page.drawText('Bank Details', { x: margin + 14, y, size: 10, font: fontBold })
     y -= 16
     for (const line of bankLines) {
-      page.drawText(line, { x: margin + 14, y, size: 9, font })
+      page.drawText(pdfText(line), { x: margin + 14, y, size: 9, font })
       y -= 12
     }
     for (const line of instructionLines) {
-      page.drawText(line, { x: margin + 14, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
+      page.drawText(pdfText(line), { x: margin + 14, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
       y -= 10
     }
   }
 
   y = 80
   for (const line of wrapText(`Shipping Notice: ${footerNote}`, 90)) {
-    page.drawText(line, { x: margin, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
+    page.drawText(pdfText(line), { x: margin, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) })
     y -= 10
   }
-  page.drawText(`Contact: ${COMPANY.adminEmail} | ${contactPhoneDisplay}`, {
+  page.drawText(pdfText(`Contact: ${COMPANY.adminEmail} | ${contactPhoneDisplay}`), {
     x: margin,
     y: y - 4,
     size: 8,

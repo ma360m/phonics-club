@@ -31,6 +31,8 @@ import type { ActionResult, OrderItem } from '@/types'
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
 const MAX_CUSTOMER_ITEM_QUANTITY = 999
 const MAX_BULK_INVOICE_ORDER_COUNT = 200
+const OPTIONAL_ORDER_COLUMN_ERROR_PATTERN =
+  /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source/i
 
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
@@ -71,6 +73,33 @@ function errorForLog(error: unknown) {
 
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function errorSearchText(error: unknown) {
+  const record = objectRecord(error)
+  return [
+    record.code,
+    record.message,
+    record.details,
+    record.hint,
+    record.constraint,
+    error instanceof Error ? error.message : '',
+  ]
+    .map((value) => String(value ?? ''))
+    .join(' ')
+    .toLowerCase()
+}
+
+function isOptionalOrderColumnError(error: unknown) {
+  return OPTIONAL_ORDER_COLUMN_ERROR_PATTERN.test(errorSearchText(error))
+}
+
+function isDuplicateInvoiceNumberError(error: unknown) {
+  const text = errorSearchText(error)
+  return (text.includes('23505') || text.includes('duplicate')) && (
+    text.includes('invoice_number') ||
+    text.includes('orders_invoice_number_key')
+  )
 }
 
 function firstText(...values: unknown[]) {
@@ -464,7 +493,7 @@ export async function placeOrderAction(
   const exchangeRateTimestamp = currencySettings.lastUpdatedAt
 
   const accessToken = user ? null : generateOrderAccessToken()
-  const invoiceNumber = await getNextInvoiceNumber()
+  let invoiceNumber = await getNextInvoiceNumber()
   let receiptUrl: string | null = null
   let receiptUpload: OrderReceiptUpload | null = null
   const receiptFile = formData.get('receipt') as File | null
@@ -545,44 +574,66 @@ export async function placeOrderAction(
     total,
     requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
   })
-  let { data: order, error } = await supabase
-    .from('orders')
-    .insert(orderPayload as never)
-    .select()
-    .single()
-
-  if (error && /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source/i.test(error.message)) {
-    console.error('Order creation insert failed; retrying without new optional columns', {
-      error: errorForLog(error),
-    })
-    const legacyPayload = { ...orderPayload }
-    delete legacyPayload.display_currency
-    delete legacyPayload.exchange_rate
-    delete legacyPayload.exchange_rate_timestamp
-    delete legacyPayload.display_subtotal
-    delete legacyPayload.display_shipping_fee
-    delete legacyPayload.display_discount_amount
-    delete legacyPayload.display_total
-    delete legacyPayload.discount_percent
-    delete legacyPayload.coupon_discount_percent
-    delete legacyPayload.member_discount_percent
-    delete legacyPayload.shipping_discount_amount
-    delete legacyPayload.shipping_discount_reason
-    delete legacyPayload.requires_admin_confirmation
-    delete legacyPayload.admin_confirmation_reason
-    delete legacyPayload.source
-    const retry = await supabase
+  const insertOrder = async (payload: Record<string, unknown>) => {
+    let result = await supabase
       .from('orders')
-      .insert(legacyPayload as never)
+      .insert(payload as never)
       .select()
       .single()
+
+    if (result.error && isOptionalOrderColumnError(result.error)) {
+      console.error('Order creation insert failed; retrying without new optional columns', {
+        error: errorForLog(result.error),
+      })
+      const legacyPayload = { ...payload }
+      delete legacyPayload.display_currency
+      delete legacyPayload.exchange_rate
+      delete legacyPayload.exchange_rate_timestamp
+      delete legacyPayload.display_subtotal
+      delete legacyPayload.display_shipping_fee
+      delete legacyPayload.display_discount_amount
+      delete legacyPayload.display_total
+      delete legacyPayload.discount_percent
+      delete legacyPayload.coupon_discount_percent
+      delete legacyPayload.member_discount_percent
+      delete legacyPayload.shipping_discount_amount
+      delete legacyPayload.shipping_discount_reason
+      delete legacyPayload.requires_admin_confirmation
+      delete legacyPayload.admin_confirmation_reason
+      delete legacyPayload.source
+      result = await supabase
+        .from('orders')
+        .insert(legacyPayload as never)
+        .select()
+        .single()
+    }
+
+    return result
+  }
+
+  let { data: order, error } = await insertOrder(orderPayload)
+
+  for (let attempt = 1; error && isDuplicateInvoiceNumberError(error) && attempt <= 5; attempt += 1) {
+    const collidedInvoiceNumber = invoiceNumber
+    invoiceNumber = await getNextInvoiceNumber()
+    orderPayload.invoice_number = invoiceNumber
+    console.error('Order invoice number collided; retrying insert with next invoice number', {
+      attempt,
+      collidedInvoiceNumber,
+      nextInvoiceNumber: invoiceNumber,
+      error: errorForLog(error),
+    })
+    const retry = await insertOrder(orderPayload)
     order = retry.data
     error = retry.error
   }
 
   if (error || !order) {
     console.error('Order creation failed', { reason: 'database_insert_failed', error: errorForLog(error) })
-    return { success: false, error: friendlyErrorMessage(error, 'Order could not be placed.') }
+    const message = isDuplicateInvoiceNumberError(error)
+      ? 'Invoice numbering is temporarily out of sync. Please try placing the order again in a moment.'
+      : friendlyErrorMessage(error, 'Order could not be placed.')
+    return { success: false, error: message }
   }
 
   console.info('Order created successfully', {
