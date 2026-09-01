@@ -45,12 +45,23 @@ export function buildCatalogObjectName(
 
 export function parseCatalogLabel(name: string): CatalogLabel {
   const normalized = name.toLowerCase()
-  if (normalized.startsWith('phonics-club-') || normalized.startsWith('local-') || normalized.includes('phonics club')) {
+  const words = normalized.replace(/[^a-z0-9]+/g, ' ')
+  if (
+    normalized.startsWith('phonics-club-') ||
+    normalized.startsWith('phonics_club_') ||
+    normalized.startsWith('local-') ||
+    normalized.includes('phonics-club') ||
+    normalized.includes('phonics_club') ||
+    words.includes('phonics club')
+  ) {
     return 'phonics-club'
   }
   return 'jolly-learning'
 }
 
 export function displayCatalogName(name: string): string {
-  return name.replace(/^\d+-/, '').replace(/^(jolly-learning|phonics-club|uk|local)-/, '')
+  return name
+    .replace(/^\d+-/, '')
+    .replace(/^(jolly-learning|phonics-club|uk|local)[-_]/, '')
+    .replace(/_/g, ' ')
 }

@@ -1,6 +1,6 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM, sendTransactionalEmail } from '@/lib/email/mailer'
 
 type TrainingType = 'online_webinar' | 'onsite_classroom' | string
 
@@ -83,7 +83,7 @@ export async function sendTrainingRegistrationAdminEmail(input: TrainingRegistra
     process.env.TRAINING_REGISTRATION_EMAIL_FROM?.trim() ||
     process.env.ORDER_EMAIL_FROM?.trim() ||
     process.env.COURSE_LICENSE_EMAIL_FROM?.trim() ||
-    'Phonics Club <info@phonicsclub.com>'
+    DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const adminTrainingsUrl = `${baseUrl()}/admin/trainings`
   const trainingTypeLabel = formatTrainingType(input.trainingType)
   const requesterName = input.fullName.trim() || 'Training requester'

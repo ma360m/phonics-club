@@ -1,6 +1,6 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM, sendTransactionalEmail } from '@/lib/email/mailer'
 import { formatPrice } from '@/utils/format'
 
 type CourseEnrollmentStatus = 'active' | 'pending' | string
@@ -111,7 +111,7 @@ export async function sendCourseEnrollmentAdminEmail(input: CourseEnrollmentAdmi
     process.env.COURSE_ENROLLMENT_EMAIL_FROM?.trim() ||
     process.env.ORDER_EMAIL_FROM?.trim() ||
     process.env.COURSE_LICENSE_EMAIL_FROM?.trim() ||
-    'Phonics Club <info@phonicsclub.com>'
+    DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const adminCourseUrl = `${baseUrl()}/admin/courses/${input.course.id}`
   const courseUrl = input.course.slug ? `${baseUrl()}/courses/${input.course.slug}` : `${baseUrl()}/course/${input.course.id}/learn`
   const studentName = input.student.name?.trim() || 'Student'
@@ -209,8 +209,9 @@ export async function sendCourseCompletionAdminEmail(input: CourseCompletionAdmi
   const from =
     process.env.COURSE_COMPLETION_EMAIL_FROM?.trim() ||
     process.env.COURSE_ENROLLMENT_EMAIL_FROM?.trim() ||
+    process.env.ORDER_EMAIL_FROM?.trim() ||
     process.env.COURSE_LICENSE_EMAIL_FROM?.trim() ||
-    'Phonics Club <noreply@phonicsclub.com>'
+    DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const adminCourseUrl = `${baseUrl()}/admin/courses/${input.course.id}`
   const certificateUrl = `${baseUrl()}/course/${input.course.id}/certificate?preview=admin`
   const studentName = input.student.name?.trim() || 'Student'

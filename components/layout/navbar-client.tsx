@@ -77,9 +77,9 @@ export function NavbarClient({
             </Link>
             <span className="hidden sm:inline-flex">{wishlistSlot}</span>
             <span className="hidden sm:inline-flex">{cartSlot}</span>
-            <Button asChild className="hidden h-8 rounded-full bg-[#D30000] px-2.5 text-xs text-white hover:bg-[#D30000]/90 2xl:flex">
-              <Link href="/courses">
-                Start
+            <Button asChild className="hidden h-9 rounded-full bg-[#1D4ED8] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#1E40AF] 2xl:flex">
+              <Link href="/auth/login">
+                Sign Up/In
               </Link>
             </Button>
             <button

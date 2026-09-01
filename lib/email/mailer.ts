@@ -22,6 +22,9 @@ export interface MailSendResult {
   error?: unknown
 }
 
+export const DEFAULT_TRANSACTIONAL_EMAIL_ADDRESS = 'orders@phonicsclub.com'
+export const DEFAULT_TRANSACTIONAL_EMAIL_FROM = `Phonics Club <${DEFAULT_TRANSACTIONAL_EMAIL_ADDRESS}>`
+
 interface CompleteTransactionalEmailPayload extends TransactionalEmailPayload {
   from: string
 }
@@ -45,12 +48,97 @@ export interface MimeLineDiagnostics {
 
 type HeaderMap = Record<string, string>
 
+function cleanEnv(value: string | undefined) {
+  const trimmed = String(value ?? '').trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+function envValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = cleanEnv(process.env[key])
+    if (value) return value
+  }
+  return ''
+}
+
+function smtpHost() {
+  return envValue('SMTP_HOST', 'ORDER_SMTP_HOST', 'EMAIL_SMTP_HOST')
+}
+
+function smtpUser() {
+  return envValue('SMTP_USER', 'SMTP_USERNAME', 'ORDER_EMAIL_USER')
+}
+
+function smtpPassword() {
+  return envValue('SMTP_PASSWORD', 'SMTP_PASS', 'ORDER_EMAIL_PASSWORD')
+}
+
+function smtpEhloDomain() {
+  return envValue('SMTP_EHLO_DOMAIN') || 'phonicsclub.com'
+}
+
+function smtpAuthMethod() {
+  return envValue('SMTP_AUTH_METHOD') || 'LOGIN'
+}
+
 function defaultFrom() {
-  return process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
+  const configuredFrom = envValue('ORDER_EMAIL_FROM')
+  const user = smtpUser()
+  if (configuredFrom) return configuredFrom
+  if (isLikelyEmailAddress(user)) return `Phonics Club <${user}>`
+  return DEFAULT_TRANSACTIONAL_EMAIL_FROM
 }
 
 function isLikelyEmailAddress(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function senderEmailAddress(value: string) {
+  const angleAddress = value.match(/<([^<>]+)>/)?.[1]?.trim()
+  return (angleAddress || value).replace(/^mailto:/i, '').trim()
+}
+
+function senderDisplayName(value: string) {
+  const match = value.match(/^(.*?)<[^<>]+>/)
+  const displayName = match?.[1]?.trim().replace(/^"|"$/g, '')
+  return displayName || 'Phonics Club'
+}
+
+function senderDomain(value: string) {
+  const address = senderEmailAddress(value)
+  return address.includes('@') ? address.split('@').pop()?.toLowerCase() : undefined
+}
+
+function mailbox(displayName: string, address: string) {
+  const safeDisplay = displayName.replace(/[\r\n"<>]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return safeDisplay ? `${safeDisplay} <${address}>` : address
+}
+
+function shouldAllowDifferentSender() {
+  return ['1', 'true', 'yes'].includes(envValue('SMTP_ALLOW_DIFFERENT_FROM').toLowerCase())
+}
+
+function alignSenderWithAuthenticatedMailbox(from: string) {
+  const user = smtpUser()
+  if (!isLikelyEmailAddress(user) || shouldAllowDifferentSender()) return from
+
+  const requestedAddress = senderEmailAddress(from)
+  if (!isLikelyEmailAddress(requestedAddress)) return from
+  if (requestedAddress.toLowerCase() === user.toLowerCase()) return from
+
+  const adjusted = mailbox(senderDisplayName(from), user)
+  console.warn('[Email SMTP] Sender address adjusted to authenticated mailbox', {
+    requestedSenderDomain: senderDomain(from),
+    smtpUserDomain: senderDomain(user),
+    orderEmailFromConfigured: Boolean(envValue('ORDER_EMAIL_FROM')),
+  })
+  return adjusted
 }
 
 function normalizeRecipients(recipients: string[]) {
@@ -76,14 +164,15 @@ function normalizeRecipients(recipients: string[]) {
 }
 
 function smtpLogContext(payload: TransactionalEmailPayload) {
-  const smtpUser = process.env.SMTP_USER?.trim()
+  const user = smtpUser()
   return {
-    smtpHost: process.env.SMTP_HOST?.trim() || '[missing]',
-    smtpPort: process.env.SMTP_PORT ?? '465',
-    smtpSecure: process.env.SMTP_SECURE ?? 'true',
-    smtpEhloDomain: process.env.SMTP_EHLO_DOMAIN || '[default]',
-    smtpUserDomain: smtpUser?.includes('@') ? smtpUser.split('@').pop() : smtpUser ? '[configured]' : '[missing]',
-    orderEmailFromConfigured: Boolean(process.env.ORDER_EMAIL_FROM?.trim()),
+    smtpHost: smtpHost() || '[missing]',
+    smtpPort: envValue('SMTP_PORT') || '465',
+    smtpSecure: envValue('SMTP_SECURE') || 'true',
+    smtpEhloDomain: smtpEhloDomain(),
+    smtpAuthMethod: smtpAuthMethod(),
+    smtpUserDomain: user.includes('@') ? user.split('@').pop() : user ? '[configured]' : '[missing]',
+    orderEmailFromConfigured: Boolean(envValue('ORDER_EMAIL_FROM')),
     recipientCount: payload.to.length,
     attachmentCount: payload.attachments?.length ?? 0,
     rawHtmlMaxLineBytes: maxLineBytes(payload.html),
@@ -93,9 +182,9 @@ function smtpLogContext(payload: TransactionalEmailPayload) {
 
 function missingSmtpSettings() {
   return [
-    ['SMTP_HOST', process.env.SMTP_HOST],
-    ['SMTP_USER', process.env.SMTP_USER],
-    ['SMTP_PASSWORD', process.env.SMTP_PASSWORD],
+    ['SMTP_HOST', smtpHost()],
+    ['SMTP_USER', smtpUser()],
+    ['SMTP_PASSWORD or SMTP_PASS', smtpPassword()],
   ]
     .filter(([, value]) => !String(value ?? '').trim())
     .map(([key]) => key)
@@ -384,20 +473,26 @@ async function checkMimeLineLengths(payload: CompleteTransactionalEmailPayload):
 }
 
 async function sendSmtpEmail(payload: CompleteTransactionalEmailPayload): Promise<MailSendResult> {
-  const host = process.env.SMTP_HOST?.trim()
-  const user = process.env.SMTP_USER?.trim()
-  const password = process.env.SMTP_PASSWORD
+  const host = smtpHost()
+  const user = smtpUser()
+  const password = smtpPassword()
   if (!host || !user || !password) {
-    return { ok: false, provider: 'smtp', error: 'SMTP_HOST, SMTP_USER, and SMTP_PASSWORD are required.' }
+    return { ok: false, provider: 'smtp', error: 'SMTP_HOST, SMTP_USER, and SMTP_PASSWORD or SMTP_PASS are required.' }
   }
 
-  const port = Number(process.env.SMTP_PORT ?? 465)
-  const secure = String(process.env.SMTP_SECURE ?? (port === 465 ? 'true' : 'false')).toLowerCase() === 'true'
+  const port = Number(envValue('SMTP_PORT') || 465)
+  if (!Number.isFinite(port) || port <= 0) {
+    return { ok: false, provider: 'smtp', error: 'SMTP_PORT must be a valid port number.' }
+  }
+
+  const secure = (envValue('SMTP_SECURE') || (port === 465 ? 'true' : 'false')).toLowerCase() === 'true'
+  const authMethod = smtpAuthMethod()
   const transporter = nodemailer.createTransport({
     host,
     port,
     secure,
-    name: process.env.SMTP_EHLO_DOMAIN || 'phonicsclub.com',
+    name: smtpEhloDomain(),
+    authMethod,
     auth: {
       user,
       pass: password,
@@ -417,17 +512,35 @@ async function sendSmtpEmail(payload: CompleteTransactionalEmailPayload): Promis
       responseText,
     }
   } catch (error) {
-    console.error('[Email SMTP] Send failed', {
+    const isAuthError = isSmtpAuthError(error)
+    const authGuidance = isAuthError
+      ? 'SMTP authentication failed. Verify the mailbox password in deployment, use the full mailbox address for SMTP_USER, and remove copied spaces or quotes from SMTP_PASSWORD/SMTP_PASS.'
+      : undefined
+    console.error(isAuthError ? '[Email SMTP] Authentication failed' : '[Email SMTP] Send failed', {
       ...smtpLogContext(payload),
+      guidance: authGuidance,
       error: errorForLog(error),
     })
-    return { ok: false, provider: 'smtp', error }
+    return {
+      ok: false,
+      provider: 'smtp',
+      error: isAuthError
+        ? new Error(`${error instanceof Error ? error.message : 'SMTP authentication failed.'} ${authGuidance}`)
+        : error,
+    }
   }
+}
+
+function isSmtpAuthError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const details = error as { code?: unknown; responseCode?: unknown; command?: unknown; message?: unknown }
+  return details.code === 'EAUTH' || details.responseCode === 535 || String(details.command ?? '').startsWith('AUTH')
 }
 
 export async function sendTransactionalEmail(payload: TransactionalEmailPayload): Promise<MailSendResult> {
   const recipients = normalizeRecipients(payload.to)
-  const fullPayload = { ...payload, to: recipients.valid, from: payload.from?.trim() || defaultFrom() }
+  const requestedFrom = cleanEnv(payload.from) || defaultFrom()
+  const fullPayload = { ...payload, to: recipients.valid, from: alignSenderWithAuthenticatedMailbox(requestedFrom) }
   const missing = missingSmtpSettings()
 
   if (recipients.invalid.length) {

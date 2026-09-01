@@ -1,6 +1,6 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM, sendTransactionalEmail } from '@/lib/email/mailer'
 import { formatPrice } from '@/utils/format'
 import type { Course } from '@/types/database'
 
@@ -95,8 +95,9 @@ export async function sendCertificateRequestAdminEmail(input: CertificateRequest
 
   const from =
     process.env.CERTIFICATE_REQUEST_EMAIL_FROM?.trim() ||
+    process.env.ORDER_EMAIL_FROM?.trim() ||
     process.env.COURSE_LICENSE_EMAIL_FROM?.trim() ||
-    'Phonics Club <noreply@phonicsclub.com>'
+    DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const studentName = input.student.name?.trim() || 'Student'
   const amount = Number(input.amount ?? 0)
   const amountLabel = formatPrice(Number.isFinite(amount) ? amount : 0, input.currency ?? input.course.currency ?? 'PKR')

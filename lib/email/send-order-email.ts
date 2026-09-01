@@ -3,7 +3,7 @@ import { invoiceFileBaseName } from '@/lib/invoice'
 import { formatDate, formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { APP_URL } from '@/lib/constants'
-import { sendTransactionalEmail, type MailSendResult } from '@/lib/email/mailer'
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM, sendTransactionalEmail, type MailSendResult } from '@/lib/email/mailer'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 
 interface EmailAttachment {
@@ -101,6 +101,15 @@ function formatStatus(value: string): string {
 
 function isLikelyEmailAddress(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+}
+
+function emailRecipientsFrom(value: string | null | undefined, fallback: string) {
+  const recipients = String(value ?? '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean)
+
+  return recipients.length ? [...new Set(recipients)] : [fallback]
 }
 
 function formatOrderDate(value: string): string {
@@ -396,8 +405,8 @@ export async function sendOrderConfirmationEmail(
   options: OrderEmailOptions
 ): Promise<{ sent: boolean }> {
   const emailFrom =
-    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
-  const adminEmail = process.env.ORDER_ADMIN_EMAIL?.trim() || COMPANY.adminEmail
+    process.env.ORDER_EMAIL_FROM?.trim() || DEFAULT_TRANSACTIONAL_EMAIL_FROM
+  const adminEmails = emailRecipientsFrom(process.env.ORDER_ADMIN_EMAIL, COMPANY.adminEmail)
   const baseUrl = getBaseUrl()
   const tokenParam = options?.accessToken ? `&token=${options.accessToken}` : ''
   const invoicePdfUrl = `${baseUrl}/api/orders/${orderId}/invoice?format=pdf${tokenParam}`
@@ -435,7 +444,7 @@ export async function sendOrderConfirmationEmail(
   }
 
   const adminEmailPayload: EmailPayload = {
-    to: [adminEmail],
+    to: adminEmails,
     subject: notificationType === 'updated'
       ? `Order updated - Invoice ${invoiceNumber}`
       : `New order placed - Invoice ${invoiceNumber}`,
@@ -502,8 +511,8 @@ export async function sendLowStockAlertEmail(
   if (!alerts.length) return { sent: false }
 
   const emailFrom =
-    process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
-  const adminEmail = process.env.ORDER_ADMIN_EMAIL?.trim() || COMPANY.adminEmail
+    process.env.ORDER_EMAIL_FROM?.trim() || DEFAULT_TRANSACTIONAL_EMAIL_FROM
+  const adminEmails = emailRecipientsFrom(process.env.ORDER_ADMIN_EMAIL, COMPANY.adminEmail)
 
   const rows = alerts
     .map(
@@ -515,7 +524,7 @@ export async function sendLowStockAlertEmail(
   console.info('Starting low stock email', { orderId, invoiceNumber, alertCount: alerts.length })
   const sent = await sendTransactionalEmail({
     from: emailFrom,
-    to: [adminEmail],
+    to: adminEmails,
     subject: `Low stock alert - Invoice ${invoiceNumber}`,
     html: `
       <p>The following product quantity dropped below 20 after order <strong>${invoiceNumber}</strong>.</p>

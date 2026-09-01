@@ -24,15 +24,16 @@ export default async function ShopPage({
 }) {
   const { category, collection, q } = await searchParams
   const activeCollection = isProductCollection(collection) ? collection : undefined
+  const activeCategory = category?.trim() || undefined
   const searchQuery = (q ?? '').trim()
   const collectionProducts = await getProducts(activeCollection ? { collection: activeCollection } : undefined)
-  const categorizedProducts = category
-    ? collectionProducts.filter((product) => product.category === category)
-    : collectionProducts
-  const products = searchQuery ? searchProducts(categorizedProducts, searchQuery) : categorizedProducts
+  const categorizedProducts = activeCategory
+    ? collectionProducts.filter((product) => product.category === activeCategory)
+    : []
+  const products = activeCategory && searchQuery ? searchProducts(categorizedProducts, searchQuery) : categorizedProducts
   const availableCategories = Array.from(new Set(collectionProducts.map((product) => product.category)))
   const activeCollectionLabel = PRODUCT_COLLECTIONS.find((item) => item.slug === activeCollection)?.shortLabel
-  const hasActiveFilters = Boolean(activeCollection || category || searchQuery)
+  const hasActiveFilters = Boolean(activeCollection || activeCategory || searchQuery)
 
   return (
     <main>
@@ -113,31 +114,37 @@ export default async function ShopPage({
         {availableCategories.length > 0 && (
           <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
             <CategoryFilter
-              currentCategory={category}
+              currentCategory={activeCategory}
               currentCollection={activeCollection}
               availableCategories={availableCategories}
             />
           </div>
         )}
 
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-medium text-muted-foreground">
-            Showing {products.length} {products.length === 1 ? 'product' : 'products'}
-            {searchQuery ? ` for "${searchQuery}"` : ''}
-            {activeCollectionLabel ? ` in ${activeCollectionLabel}` : ''}
-          </p>
-          {hasActiveFilters ? (
-            <a
-              href="/shop"
-              className="w-fit rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
-            >
-              Clear filters
-            </a>
-          ) : null}
-        </div>
+        {activeCategory ? (
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-muted-foreground">
+              Showing {products.length} {products.length === 1 ? 'product' : 'products'}
+              {searchQuery ? ` for "${searchQuery}"` : ''}
+              {activeCollectionLabel ? ` in ${activeCollectionLabel}` : ''}
+            </p>
+            {hasActiveFilters ? (
+              <a
+                href="/shop"
+                className="w-fit rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
+              >
+                Clear filters
+              </a>
+            ) : null}
+          </div>
+        ) : null}
 
         <Suspense fallback={<div className="grid grid-cols-3 gap-6">Loading...</div>}>
-          {products.length === 0 ? (
+          {!activeCategory ? (
+            <p className="rounded-lg border border-dashed border-slate-300 bg-[#F8FAFC] px-5 py-14 text-center text-muted-foreground">
+              Select a programme to view products.
+            </p>
+          ) : products.length === 0 ? (
             <p className="py-20 text-center text-muted-foreground">
               {searchQuery ? `No products found for "${searchQuery}".` : 'No products found.'}
             </p>

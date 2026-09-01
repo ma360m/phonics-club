@@ -1,7 +1,11 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
 import { formatCurrency, type CurrencyCode } from '@/lib/currency'
-import { sendTransactionalEmail, type TransactionalEmailAttachment } from '@/lib/email/mailer'
+import {
+  DEFAULT_TRANSACTIONAL_EMAIL_FROM,
+  sendTransactionalEmail,
+  type TransactionalEmailAttachment,
+} from '@/lib/email/mailer'
 
 type PaymentReceiptType = 'order' | 'course' | 'certificate'
 
@@ -230,7 +234,7 @@ export async function sendPaymentReceiptAdminEmail(input: PaymentReceiptAdminEma
   const from = process.env.PAYMENT_RECEIPT_EMAIL_FROM?.trim()
     || process.env.ORDER_EMAIL_FROM?.trim()
     || process.env.COURSE_LICENSE_EMAIL_FROM?.trim()
-    || 'Phonics Club <info@phonicsclub.com>'
+    || DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const attachments = await receiptAttachmentFromFile(input.attachmentFile)
   const result = await sendTransactionalEmail({
     from,

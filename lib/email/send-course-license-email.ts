@@ -1,13 +1,17 @@
 import { APP_URL } from '@/lib/constants'
 import { COMPANY } from '@/lib/company'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import {
+  DEFAULT_TRANSACTIONAL_EMAIL_ADDRESS,
+  DEFAULT_TRANSACTIONAL_EMAIL_FROM,
+  sendTransactionalEmail,
+} from '@/lib/email/mailer'
 import { getContactSettings, getCourseBankDetails } from '@/lib/site-content'
 import { getContactPhoneLinks } from '@/lib/contact-settings'
 import { formatPrice } from '@/utils/format'
 import type { Course } from '@/types/database'
 
-export const COURSE_LICENSE_EMAIL_ADDRESS = 'noreply@phonicsclub.com'
-export const COURSE_LICENSE_EMAIL_FROM = `Phonics Club <${COURSE_LICENSE_EMAIL_ADDRESS}>`
+export const COURSE_LICENSE_EMAIL_ADDRESS = DEFAULT_TRANSACTIONAL_EMAIL_ADDRESS
+export const COURSE_LICENSE_EMAIL_FROM = DEFAULT_TRANSACTIONAL_EMAIL_FROM
 
 function baseUrl() {
   const configured = process.env.NEXT_PUBLIC_APP_URL
@@ -71,7 +75,7 @@ export async function sendCourseEnrollmentInvoiceEmail({
   amount: number
   currency?: string | null
 }) {
-  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
   const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
   const safeName = studentName?.trim() || 'Student'
   const [bankDetails, contactSettings] = await Promise.all([getCourseBankDetails(), getContactSettings()])
@@ -163,7 +167,7 @@ export async function sendCoursePaymentPendingReminderEmail({
   currency?: string | null
   requestExpiry: Date
 }) {
-  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
   const paymentUrl = `${baseUrl()}/courses/${course.slug}/payment?paymentId=${paymentId}`
   const safeName = studentName?.trim() || 'Student'
   const amountLabel = formatPrice(Number(amount ?? course.discounted_price ?? course.price ?? 0), currency ?? course.currency ?? 'PKR')
@@ -281,7 +285,7 @@ export async function sendCourseLicenseEmail({
   currency?: string | null
   invoiceNumber?: string | null
 }) {
-  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
   const courseUrl = `${baseUrl()}/course/${course.id}/learn`
   const safeName = studentName?.trim() || 'Student'
   const amountLabel = formatPrice(Number(amount ?? course.discounted_price ?? course.price ?? 0), currency ?? course.currency ?? 'PKR')
@@ -363,7 +367,7 @@ export async function sendCourseCertificateIssuedEmail({
   verificationUrl?: string | null
   pdfBytes: Uint8Array
 }) {
-  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
+  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || COURSE_LICENSE_EMAIL_FROM
   const safeName = studentName?.trim() || 'Student'
   const certificateUrl = `${baseUrl()}/course/${course.id}/certificate`
 

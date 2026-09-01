@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Upload, Trash2, FileText } from 'lucide-react'
 import { uploadShopCatalogDirect } from '@/lib/shop-catalog-upload'
 import {
-  CATALOG_LABELS,
   displayCatalogName,
   MAX_CATALOG_SIZE,
   type CatalogLabel,
@@ -164,10 +163,6 @@ export function CatalogManager({
                   <a href={catalog.url} target="_blank" rel="noreferrer" className="font-medium underline-offset-4 hover:underline">
                     {displayCatalogName(catalog.name)}
                   </a>
-                  <p className="text-xs text-muted-foreground">
-                    {CATALOG_LABELS[catalog.label]} - {(catalog.size / 1024 / 1024).toFixed(2)} MB -{' '}
-                    {new Date(catalog.uploadedAt).toLocaleDateString()}
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getProfile, isAdminRole } from '@/lib/auth'
 import { COMPANY } from '@/lib/company'
 import { APP_URL } from '@/lib/constants'
-import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM, sendTransactionalEmail } from '@/lib/email/mailer'
 
 const DAY_MS = 86_400_000
 
@@ -36,7 +36,7 @@ async function sendReminderEmail(input: {
   body: string
   courseUrl: string
 }) {
-  const from = process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
+  const from = process.env.ORDER_EMAIL_FROM?.trim() || DEFAULT_TRANSACTIONAL_EMAIL_FROM
   const result = await sendTransactionalEmail({
     from,
     to: [input.to],

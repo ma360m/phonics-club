@@ -27,6 +27,15 @@ const optionalEmail = z.preprocess(
     }),
 )
 
+const requiredEmail = z.preprocess(
+  (value) => String(value ?? '').trim(),
+  z
+    .string()
+    .min(1, 'Email address is required for invoice delivery.')
+    .max(255, 'Enter a shorter email address.')
+    .email('Enter a valid email address.'),
+)
+
 export const checkoutBaseSchema = z.object({
   fullName: z.string().trim().min(2, 'Enter your full name.').max(120, 'Enter a shorter full name.'),
   email: optionalEmail,
@@ -42,7 +51,9 @@ export const checkoutBaseSchema = z.object({
   memberId: z.string().trim().optional(),
 })
 
-export const checkoutSchema = checkoutBaseSchema.superRefine((value, ctx) => {
+export const checkoutSchema = checkoutBaseSchema.extend({
+  email: requiredEmail,
+}).superRefine((value, ctx) => {
   if (value.couponCode?.trim() && value.memberId?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
