@@ -26,6 +26,55 @@ function formatNumber(value: number) {
   return value.toLocaleString('en-PK')
 }
 
+function formatDateTime(value?: unknown) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return 'Not recorded'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw
+  return date.toLocaleString('en-PK', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function formatDuration(seconds: unknown) {
+  const value = Number(seconds ?? 0)
+  if (!Number.isFinite(value) || value <= 0) return '0 min'
+  const mins = Math.max(1, Math.round(value / 60))
+  if (mins < 60) return `${mins} min`
+  const hours = Math.floor(mins / 60)
+  const remainingMins = mins % 60
+  return remainingMins ? `${hours}h ${remainingMins}m` : `${hours}h`
+}
+
+function nestedRecord(row: ReportRow, key: string) {
+  const value = row[key]
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as ReportRow : {}
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const cleanValue = String(value ?? '').trim()
+    if (cleanValue) return cleanValue
+  }
+  return ''
+}
+
+function formatFlags(value: unknown) {
+  const flags = Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []
+  if (!flags.length) return ['Suspicious activity']
+  return flags.map((flag) => {
+    switch (flag) {
+      case 'heartbeat_gap_capped':
+        return 'Heartbeat gap was capped'
+      case 'non_learning_route':
+        return 'Activity came from outside the learning page'
+      default:
+        return flag.replace(/_/g, ' ')
+    }
+  })
+}
+
 function statusRows(rows: ReportRow[], key: string) {
   const counts = countBy(rows, key)
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
@@ -57,6 +106,70 @@ function StatusBars({ title, rows }: { title: string; rows: Array<{ label: strin
         </div>
       )}
     </LmsSectionCard>
+  )
+}
+
+function FlaggedSessionReview({ rows }: { rows: ReportRow[] }) {
+  if (rows.length === 0) {
+    return <LmsEmptyState icon={AlertTriangle} title="No flagged sessions" description="Learning sessions that need admin review will appear here." />
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-[#F8FAFC] text-left text-xs font-semibold uppercase text-slate-500">
+          <tr>
+            <th className="px-4 py-3">Learner</th>
+            <th className="px-4 py-3">Course and lesson</th>
+            <th className="px-4 py-3">Why flagged</th>
+            <th className="px-4 py-3">Session time</th>
+            <th className="px-4 py-3 text-right">Credited</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {rows.map((row) => {
+            const profile = nestedRecord(row, 'profiles')
+            const course = nestedRecord(row, 'courses')
+            const lesson = nestedRecord(row, 'course_lessons')
+            const learnerName = firstText(profile.full_name, profile.email, row.user_id, 'Unknown learner')
+            const learnerEmail = firstText(profile.email)
+            const courseTitle = firstText(course.title, row.course_id, 'Unknown course')
+            const lessonTitle = firstText(lesson.title, row.lesson_id, 'No lesson recorded')
+            const flags = formatFlags(row.validation_flags)
+
+            return (
+              <tr key={String(row.id ?? `${row.user_id}-${row.started_at}`)} className="align-top">
+                <td className="px-4 py-4">
+                  <p className="font-semibold text-[#0F172A]">{learnerName}</p>
+                  {learnerEmail && <p className="mt-1 text-xs text-slate-500">{learnerEmail}</p>}
+                  <p className="mt-1 text-xs text-slate-400">Device: {firstText(row.device_id, 'Not recorded')}</p>
+                </td>
+                <td className="px-4 py-4">
+                  <p className="font-medium text-[#0F172A]">{courseTitle}</p>
+                  <p className="mt-1 text-xs text-slate-500">{lessonTitle}</p>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex max-w-xs flex-wrap gap-2">
+                    {flags.map((flag) => (
+                      <span key={flag} className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-4 text-slate-600">
+                  <p>Started {formatDateTime(row.started_at)}</p>
+                  <p className="mt-1 text-xs text-slate-500">Last heartbeat {formatDateTime(row.last_heartbeat_at)}</p>
+                </td>
+                <td className="px-4 py-4 text-right font-semibold text-[#0F172A]">
+                  {formatDuration(row.credited_seconds)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -132,8 +245,17 @@ export default async function AdminLmsReportsPage() {
         <LmsStatCard title="Online Minutes" value={formatNumber(onlineMinutes)} detail="Credited online activity" icon={Clock} />
         <LmsStatCard title="Offline Minutes" value={formatNumber(offlineApproved)} detail="Approved offline work" icon={Activity} tone="green" />
         <LmsStatCard title="Quiz Pass Rate" value={`${quizPassRate}%`} detail={`${quizAttempts.length} quiz attempts`} icon={TrendingUp} tone="gold" />
-        <LmsStatCard title="Flagged Sessions" value={formatNumber(flaggedSessions.length)} detail="Sessions needing attention" icon={AlertTriangle} tone="red" />
+        <LmsStatCard title="Flagged Sessions" value={formatNumber(flaggedSessions.length)} detail="Open review details" icon={AlertTriangle} tone="red" href="#flagged-sessions-review" />
       </div>
+
+      <ReportGroup
+        id="flagged-sessions-review"
+        title="Flagged Session Review"
+        description="Shows who was flagged, which course and lesson were involved, when it happened, and the validation reason."
+        defaultOpen={flaggedSessions.length > 0}
+      >
+        <FlaggedSessionReview rows={flaggedSessions} />
+      </ReportGroup>
 
       <ReportGroup
         title="Core Reports"

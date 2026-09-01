@@ -84,6 +84,9 @@ export default async function AdminDashboardPage() {
 
   const quickLinks = [
     { href: '/admin/courses', label: 'Course Dashboard' },
+    { href: '/admin/enrollments', label: 'Course Enrollments' },
+    { href: '/admin/activity-logs', label: 'Activity Logs' },
+    { href: '/admin/training-sessions', label: 'Training Sessions' },
     { href: '/admin/developer-mode', label: 'Developer Mode' },
     { href: '/admin/courses/new', label: 'Create Course' },
     { href: '/admin/products', label: 'Manage Products' },

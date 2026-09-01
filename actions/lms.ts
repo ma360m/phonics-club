@@ -244,6 +244,9 @@ export async function markLessonCompleteAction(
       .eq('user_id', user.id)
       .eq('course_id', courseId)
 
+    const course = await getCourseById(courseId)
+    if (course) await evaluateCourseCompletion(course, user.id)
+
     revalidatePath(`/course/${courseId}/learn`)
     revalidatePath('/dashboard/my-courses')
     return { success: true, data: { progress } }
@@ -571,6 +574,7 @@ export async function createCertificatePaymentAction(
         status: 'payment_started',
         source: 'Certificate bank transfer request',
         requestedAt: now,
+        checklist,
       })
     } else if (!isCertificatePaymentPaid(payment) && (Number(payment.amount ?? 0) !== price || payment.currency !== (course.currency ?? 'PKR'))) {
       await supabase
@@ -684,6 +688,7 @@ export async function submitCoursePaymentReceiptAction(
 
     if (certificatePayment) {
       if (course) {
+        const checklist = await evaluateCourseCompletion(course, user.id)
         await notifyAdminOfCertificateRequest({
           course,
           paymentId,
@@ -693,6 +698,7 @@ export async function submitCoursePaymentReceiptAction(
           status: 'receipt_uploaded',
           source: 'Certificate receipt upload',
           requestedAt: new Date(),
+          checklist,
         })
       }
     }
@@ -1565,6 +1571,7 @@ async function issueCourseCertificateForUser({
     status: 'certificate_issued',
     source,
     requestedAt: new Date(),
+    checklist,
   })
 
   return { success: true, data: { created: true } }
@@ -1580,14 +1587,48 @@ export async function requestCertificateAction(courseId: string): Promise<Action
 
     const checklist = await evaluateCourseCompletion(course, user.id)
     if (!checklist.eligible) return { success: false, error: 'Complete all enabled course requirements before requesting a certificate' }
+
+    const supabase = await getServiceSupabase()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', user.id)
+      .maybeSingle()
+    const student = {
+      id: user.id,
+      name: firstString((profile as { full_name?: string | null } | null)?.full_name, user.email),
+      email: firstString((profile as { email?: string | null } | null)?.email, user.email),
+    }
+
     if (courseRequiresCertificatePayment(course)) {
       const certificatePayment = await getUserCertificatePayment(user.id, courseId)
       if (!isCertificatePaymentPaid(certificatePayment)) {
+        await notifyAdminOfCertificateRequest({
+          course,
+          paymentId: certificatePayment?.id ?? null,
+          student,
+          amount: getCourseCertificatePrice(course),
+          currency: course.currency ?? 'PKR',
+          status: 'payment_required',
+          source: 'Certificate requested before payment approval',
+          requestedAt: new Date(),
+          checklist,
+        })
         return { success: false, error: 'Certificate payment must be approved before requesting this certificate' }
       }
     }
 
-    const supabase = await getServiceSupabase()
+    await notifyAdminOfCertificateRequest({
+      course,
+      student,
+      amount: courseRequiresCertificatePayment(course) ? getCourseCertificatePrice(course) : 0,
+      currency: course.currency ?? 'PKR',
+      status: 'certificate_requested',
+      source: 'Certificate requested by learner',
+      requestedAt: new Date(),
+      checklist,
+    })
+
     const issueResult = await issueCourseCertificateForUser({
       supabase,
       course: course as Course,

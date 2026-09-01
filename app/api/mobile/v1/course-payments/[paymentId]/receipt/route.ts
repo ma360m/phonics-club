@@ -1,6 +1,7 @@
 import { LMS_BUCKETS } from '@/lib/lms-storage'
-import { isCertificatePayment } from '@/lib/lms'
+import { evaluateCourseCompletion, getCourseById, isCertificatePayment } from '@/lib/lms'
 import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
+import { notifyAdminOfCertificateRequest } from '@/lib/email/send-certificate-request-admin-email'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -139,6 +140,28 @@ export async function POST(
       uploadedAt: now,
       attachmentFile: file,
     })
+
+    if (certificatePayment) {
+      const fullCourse = await getCourseById(payment.course_id, { includeUnpublished: true })
+      if (fullCourse) {
+        const checklist = await evaluateCourseCompletion(fullCourse, context.user.id)
+        await notifyAdminOfCertificateRequest({
+          course: fullCourse,
+          paymentId: payment.id,
+          student: {
+            id: context.user.id,
+            name: context.profile.full_name ?? context.user.email,
+            email: context.profile.email ?? context.user.email,
+          },
+          amount: Number(payment.amount ?? 0),
+          currency: payment.currency ?? fullCourse.currency ?? 'PKR',
+          status: 'receipt_uploaded',
+          source: 'Mobile certificate receipt upload',
+          requestedAt: now,
+          checklist,
+        })
+      }
+    }
 
     return createMobileApiResponse(
       {

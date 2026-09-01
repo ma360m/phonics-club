@@ -45,3 +45,19 @@ export function normalizeBankDetails(value: unknown, fallback: BankDetails = DEF
     instructions: firstText(data.instructions, fallback.instructions),
   }
 }
+
+export function looksLikeCourseBankDetails(details: BankDetails): boolean {
+  const accountNumber = details.accountNumber.replace(/\D/g, '')
+  const courseAccountNumber = DEFAULT_COURSE_BANK_DETAILS.accountNumber.replace(/\D/g, '')
+
+  return (
+    accountNumber === courseAccountNumber ||
+    details.iban === DEFAULT_COURSE_BANK_DETAILS.iban ||
+    details.accountTitle.toLowerCase().includes('consultancy')
+  )
+}
+
+export function normalizeShopBankDetails(value: unknown): BankDetails {
+  const normalized = normalizeBankDetails(value, DEFAULT_BANK_DETAILS)
+  return looksLikeCourseBankDetails(normalized) ? DEFAULT_BANK_DETAILS : normalized
+}

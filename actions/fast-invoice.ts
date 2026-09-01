@@ -192,6 +192,8 @@ export async function placeFastInvoiceOrderAction(
     return { success: false, error: friendlyErrorMessage(parsed.error.errors[0]?.message, 'Fast invoice details are incomplete.') }
   }
 
+  const customerEmail = parsed.data.email.trim() || null
+
   if (link?.required_member_id) {
     const enteredMemberId = normalizeMemberId(parsed.data.memberId)
     if (enteredMemberId !== link.required_member_id) {
@@ -260,7 +262,7 @@ export async function placeFastInvoiceOrderAction(
   const invoiceNumber = await getNextInvoiceNumber()
   const shippingAddress = {
     fullName: parsed.data.fullName,
-    email: parsed.data.email,
+    email: customerEmail ?? '',
     phone: normalizePhone(parsed.data.phone),
     address: parsed.data.address,
     city: parsed.data.city,
@@ -270,7 +272,7 @@ export async function placeFastInvoiceOrderAction(
 
   const orderPayload: Record<string, unknown> = {
     user_id: null,
-    guest_email: parsed.data.email,
+    guest_email: customerEmail,
     access_token: accessToken,
     status,
     total,
@@ -332,11 +334,11 @@ export async function placeFastInvoiceOrderAction(
   const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber } as never, template)
   const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
 
-  await sendOrderConfirmationEmail(parsed.data.email, order.id, invoiceNumber, invoiceHtml, {
+  await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber, invoiceHtml, {
     accessToken,
     pdfBase64,
     customerName: parsed.data.fullName,
-    customerEmail: parsed.data.email,
+    customerEmail,
     customerPhone: shippingAddress.phone,
     orderDate: order.created_at ?? new Date().toISOString(),
     paymentStatus: order.status,

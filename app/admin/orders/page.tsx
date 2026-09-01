@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { ChevronDown, Download, Search } from 'lucide-react'
-import { getAllOrders } from '@/lib/data/queries'
+import { getAllOrders, getProducts } from '@/lib/data/queries'
 import {
+  adminUpdateOrderDetailsFormAction,
   confirmPaymentFormAction,
   updateOrderInvoiceNumberFormAction,
   updateOrderShippingFormAction,
@@ -15,11 +16,13 @@ import {
 } from '@/components/admin/order-bulk-invoice-selector'
 import { formatPrice, formatDate } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
+import { OrderItemsEditor, type EditableOrderProduct } from '@/components/orders/order-items-editor'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { shopPaymentLabel } from '@/lib/payment-methods'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import {
   getAdminOrderAddress,
   getAdminOrderAddressText,
@@ -36,10 +39,20 @@ function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
-function AdminOrderCard({ order }: { order: Order }) {
+function dateTimeLocalValue(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+}
+
+function AdminOrderCard({ order, products }: { order: Order; products: EditableOrderProduct[] }) {
   const items = getAdminOrderItems(order)
+  const quantityTotal = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
   const addr = getAdminOrderAddress(order)
   const customerName = getAdminOrderCustomerName(order)
+  const editableCustomerName = String(addr.fullName ?? addr.name ?? '').trim()
   const customerEmail = getAdminOrderCustomerEmail(order)
   const customerPhone = getAdminOrderCustomerPhone(order)
   const addressText = getAdminOrderAddressText(order)
@@ -78,7 +91,9 @@ function AdminOrderCard({ order }: { order: Order }) {
 
             <div className="min-w-0 text-sm text-slate-600">
               <p className="font-medium text-slate-900">{countLabel(items.length, 'item line')}</p>
-              <p className="mt-1 truncate text-muted-foreground">{firstItem ?? 'No items recorded'}</p>
+              <p className="mt-1 truncate text-muted-foreground">
+                {firstItem ?? 'No items recorded'}{quantityTotal ? ` - ${quantityTotal} total items` : ''}
+              </p>
             </div>
 
             <div className="flex flex-col gap-2 md:items-end">
@@ -113,6 +128,7 @@ function AdminOrderCard({ order }: { order: Order }) {
                   <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-2 text-sm text-slate-700">
                     {items.map((item, i) => (
                       <li key={`${item.product_id ?? item.name}-${i}`} className="rounded-lg bg-white px-3 py-2">
+                        <span className="mr-2 font-mono text-xs text-slate-400">{i + 1}.</span>
                         {item.name} x {item.quantity} - {formatPrice(item.price * item.quantity)}
                       </li>
                     ))}
@@ -135,6 +151,7 @@ function AdminOrderCard({ order }: { order: Order }) {
             </div>
 
             <section className="grid gap-2 rounded-xl border bg-[#F8FAFC] p-4 text-sm text-slate-700 sm:grid-cols-2 xl:grid-cols-4">
+              <span>Total quantity: {quantityTotal}</span>
               <span>Subtotal: {formatPrice(order.subtotal ?? order.total)}</span>
               <span>Shipping: {formatPrice(order.shipping_fee ?? SHIPPING_FEE_PKR)}</span>
               {(order.discount_amount ?? 0) > 0 ? (
@@ -214,6 +231,91 @@ function AdminOrderCard({ order }: { order: Order }) {
                 <AdminOrderEditLinkButton orderId={order.id} />
                 <AdminOrderDeleteButton orderId={order.id} />
               </div>
+
+              <details className="mt-4 rounded-xl border bg-white p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[#1D4ED8]">
+                  Edit order for customer
+                </summary>
+                <form action={adminUpdateOrderDetailsFormAction} className="mt-4 space-y-4 border-t pt-4">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input type="hidden" name="country" value={addr.country ?? 'Pakistan'} />
+
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Full name</span>
+                      <input name="fullName" required minLength={2} maxLength={120} defaultValue={editableCustomerName} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Email (optional)</span>
+                      <input name="email" type="email" defaultValue={customerEmail} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Phone</span>
+                      <input name="phone" required defaultValue={customerPhone} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">City</span>
+                      <input name="city" required minLength={2} defaultValue={addr.city ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Address</span>
+                      <input name="address" required minLength={5} defaultValue={addr.address ?? addressText} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Postal code</span>
+                      <input name="zip" defaultValue={addr.zip ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Payment method</span>
+                      <select name="paymentMethod" defaultValue={order.payment_method ?? 'cod'} className="w-full rounded-lg border bg-white px-3 py-2">
+                        <option value="cod">Cash on Delivery</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="credit">Bank Transfer / Card</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Status</span>
+                      <select name="status" defaultValue={order.status} className="w-full rounded-lg border bg-white px-3 py-2">
+                        {ORDER_STATUSES.map((s) => (
+                          <option key={s} value={s}>{getCustomerOrderStatusLabel(s, order.payment_method)}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Shipping fee</span>
+                      <input type="number" name="shippingFee" min="0" step="1" defaultValue={Number(order.shipping_fee ?? SHIPPING_FEE_PKR)} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Order date</span>
+                      <input type="datetime-local" name="createdAt" defaultValue={dateTimeLocalValue(order.created_at)} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                  </div>
+
+                  <OrderItemsEditor
+                    items={items}
+                    products={products}
+                    allowProductAdd
+                    allowCustomLines
+                    nameEditable
+                    priceEditable
+                  />
+
+                  <label className="flex items-start gap-2 rounded-lg bg-[#EFF6FF] p-3 text-sm text-slate-700">
+                    <input type="checkbox" name="resendCustomerEmail" defaultChecked className="mt-1" />
+                    <span>Resend the updated invoice email to the customer when an email is provided.</span>
+                  </label>
+
+                  <Button type="submit" size="sm" className="rounded-xl bg-[#1D4ED8]">
+                    Save order edit
+                  </Button>
+                </form>
+              </details>
             </section>
           </div>
         </details>
@@ -229,7 +331,13 @@ export default async function AdminOrdersPage({
 }) {
   const { q = '' } = await searchParams
   const searchQuery = q.trim()
-  const orders = await getAllOrders()
+  const [orders, products] = await Promise.all([getAllOrders(), getProducts()])
+  const editableProducts = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    price: getProductPricing(product).displayPrice,
+    image: product.images?.[0],
+  }))
   const visibleOrders = searchQuery
     ? orders.filter((order) => orderMatchesAdminSearch(order, searchQuery))
     : orders
@@ -282,7 +390,7 @@ export default async function AdminOrdersPage({
         <AdminOrderBulkInvoiceToolbar />
         <div className="space-y-4">
           {visibleOrders.map((order) => (
-            <AdminOrderCard key={order.id} order={order} />
+            <AdminOrderCard key={order.id} order={order} products={editableProducts} />
           ))}
           {visibleOrders.length === 0 ? (
             <p className="rounded-2xl border bg-card py-12 text-center text-muted-foreground">

@@ -6,8 +6,11 @@ import { ClearGuestCartOnSuccess } from '@/components/checkout/clear-guest-cart-
 import { CustomerOrderControls } from '@/components/orders/customer-order-controls'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth'
+import { getProducts } from '@/lib/data/queries'
 import { getContactSettings } from '@/lib/site-content'
 import { getContactPhoneLinks } from '@/lib/contact-settings'
+import { getProductPricing } from '@/lib/products/sale-pricing'
+import type { EditableOrderProduct } from '@/components/orders/order-items-editor'
 import type { OrderItem } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -40,6 +43,7 @@ export default async function CheckoutSuccessPage({
   const invoiceQuery = authQuery ? `?${authQuery}` : ''
   const invoicePdfQuery = authQuery ? `?format=pdf&${authQuery}` : '?format=pdf'
   let authorizedOrder: AuthorizedOrder | null = null
+  let editableProducts: EditableOrderProduct[] = []
   const contactSettings = await getContactSettings()
   const supportPhoneLinks = getContactPhoneLinks(contactSettings)
 
@@ -80,6 +84,16 @@ export default async function CheckoutSuccessPage({
     }
   }
 
+  if (authorizedOrder) {
+    const products = await getProducts()
+    editableProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: getProductPricing(product).displayPrice,
+      image: product.images?.[0],
+    }))
+  }
+
   return (
     <main>
       <AnnouncementBar />
@@ -89,7 +103,7 @@ export default async function CheckoutSuccessPage({
         <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-6" />
         <h1 className="text-3xl font-bold mb-4">Order Placed!</h1>
         <p className="text-muted-foreground mb-4">
-          Thank you for your order. Your invoice is ready below, and a confirmation email will be sent to your inbox.
+          Thank you for your order. Your invoice is ready below. If an email was provided, a confirmation email will be sent to the inbox.
         </p>
         <p className="text-sm text-muted-foreground mb-8">
           For bank transfer orders, we will process your order after payment confirmation.
@@ -126,6 +140,7 @@ export default async function CheckoutSuccessPage({
               order={authorizedOrder}
               token={token}
               editToken={editToken}
+              products={editableProducts}
               supportPhoneLinks={supportPhoneLinks}
             />
           </div>

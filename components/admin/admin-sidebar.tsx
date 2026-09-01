@@ -15,6 +15,7 @@ import {
   Award,
   Megaphone,
   Calendar,
+  CalendarClock,
   BarChart3,
   CreditCard,
   DollarSign,
@@ -25,6 +26,8 @@ import {
   Menu,
   ArrowLeft,
   UserRound,
+  ClipboardList,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { APP_NAME } from '@/lib/constants'
@@ -42,7 +45,9 @@ const adminPrimaryLinks = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/courses', label: 'Courses', icon: GraduationCap },
   { href: '/admin/users', label: 'Students', icon: Users },
+  { href: '/admin/enrollments', label: 'Enrollments', icon: ClipboardList },
   { href: '/admin/lms-reports', label: 'Reports & Reviews', icon: BarChart3 },
+  { href: '/admin/activity-logs', label: 'Logs', icon: History },
   { href: '/dashboard/profile', label: 'Profile', icon: UserRound },
 ]
 
@@ -64,6 +69,7 @@ const adminLinks = [
   { href: '/admin/upload', label: 'Upload', icon: Upload },
   { href: '/admin/catalogs', label: 'Catalogs', icon: FileText },
   { href: '/admin/newsletters', label: 'Newsletters', icon: FileText },
+  { href: '/admin/training-sessions', label: 'Training Sessions', icon: CalendarClock },
   { href: '/admin/trainings', label: 'Registrations', icon: Calendar },
   { href: '/admin/coupons', label: 'Coupons', icon: Ticket },
   { href: '/admin/certificates', label: 'Certificates', icon: Award },

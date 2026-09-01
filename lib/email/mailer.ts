@@ -49,6 +49,32 @@ function defaultFrom() {
   return process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
 }
 
+function isLikelyEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function normalizeRecipients(recipients: string[]) {
+  const seen = new Set<string>()
+  const valid: string[] = []
+  const invalid: string[] = []
+
+  for (const recipient of recipients) {
+    const email = recipient.trim()
+    if (!email) continue
+    if (!isLikelyEmailAddress(email)) {
+      invalid.push(email)
+      continue
+    }
+
+    const key = email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    valid.push(email)
+  }
+
+  return { valid, invalid }
+}
+
 function smtpLogContext(payload: TransactionalEmailPayload) {
   const smtpUser = process.env.SMTP_USER?.trim()
   return {
@@ -400,12 +426,25 @@ async function sendSmtpEmail(payload: CompleteTransactionalEmailPayload): Promis
 }
 
 export async function sendTransactionalEmail(payload: TransactionalEmailPayload): Promise<MailSendResult> {
-  const fullPayload = { ...payload, from: payload.from?.trim() || defaultFrom() }
+  const recipients = normalizeRecipients(payload.to)
+  const fullPayload = { ...payload, to: recipients.valid, from: payload.from?.trim() || defaultFrom() }
   const missing = missingSmtpSettings()
+
+  if (recipients.invalid.length) {
+    console.error('[Email SMTP] Invalid email recipient(s) skipped', {
+      ...smtpLogContext(fullPayload),
+      invalidRecipientCount: recipients.invalid.length,
+    })
+  }
+
+  if (!fullPayload.to.length) {
+    console.error('[Email SMTP] No valid recipients configured', smtpLogContext(fullPayload))
+    return { ok: false, provider: 'log', error: 'No valid email recipients configured.' }
+  }
 
   if (missing.length) {
     console.error('[Email SMTP] Missing SMTP configuration', {
-      ...smtpLogContext(payload),
+      ...smtpLogContext(fullPayload),
       missing,
     })
     return { ok: false, provider: 'log', error: `Missing SMTP configuration: ${missing.join(', ')}` }

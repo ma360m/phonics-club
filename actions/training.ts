@@ -146,6 +146,7 @@ export async function submitTrainingRegistrationAction(
           })
           revalidatePath('/trainings')
           revalidatePath('/admin/trainings')
+          revalidatePath('/admin/training-sessions')
           return { success: true }
         }
       }
@@ -157,6 +158,7 @@ export async function submitTrainingRegistrationAction(
 
     revalidatePath('/trainings')
     revalidatePath('/admin/trainings')
+    revalidatePath('/admin/training-sessions')
     await notifyTrainingRegistrationAdmin(parsed.data, {
       userId: user?.id ?? null,
       source: 'Website trainings page',
@@ -211,6 +213,7 @@ export async function updateTrainingRegistrationCertificateAction(formData: Form
   }
 
   revalidatePath('/admin/trainings')
+  revalidatePath('/admin/training-sessions')
   revalidatePath('/dashboard')
 }
 
@@ -233,6 +236,7 @@ export async function deleteTrainingRegistrationAction(
   }
 
   revalidatePath('/admin/trainings')
+  revalidatePath('/admin/training-sessions')
   revalidatePath('/dashboard')
   return { success: true }
 }
@@ -314,6 +318,7 @@ export async function upsertTrainingEventAction(
 
   revalidatePath('/trainings')
   revalidatePath('/admin/trainings')
+  revalidatePath('/admin/training-sessions')
   revalidatePath('/dashboard')
   return { success: true }
 }
@@ -327,5 +332,6 @@ export async function deleteTrainingEventAction(id: string): Promise<void> {
   await supabase.from('training_events').delete().eq('id', parsed.data)
   revalidatePath('/trainings')
   revalidatePath('/admin/trainings')
+  revalidatePath('/admin/training-sessions')
   revalidatePath('/dashboard')
 }

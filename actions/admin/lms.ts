@@ -627,7 +627,29 @@ export async function getAdminLmsReport() {
     supabase.from('enrollments').select('status', { count: 'exact', head: false }),
     supabase.from('course_payments').select('status, amount', { count: 'exact', head: false }),
     supabase.from('course_completion_status').select('completed, eligible_for_certificate', { count: 'exact', head: false }),
-    supabase.from('learning_sessions').select('credited_seconds, suspicious', { count: 'exact', head: false }),
+    supabase
+      .from('learning_sessions')
+      .select(`
+        id,
+        user_id,
+        course_id,
+        lesson_id,
+        enrollment_id,
+        device_id,
+        started_at,
+        last_heartbeat_at,
+        ended_at,
+        credited_seconds,
+        inactivity_seconds,
+        status,
+        validation_flags,
+        suspicious,
+        created_at,
+        profiles(full_name, email, username),
+        courses(id, title, slug),
+        course_lessons(id, title)
+      `, { count: 'exact', head: false })
+      .order('created_at', { ascending: false }),
     supabase.from('offline_activity_entries').select('status, approved_minutes', { count: 'exact', head: false }),
     supabase.from('quiz_attempts').select('score, passed', { count: 'exact', head: false }),
     supabase.from('assignment_submissions').select('status, passed', { count: 'exact', head: false }),

@@ -25,8 +25,9 @@ import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { getCurrencySettings } from '@/lib/currency-settings'
 import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
 import { incrementMemberDiscountUsage, validateMemberDiscount } from '@/lib/discounts/member-discounts'
+import { getProductPricing } from '@/lib/products/sale-pricing'
 import { APP_URL } from '@/lib/constants'
-import type { ActionResult, OrderItem } from '@/types'
+import type { ActionResult, OrderItem, Product } from '@/types'
 
 const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered', 'cancelled'])
 const MAX_CUSTOMER_ITEM_QUANTITY = 999
@@ -57,6 +58,28 @@ const customerOrderEditSchema = checkoutBaseSchema
     orderId: z.string().uuid('Order link is invalid.'),
     token: z.string().optional(),
     editToken: z.string().optional(),
+  })
+
+const adminOrderEditSchema = checkoutBaseSchema
+  .pick({
+    fullName: true,
+    email: true,
+    phone: true,
+    address: true,
+    city: true,
+    zip: true,
+    country: true,
+    paymentMethod: true,
+  })
+  .extend({
+    orderId: z.string().uuid('Order link is invalid.'),
+    status: z.enum(ORDER_STATUSES),
+    createdAt: z.string().trim().optional(),
+    shippingFee: z.coerce.number().min(0, 'Shipping fee cannot be negative.').max(10_000_000, 'Shipping fee is too high.'),
+    resendCustomerEmail: z.preprocess(
+      (value) => value === true || value === 'true' || value === 'on',
+      z.boolean(),
+    ),
   })
 
 function appBaseUrl() {
@@ -248,19 +271,30 @@ function toFiniteNumber(value: unknown, fallback = 0) {
   return Number.isFinite(amount) ? amount : fallback
 }
 
+function isManualInvoiceItemId(productId: string) {
+  return /^(custom|manual|invoice-line):/i.test(productId)
+}
+
+function normalizeOrderItemImage(value: unknown) {
+  const image = typeof value === 'string' ? value.trim() : ''
+  return image || undefined
+}
+
 function normalizeStoredOrderItems(value: unknown): OrderItem[] {
   if (!Array.isArray(value)) return []
 
-  return value.flatMap((rawItem) => {
+  return value.flatMap((rawItem, index) => {
     if (!rawItem || typeof rawItem !== 'object') return []
 
     const item = rawItem as Record<string, unknown>
-    const productId = typeof item.product_id === 'string' ? item.product_id : ''
-    const name = typeof item.name === 'string' ? item.name : ''
+    const productId = typeof item.product_id === 'string' && item.product_id.trim()
+      ? item.product_id.trim()
+      : `custom:legacy-${index + 1}`
+    const name = typeof item.name === 'string' ? item.name.trim() : ''
     const price = Math.max(0, toFiniteNumber(item.price))
     const quantity = Math.max(0, Math.round(toFiniteNumber(item.quantity)))
 
-    if (!productId || !name || quantity <= 0) return []
+    if (!name || quantity <= 0) return []
 
     const normalized: OrderItem = {
       product_id: productId,
@@ -269,43 +303,165 @@ function normalizeStoredOrderItems(value: unknown): OrderItem[] {
       quantity,
     }
 
-    if (typeof item.image === 'string' && item.image) normalized.image = item.image
+    const image = normalizeOrderItemImage(item.image)
+    if (image) normalized.image = image
 
     return [normalized]
   })
 }
 
-function parseCustomerEditedOrderItems(formData: FormData, existingItems: OrderItem[]) {
-  if (!existingItems.length) return { items: existingItems }
+interface SubmittedOrderItemRow {
+  productId: string
+  name: string
+  priceValue: unknown
+  quantityValue: unknown
+  image?: string
+}
 
+type ParsedOrderItemsResult = { items: OrderItem[]; error?: never } | { error: string; items?: never }
+
+function submittedOrderItemRows(formData: FormData): SubmittedOrderItemRow[] {
   const submittedProductIds = formData.getAll('itemProductId').map((value) => String(value ?? ''))
+  const submittedNames = formData.getAll('itemName').map((value) => String(value ?? ''))
+  const submittedPrices = formData.getAll('itemPrice')
   const submittedQuantities = formData.getAll('itemQuantity')
+  const submittedImages = formData.getAll('itemImage').map((value) => String(value ?? ''))
+  const rowCount = Math.max(
+    submittedProductIds.length,
+    submittedNames.length,
+    submittedPrices.length,
+    submittedQuantities.length,
+    submittedImages.length,
+  )
 
-  if (submittedProductIds.length !== existingItems.length || submittedQuantities.length !== existingItems.length) {
-    return { error: 'Order items are incomplete. Refresh the page and try again.' }
+  const rows: SubmittedOrderItemRow[] = []
+  for (let index = 0; index < rowCount; index += 1) {
+    const productId = submittedProductIds[index]?.trim() ?? ''
+    const name = submittedNames[index]?.trim() ?? ''
+    const priceValue = submittedPrices[index]
+    const quantityValue = submittedQuantities[index]
+    const image = normalizeOrderItemImage(submittedImages[index])
+    const hasAnyValue = productId || name || String(priceValue ?? '').trim() || String(quantityValue ?? '').trim() || image
+    if (!hasAnyValue) continue
+    rows.push({ productId, name, priceValue, quantityValue, image })
   }
 
-  const editedItems: OrderItem[] = []
-  for (let index = 0; index < existingItems.length; index += 1) {
-    const existingItem = existingItems[index]
-    if (submittedProductIds[index] !== existingItem.product_id) {
-      return { error: 'Order items changed. Refresh the page and try again.' }
-    }
+  return rows
+}
 
-    const quantity = Number(submittedQuantities[index])
+function appendOrMergeOrderItem(items: OrderItem[], item: OrderItem) {
+  const existing = !isManualInvoiceItemId(item.product_id)
+    ? items.find((current) => current.product_id === item.product_id)
+    : null
+  if (existing) {
+    existing.quantity = Math.min(MAX_CUSTOMER_ITEM_QUANTITY, existing.quantity + item.quantity)
+    return
+  }
+  items.push(item)
+}
+
+async function loadPublishedProductsForOrderItems(productIds: string[]): Promise<Map<string, Product> | { error: string }> {
+  if (!productIds.length) return new Map<string, Product>()
+
+  const supabase = await createServiceClient()
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .in('id', Array.from(new Set(productIds)))
+    .eq('published', true)
+
+  if (error) {
+    return { error: 'Products could not be checked right now. Please try again.' }
+  }
+
+  return new Map(((data ?? []) as Product[]).map((product) => [product.id, product]))
+}
+
+async function parseCustomerEditedOrderItems(formData: FormData, existingItems: OrderItem[]): Promise<ParsedOrderItemsResult> {
+  const submittedRows = submittedOrderItemRows(formData)
+  if (!submittedRows.length) return { error: 'Keep at least one item in the order.' }
+
+  const existingById = new Map(existingItems.map((item) => [item.product_id, item]))
+  const newProductRows: Array<SubmittedOrderItemRow & { quantity: number }> = []
+  const editedItems: OrderItem[] = []
+
+  for (const row of submittedRows) {
+    const quantity = Number(row.quantityValue)
     if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_CUSTOMER_ITEM_QUANTITY) {
       return { error: 'Choose a valid quantity for each order item.' }
     }
+    if (quantity <= 0) continue
 
-    if (quantity > 0) {
-      editedItems.push({
+    const existingItem = existingById.get(row.productId)
+    if (existingItem) {
+      appendOrMergeOrderItem(editedItems, {
         product_id: existingItem.product_id,
         name: existingItem.name,
         price: Math.max(0, Number(existingItem.price) || 0),
         quantity,
         ...(existingItem.image ? { image: existingItem.image } : {}),
       })
+      continue
     }
+
+    if (!row.productId || isManualInvoiceItemId(row.productId)) {
+      return { error: 'Only catalog products can be added by customers.' }
+    }
+
+    newProductRows.push({ ...row, quantity })
+  }
+
+  const newProductsResult = await loadPublishedProductsForOrderItems(newProductRows.map((row) => row.productId))
+  if ('error' in newProductsResult) return newProductsResult
+
+  for (const row of newProductRows) {
+    const product = newProductsResult.get(row.productId)
+    if (!product) return { error: 'One of the selected products is no longer available.' }
+    const pricing = getProductPricing(product)
+    appendOrMergeOrderItem(editedItems, {
+      product_id: product.id,
+      name: product.name,
+      price: pricing.displayPrice,
+      quantity: row.quantity,
+      ...(product.images?.[0] ? { image: product.images[0] } : {}),
+    })
+  }
+
+  if (!editedItems.length) {
+    return { error: 'Keep at least one item in the order.' }
+  }
+
+  return { items: editedItems }
+}
+
+function parseAdminEditedOrderItems(formData: FormData): ParsedOrderItemsResult {
+  const submittedRows = submittedOrderItemRows(formData)
+  if (!submittedRows.length) return { error: 'Keep at least one item in the order.' }
+
+  const editedItems: OrderItem[] = []
+  for (let index = 0; index < submittedRows.length; index += 1) {
+    const row = submittedRows[index]
+    const quantity = Number(row.quantityValue)
+    if (!Number.isInteger(quantity) || quantity < 0 || quantity > MAX_CUSTOMER_ITEM_QUANTITY) {
+      return { error: 'Choose a valid quantity for each order item.' }
+    }
+    if (quantity <= 0) continue
+
+    const name = row.name.trim()
+    if (!name) return { error: 'Each invoice line needs an item name.' }
+
+    const price = Number(row.priceValue)
+    if (!Number.isFinite(price) || price < 0 || price > 10_000_000) {
+      return { error: 'Choose a valid price for each invoice line.' }
+    }
+
+    editedItems.push({
+      product_id: row.productId || `custom:${crypto.randomUUID()}`,
+      name,
+      price,
+      quantity,
+      ...(row.image ? { image: row.image } : {}),
+    })
   }
 
   if (!editedItems.length) {
@@ -320,7 +476,12 @@ function haveOrderItemsChanged(existingItems: OrderItem[], editedItems: OrderIte
 
   return existingItems.some((item, index) => {
     const editedItem = editedItems[index]
-    return !editedItem || item.product_id !== editedItem.product_id || Number(item.quantity) !== Number(editedItem.quantity)
+    return !editedItem ||
+      item.product_id !== editedItem.product_id ||
+      item.name !== editedItem.name ||
+      Number(item.price) !== Number(editedItem.price) ||
+      Number(item.quantity) !== Number(editedItem.quantity) ||
+      (item.image ?? '') !== (editedItem.image ?? '')
   })
 }
 
@@ -333,9 +494,10 @@ function calculateEditedOrderTotals(
     exchange_rate?: number | null
   },
   items: OrderItem[],
+  shippingFeeOverride?: number,
 ) {
   const subtotal = items.reduce((sum, item) => sum + Math.max(0, Number(item.price) || 0) * Math.max(0, Number(item.quantity) || 0), 0)
-  const shippingFee = Math.max(0, toFiniteNumber(order.shipping_fee, SHIPPING_FEE_PKR))
+  const shippingFee = Math.max(0, shippingFeeOverride ?? toFiniteNumber(order.shipping_fee, SHIPPING_FEE_PKR))
   const storedDiscountPercent = Math.max(0, toFiniteNumber(order.discount_percent))
   const storedDiscountAmount = Math.max(0, toFiniteNumber(order.discount_amount))
   const discountAmount = Math.min(
@@ -359,6 +521,48 @@ function calculateEditedOrderTotals(
     displayCurrency,
     displayExchangeRate,
   }
+}
+
+function calculateStoredOrderTotals(
+  order: {
+    subtotal?: number | null
+    total?: number | null
+    shipping_fee?: number | null
+    discount_amount?: number | null
+    discount_percent?: number | null
+    display_currency?: string | null
+    exchange_rate?: number | null
+  },
+  shippingFeeOverride?: number,
+) {
+  const subtotal = Math.max(0, toFiniteNumber(order.subtotal, toFiniteNumber(order.total)))
+  const shippingFee = Math.max(0, shippingFeeOverride ?? toFiniteNumber(order.shipping_fee, SHIPPING_FEE_PKR))
+  const discountAmount = Math.min(subtotal, Math.max(0, toFiniteNumber(order.discount_amount)))
+  const discountPercent = subtotal > 0
+    ? Number(((discountAmount / subtotal) * 100).toFixed(2))
+    : Math.max(0, toFiniteNumber(order.discount_percent))
+  const total = Math.max(0, subtotal + shippingFee - discountAmount)
+  const displayCurrency = normalizeCurrency(order.display_currency)
+  const exchangeRate = toFiniteNumber(order.exchange_rate)
+  const displayExchangeRate = exchangeRate > 0 ? exchangeRate : undefined
+
+  return {
+    subtotal,
+    shippingFee,
+    discountAmount,
+    discountPercent,
+    total,
+    displayCurrency,
+    displayExchangeRate,
+  }
+}
+
+function parseEditableOrderDate(value?: string | null) {
+  const clean = String(value ?? '').trim()
+  if (!clean) return null
+  const parsed = new Date(clean)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toISOString()
 }
 
 function buildSequentialInvoiceNumbers(startingInvoiceNumber: string, count: number) {
@@ -426,6 +630,7 @@ export async function placeOrderAction(
     }
   }
 
+  const customerEmail = parsed.data.email.trim() || null
   let items: OrderItem[] = cartItemsToOrderItems(resolvedCart)
   const stockCheck = await validateAndAnnotateOrderStock(items)
   if (stockCheck.error) {
@@ -516,7 +721,7 @@ export async function placeOrderAction(
 
   const shippingAddress = {
     fullName: parsed.data.fullName,
-    email: parsed.data.email,
+    email: customerEmail ?? '',
     phone: normalizePhone(parsed.data.phone),
     address: parsed.data.address,
     city: parsed.data.city,
@@ -526,7 +731,7 @@ export async function placeOrderAction(
 
   const orderPayload: Record<string, unknown> = {
     user_id: user?.id ?? null,
-    guest_email: user ? null : parsed.data.email,
+    guest_email: user ? null : customerEmail,
     access_token: accessToken,
     status,
     total,
@@ -700,11 +905,11 @@ export async function placeOrderAction(
   }
 
   try {
-    const emailResult = await sendOrderConfirmationEmail(parsed.data.email, order.id, invoiceNumber, invoiceHtml, {
+    const emailResult = await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber, invoiceHtml, {
       accessToken: accessToken ?? undefined,
       pdfBase64,
       customerName: parsed.data.fullName,
-      customerEmail: parsed.data.email,
+      customerEmail,
       customerPhone: shippingAddress.phone,
       orderDate: order.created_at ?? new Date().toISOString(),
       paymentStatus: order.status,
@@ -737,7 +942,7 @@ export async function placeOrderAction(
       status: order.status,
       paymentMethod,
       shippingAddress,
-      fallbackEmail: parsed.data.email,
+      fallbackEmail: customerEmail,
       fallbackPhone: shippingAddress.phone,
       receiptUpload,
       receiptFile,
@@ -880,6 +1085,7 @@ export async function updateCustomerOrderDetailsAction(
   }
 
   try {
+    const customerEmail = parsed.data.email.trim() || null
     const result = await getAuthorizedCustomerOrder(parsed.data.orderId, parsed.data.token, parsed.data.editToken)
     if (result.error || !result.order || !result.serviceSupabase) {
       return { success: false, error: result.error ?? 'Order could not be found.' }
@@ -889,11 +1095,11 @@ export async function updateCustomerOrderDetailsAction(
     }
 
     const existingItems = normalizeStoredOrderItems(result.order.items)
-    const editedItemsResult = parseCustomerEditedOrderItems(formData, existingItems)
+    const editedItemsResult = await parseCustomerEditedOrderItems(formData, existingItems)
     if (editedItemsResult.error || !editedItemsResult.items) {
       return { success: false, error: editedItemsResult.error ?? 'Order items are incomplete.' }
     }
-    const itemsChanged = existingItems.length > 0 && haveOrderItemsChanged(existingItems, editedItemsResult.items)
+    const itemsChanged = haveOrderItemsChanged(existingItems, editedItemsResult.items)
     const stockCheck = itemsChanged ? await validateAndAnnotateEditedOrderStock(existingItems, editedItemsResult.items) : null
     if (stockCheck?.error) {
       return { success: false, error: stockCheck.error }
@@ -913,7 +1119,7 @@ export async function updateCustomerOrderDetailsAction(
 
     const shippingAddress = {
       fullName: parsed.data.fullName,
-      email: parsed.data.email,
+      email: customerEmail ?? '',
       phone: normalizePhone(parsed.data.phone),
       address: parsed.data.address,
       city: parsed.data.city,
@@ -958,7 +1164,7 @@ export async function updateCustomerOrderDetailsAction(
       updatePayload.receipt_size_bytes = receiptUpload.sizeBytes
       updatePayload.receipt_uploaded_at = new Date().toISOString()
     }
-    if (!result.order.user_id) updatePayload.guest_email = parsed.data.email
+    if (!result.order.user_id) updatePayload.guest_email = customerEmail
 
     const { error } = await result.serviceSupabase
       .from('orders')
@@ -975,7 +1181,7 @@ export async function updateCustomerOrderDetailsAction(
         status,
         paymentMethod,
         shippingAddress,
-        fallbackEmail: parsed.data.email,
+        fallbackEmail: customerEmail,
         fallbackPhone: shippingAddress.phone,
         receiptUpload,
         receiptFile,
@@ -1038,6 +1244,177 @@ export async function cancelCustomerOrderAction(
     return { success: true }
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error, 'Order could not be cancelled.') }
+  }
+}
+
+export async function adminUpdateOrderDetailsAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult<{ customerEmailSent: boolean; customerEmailSkipped: boolean }>> {
+  await requireAdmin()
+
+  const parsed = adminOrderEditSchema.safeParse({
+    orderId: formData.get('orderId'),
+    fullName: formData.get('fullName'),
+    email: formData.get('email'),
+    phone: formData.get('phone'),
+    address: formData.get('address'),
+    city: formData.get('city'),
+    zip: formData.get('zip') || '',
+    country: formData.get('country') || 'Pakistan',
+    paymentMethod: formData.get('paymentMethod'),
+    status: formData.get('status'),
+    createdAt: formData.get('createdAt') || undefined,
+    shippingFee: formData.get('shippingFee'),
+    resendCustomerEmail: formData.get('resendCustomerEmail'),
+  })
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: friendlyErrorMessage(parsed.error.errors[0]?.message, 'Order details are incomplete.'),
+    }
+  }
+
+  const customerEmail = parsed.data.email.trim() || null
+  const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
+  const shippingAddress = {
+    fullName: parsed.data.fullName,
+    email: customerEmail ?? '',
+    phone: normalizePhone(parsed.data.phone),
+    address: parsed.data.address,
+    city: parsed.data.city,
+    zip: parsed.data.zip ?? '',
+    country: parsed.data.country,
+  }
+
+  try {
+    const supabase = await createServiceClient()
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, user_id, access_token, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason, payment_method, phone, guest_email, shipping_address')
+      .eq('id', parsed.data.orderId)
+      .single()
+
+    if (fetchError || !order) {
+      return { success: false, error: friendlyErrorMessage(fetchError ?? 'Order not found', 'Order could not be found.') }
+    }
+
+    const existingItems = normalizeStoredOrderItems(order.items)
+    const editedItemsResult = parseAdminEditedOrderItems(formData)
+    if (editedItemsResult.error || !editedItemsResult.items) {
+      return { success: false, error: editedItemsResult.error ?? 'Order items are incomplete.' }
+    }
+
+    const itemsChanged = haveOrderItemsChanged(existingItems, editedItemsResult.items)
+    const stockCheck = itemsChanged ? await validateAndAnnotateEditedOrderStock(existingItems, editedItemsResult.items) : null
+    if (stockCheck?.error) return { success: false, error: stockCheck.error }
+
+    const finalItems = stockCheck?.items ?? editedItemsResult.items
+    const recalculatedEditedTotals = calculateEditedOrderTotals(order, finalItems, parsed.data.shippingFee)
+    const editedTotals = recalculatedEditedTotals ?? calculateStoredOrderTotals(order, parsed.data.shippingFee)
+    const editedOrderItems = recalculatedEditedTotals.items
+    const emailOrderItems = editedOrderItems
+    const editedCreatedAt = parseEditableOrderDate(parsed.data.createdAt)
+    const updatePayload: Record<string, unknown> = {
+      payment_method: paymentMethod,
+      phone: shippingAddress.phone,
+      shipping_address: shippingAddress,
+      status: parsed.data.status,
+      subtotal: editedTotals.subtotal,
+      shipping_fee: editedTotals.shippingFee,
+      discount_amount: editedTotals.discountAmount,
+      discount_percent: editedTotals.discountPercent,
+      total: editedTotals.total,
+      display_currency: editedTotals.displayCurrency,
+      display_subtotal: convertCurrency(editedTotals.subtotal, editedTotals.displayCurrency, editedTotals.displayExchangeRate),
+      display_shipping_fee: convertCurrency(editedTotals.shippingFee, editedTotals.displayCurrency, editedTotals.displayExchangeRate),
+      display_discount_amount: convertCurrency(editedTotals.discountAmount, editedTotals.displayCurrency, editedTotals.displayExchangeRate),
+      display_total: convertCurrency(editedTotals.total, editedTotals.displayCurrency, editedTotals.displayExchangeRate),
+    }
+
+    if (editedCreatedAt) updatePayload.created_at = editedCreatedAt
+    if (itemsChanged && recalculatedEditedTotals) {
+      updatePayload.items = recalculatedEditedTotals.items
+      if (stockCheck) {
+        updatePayload.requires_admin_confirmation = stockCheck.requiresAdminConfirmation
+        updatePayload.admin_confirmation_reason = stockCheck.adminConfirmationReason
+      }
+    }
+    if (!order.user_id) updatePayload.guest_email = customerEmail
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update(updatePayload as never)
+      .eq('id', order.id)
+
+    if (updateError) return { success: false, error: friendlyErrorMessage(updateError, 'Order could not be updated.') }
+
+    if (itemsChanged && recalculatedEditedTotals) {
+      const lowStockAlerts = await applyStockDeltaForOrderEdit(order.id, existingItems, recalculatedEditedTotals.items)
+      await sendLowStockAlertEmail(
+        lowStockAlerts,
+        order.id,
+        String(order.invoice_number ?? order.id.slice(0, 8)),
+      )
+    }
+
+    let customerEmailSent = false
+    if (parsed.data.resendCustomerEmail && customerEmail) {
+      try {
+        const updatedOrder = {
+          ...order,
+          ...updatePayload,
+          items: itemsChanged ? editedOrderItems : order.items,
+        }
+        const invoiceNumber = String(order.invoice_number ?? order.id.slice(0, 8))
+        const template = await getInvoiceTemplate()
+        const invoiceHtml = buildInvoiceHtml(updatedOrder as never, template)
+        const pdfBytes = await buildInvoicePdf(updatedOrder as never, template)
+        const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
+
+        const emailResult = await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber, invoiceHtml, {
+          accessToken: order.access_token ?? undefined,
+          pdfBase64,
+          customerName: parsed.data.fullName,
+          customerEmail,
+          customerPhone: shippingAddress.phone,
+          orderDate: String(updatePayload.created_at ?? order.created_at ?? new Date().toISOString()),
+          paymentStatus: parsed.data.status,
+          paymentMethod,
+          total: editedTotals.total,
+          displayCurrency: editedTotals.displayCurrency,
+          displayTotal: convertCurrency(editedTotals.total, editedTotals.displayCurrency, editedTotals.displayExchangeRate),
+          exchangeRate: editedTotals.displayExchangeRate,
+          items: emailOrderItems,
+          shippingAddress,
+          requiresAdminConfirmation: Boolean(updatePayload.requires_admin_confirmation ?? order.requires_admin_confirmation),
+          adminConfirmationReason: String(updatePayload.admin_confirmation_reason ?? order.admin_confirmation_reason ?? ''),
+          notificationType: 'updated',
+          sendAdminEmail: false,
+        })
+        customerEmailSent = emailResult.sent
+      } catch (emailError) {
+        console.error('[Admin order edit] Customer resend failed', {
+          orderId: order.id,
+          invoiceNumber: order.invoice_number,
+          error: errorForLog(emailError),
+        })
+      }
+    }
+
+    revalidatePath('/admin/orders')
+    revalidatePath('/checkout/success')
+    revalidatePath('/dashboard')
+    return {
+      success: true,
+      data: {
+        customerEmailSent,
+        customerEmailSkipped: !parsed.data.resendCustomerEmail || !customerEmail,
+      },
+    }
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error, 'Order could not be updated.') }
   }
 }
 
@@ -1199,6 +1576,11 @@ export async function updateOrderStatusFormAction(formData: FormData): Promise<v
 export async function confirmPaymentFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const result = await confirmOrderPaymentAction(orderId)
+  if (!result.success) throw new Error(result.error)
+}
+
+export async function adminUpdateOrderDetailsFormAction(formData: FormData): Promise<void> {
+  const result = await adminUpdateOrderDetailsAction({ success: false }, formData)
   if (!result.success) throw new Error(result.error)
 }
 

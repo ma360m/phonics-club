@@ -143,6 +143,90 @@ export const EVENT_IMAGE_MANIFEST: Record<string, BlogGalleryImage[]> = {
       "caption": null
     }
   ],
+  "photos/Bright vision school": [
+    {
+      "src": "/images/photos/Bright%20vision%20school/7.jpeg",
+      "alt": "Bright vision school event photograph 1",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/8.jpeg",
+      "alt": "Bright vision school event photograph 2",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/9.jpeg",
+      "alt": "Bright vision school event photograph 3",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/10.jpeg",
+      "alt": "Bright vision school event photograph 4",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/11.jpeg",
+      "alt": "Bright vision school event photograph 5",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/12.jpeg",
+      "alt": "Bright vision school event photograph 6",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/13.jpeg",
+      "alt": "Bright vision school event photograph 7",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/14.jpeg",
+      "alt": "Bright vision school event photograph 8",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/15.jpeg",
+      "alt": "Bright vision school event photograph 9",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/16.jpeg",
+      "alt": "Bright vision school event photograph 10",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/17.jpeg",
+      "alt": "Bright vision school event photograph 11",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/Bright%20vision%20school/18.jpeg",
+      "alt": "Bright vision school event photograph 12",
+      "caption": null
+    }
+  ],
+  "photos/chakwal training alfatah school": [
+    {
+      "src": "/images/photos/chakwal%20training%20alfatah%20school/1.jpeg",
+      "alt": "chakwal training alfatah school event photograph 1",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/chakwal%20training%20alfatah%20school/2.jpeg",
+      "alt": "chakwal training alfatah school event photograph 2",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/chakwal%20training%20alfatah%20school/3.jpeg",
+      "alt": "chakwal training alfatah school event photograph 3",
+      "caption": null
+    },
+    {
+      "src": "/images/photos/chakwal%20training%20alfatah%20school/4.jpeg",
+      "alt": "chakwal training alfatah school event photograph 4",
+      "caption": null
+    }
+  ],
   "photos/Gilgit and hunza training  April 2025 pilot project": [
     {
       "src": "/images/photos/Gilgit%20and%20hunza%20training%20%20April%202025%20pilot%20project/1.jpeg",

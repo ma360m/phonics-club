@@ -1,4 +1,4 @@
-import { isEnrollmentActive } from '@/lib/lms'
+import { evaluateCourseCompletion, getCourseById, isEnrollmentActive } from '@/lib/lms'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
 import { mobileLearningHeartbeatSchema } from '@/lib/mobile-api/schemas'
@@ -118,6 +118,11 @@ export async function POST(
         } as never,
         { onConflict: 'user_id,course_id,lesson_id' },
       )
+    }
+
+    if (creditedSeconds > 0) {
+      const course = await getCourseById(parsed.data.courseId, { includeUnpublished: true })
+      if (course) await evaluateCourseCompletion(course, context.user.id)
     }
 
     return createMobileApiResponse(

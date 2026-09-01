@@ -1,4 +1,5 @@
 import { COMPANY, COMPANY_BANK_DETAILS } from '@/lib/company'
+import { normalizeShopBankDetails } from '@/lib/bank-details'
 import {
   buildInvoiceSummary,
   formatDiscountPercent,
@@ -6,9 +7,10 @@ import {
   type InvoiceOrder,
 } from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
-import { shopPaymentLabel, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
+import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
+import { INVOICE_STOCK_PAYMENT_NOTICE } from '@/lib/invoice-notices'
 
 interface InvoiceTemplate {
   header?: string
@@ -69,17 +71,31 @@ function invoiceTagline(value?: string) {
   return tagline
 }
 
+function buildDiscountMeta(order: InvoiceOrder) {
+  return [
+    order.coupon_code ? `Coupon code: ${order.coupon_code}` : null,
+    order.member_id ? `Member ID: ${order.member_id}` : null,
+  ].filter(Boolean).join(' | ')
+}
+
+function shippingValueHtml(summary: ReturnType<typeof buildInvoiceSummary>) {
+  if (summary.shippingDiscount > 0) {
+    const originalShipping = summary.shipping + summary.shippingDiscount
+    return `${formatPrice(summary.shipping)} <span style="color:#64748b;font-size:11px;font-weight:400">(was ${formatPrice(originalShipping)})</span>`
+  }
+
+  return formatPrice(summary.shipping)
+}
+
 export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate): string {
   const summary = buildInvoiceSummary(order)
   const showDiscountBreakdown = invoiceHasProvidedDiscount(order)
   const addr = order.shipping_address as Record<string, string> | null
-  const bankDetails = {
-    ...COMPANY_BANK_DETAILS,
-    ...(template?.bankDetails ?? {}),
-  }
-  const showBankDetails = shopPaymentNeedsReceipt(order.payment_method)
+  const bankDetails = normalizeShopBankDetails(COMPANY_BANK_DETAILS)
+  const showBankDetails = true
   const tagline = invoiceTagline(template?.tagline)
   const contactPhoneDisplay = template?.contactPhoneDisplay?.trim() || COMPANY.phoneDisplay
+  const discountMeta = buildDiscountMeta(order)
   const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
   const exchangeRate = Number(order.exchange_rate ?? 0)
   const displaySubtotal = Number(order.display_subtotal ?? 0)
@@ -88,10 +104,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
   const displayTotal = Number(order.display_total ?? 0)
   const discountLabel =
     order.coupon_code || order.member_id
-      ? [
-          order.coupon_code ? `Coupon ${escapeHtml(order.coupon_code)}${Number(order.coupon_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.coupon_discount_percent))})` : ''}` : null,
-          order.member_id ? `Member discount${Number(order.member_discount_percent ?? 0) > 0 ? ` (${formatDiscountPercent(Number(order.member_discount_percent))})` : ''}` : null,
-        ].filter(Boolean).join(' + ')
+      ? formatDiscountPercent(summary.discountPercent)
       : formatDiscountPercent(summary.discountPercent)
   const usdSummary =
     displayCurrency && exchangeRate && displayTotal
@@ -115,6 +128,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         ? `<br><span style="display:block;margin-top:4px;color:#b45309;font-size:12px;font-weight:700">${escapeHtml(line.item.stock_note)}</span>`
         : ''
       return `<tr>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:center;color:#64748b">${line.position}</td>
         <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${stockNote}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
@@ -152,7 +166,6 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
         <p style="margin:4px 0">${escapeHtml(addr?.fullName ?? '')}</p>
         <p style="margin:4px 0">${escapeHtml(addr?.email ?? '')}</p>
         <p style="margin:4px 0">${escapeHtml(order.phone ?? addr?.phone ?? '')}</p>
-        ${order.member_id ? `<p style="margin:4px 0"><strong>Member ID:</strong> ${escapeHtml(order.member_id)}</p>` : ''}
         <p style="margin:4px 0">${escapeHtml(addr?.address ?? '')}${addr?.city ? `, ${escapeHtml(addr.city)}` : ''}</p>
         <p style="margin:4px 0">${escapeHtml(addr?.country ?? 'Pakistan')}</p>
       </div>
@@ -160,6 +173,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
 
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:white;border:1px solid #b6c3d8">
       <thead><tr style="background:#f1f5f9">
+        <th style="width:42px;padding:10px;text-align:center;border:1px solid #b6c3d8">#</th>
         <th style="padding:10px;text-align:left;border:1px solid #b6c3d8">Item</th>
         <th style="padding:10px;text-align:center;border:1px solid #b6c3d8">Qty</th>
         <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Price</th>
@@ -172,11 +186,12 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="width:340px;border:1px solid #b6c3d8;background:white;border-radius:8px;overflow:hidden">
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
-        ${showDiscountBreakdown && summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Final Discount - ${discountLabel}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total Quantity</span><strong>${summary.totalQuantity}</strong></p>
+        ${showDiscountBreakdown && summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Discount${discountLabel !== '0%' ? ` (${discountLabel})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
         ${showDiscountBreakdown ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>` : ''}
-        ${summary.shippingDiscount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Waived${order.shipping_discount_reason ? ` (${escapeHtml(order.shipping_discount_reason)})` : ''}</span><strong>-${formatPrice(summary.shippingDiscount)}</strong></p>` : ''}
-        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping Fee</span><strong>${formatPrice(summary.shipping)}</strong></p>
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping</span><strong>${shippingValueHtml(summary)}</strong></p>
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
+        ${discountMeta ? `<p style="margin:0;padding:8px 12px;background:#f8fafc;color:#64748b;font-size:11px;line-height:1.4">${escapeHtml(discountMeta)}</p>` : ''}
         ${displayCurrency && exchangeRate && displayTotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;background:#f8fafc;color:#64748b;font-size:12px"><span>Displayed at checkout</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p><p style="margin:0;padding:0 12px 10px;background:#f8fafc;color:#64748b;font-size:12px">Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR</p>` : ''}
       </div>
     </div>
@@ -192,7 +207,8 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     </div>` : ''}
 
     <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">
-      <p style="margin:0"><strong>Shipping Notice:</strong> ${escapeHtml(footerNote)}</p>
+      <p style="margin:0;color:#92400e"><strong>Stock & Payment Notice:</strong> ${escapeHtml(INVOICE_STOCK_PAYMENT_NOTICE)}</p>
+      <p style="margin:8px 0 0"><strong>Shipping Notice:</strong> ${escapeHtml(footerNote)}</p>
       <p style="margin:8px 0 0">Contact: ${escapeHtml(COMPANY.adminEmail)} | ${escapeHtml(contactPhoneDisplay)}</p>
     </div>
   </main>

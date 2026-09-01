@@ -228,8 +228,8 @@ export async function sendPaymentReceiptAdminEmail(input: PaymentReceiptAdminEma
   if (!to.length) return { sent: false, reason: 'No admin email configured.' }
 
   const from = process.env.PAYMENT_RECEIPT_EMAIL_FROM?.trim()
-    || process.env.COURSE_LICENSE_EMAIL_FROM?.trim()
     || process.env.ORDER_EMAIL_FROM?.trim()
+    || process.env.COURSE_LICENSE_EMAIL_FROM?.trim()
     || 'Phonics Club <info@phonicsclub.com>'
   const attachments = await receiptAttachmentFromFile(input.attachmentFile)
   const result = await sendTransactionalEmail({

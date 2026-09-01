@@ -192,9 +192,10 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
   const displayCurrency = normalizeCurrency(input.selectedDisplayCurrency, currencySettings.usdEnabled)
   const exchangeRate = currencySettings.usdToPkrRate
   const invoiceNumber = await getNextInvoiceNumber()
+  const customerEmail = input.deliveryAddress.email?.trim() || context.profile.email || context.user.email || ''
   const shippingAddress = {
     fullName: input.deliveryAddress.fullName,
-    email: input.deliveryAddress.email,
+    email: customerEmail,
     phone: normalizePhone(input.deliveryAddress.phone),
     address: input.deliveryAddress.address,
     city: input.deliveryAddress.city,
@@ -258,14 +259,14 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
     const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
 
     await sendOrderConfirmationEmail(
-      shippingAddress.email,
+      customerEmail,
       String(createdOrder.id),
       String(createdOrder.invoice_number ?? invoiceNumber),
       invoiceHtml,
       {
         pdfBase64,
         customerName: shippingAddress.fullName,
-        customerEmail: shippingAddress.email,
+        customerEmail,
         customerPhone: shippingAddress.phone,
         orderDate: String(createdOrder.created_at ?? new Date().toISOString()),
         paymentStatus: String(createdOrder.status ?? status),

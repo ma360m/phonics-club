@@ -151,6 +151,7 @@ export function CheckoutForm({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
+  const checkoutQuantityTotal = checkoutItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
   const hasUnavailableCheckoutItems = checkoutItems.some((item) => item.stock_status === 'out_of_stock')
 
   useEffect(() => {
@@ -425,17 +426,22 @@ export function CheckoutForm({
           </div>
           {checkoutItems.length ? (
             <ul className="space-y-2">
-              {checkoutItems.map((item) => {
+              {checkoutItems.map((item, index) => {
                 const productId = item.product_id ?? item.id ?? item.name
                 const updating = cartUpdatingId === item.product_id
                 return (
                   <li key={productId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold leading-snug text-[#0F172A] sm:text-base">{item.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{format(item.price)} each</p>
-                      {item.stock_note ? (
-                        <p className="mt-1 text-xs font-medium text-amber-700">{item.stock_note}</p>
-                      ) : null}
+                    <div className="flex min-w-0 gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] font-mono text-xs font-bold text-[#1D4ED8]">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold leading-snug text-[#0F172A] sm:text-base">{item.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{format(item.price)} each</p>
+                        {item.stock_note ? (
+                          <p className="mt-1 text-xs font-medium text-amber-700">{item.stock_note}</p>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 sm:justify-end">
                       <div className="flex shrink-0 items-center rounded-full border border-slate-200 bg-[#F8FAFC] p-1">
@@ -480,6 +486,10 @@ export function CheckoutForm({
             </div>
           )}
           <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-sm">
+            <span className="text-slate-500">Total quantity</span>
+            <span className="font-semibold text-[#0F172A]">{checkoutQuantityTotal}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-sm">
             <span className="text-slate-500">Cart subtotal</span>
             <span className="font-bold text-[#1D4ED8]">{format(checkoutSubtotal)}</span>
           </div>
@@ -500,15 +510,14 @@ export function CheckoutForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email (optional)</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              required
               value={details.email}
               onChange={(event) => updateDetails('email', event.target.value)}
-              placeholder="you@email.com"
+              placeholder="For invoice email, if available"
               className="rounded-lg"
             />
           </div>
@@ -764,6 +773,7 @@ export function CheckoutForm({
           <InvoicePreview
             details={details}
             cartItems={checkoutItems}
+            totalQuantity={checkoutQuantityTotal}
             subtotal={checkoutSubtotal}
             shipping={shipping}
             shippingDiscount={shippingDiscount}
@@ -822,7 +832,7 @@ export function CheckoutForm({
           <p className="text-center text-xs text-muted-foreground">
             {currency === 'USD'
               ? `Your prices are displayed in USD. Payment will be processed in PKR using 1 USD = ${settings.usdToPkrRate.toLocaleString('en-PK')} PKR.`
-              : 'confirmation emails are sent to inbox.'}
+              : 'If an email is provided, the invoice is also sent to the inbox.'}
           </p>
         </div>
       </aside>
@@ -833,6 +843,7 @@ export function CheckoutForm({
 function InvoicePreview({
   details,
   cartItems,
+  totalQuantity,
   subtotal,
   shipping,
   shippingDiscount,
@@ -849,6 +860,7 @@ function InvoicePreview({
 }: {
   details: CheckoutDetails
   cartItems: CheckoutItem[]
+  totalQuantity: number
   subtotal: number
   shipping: number
   shippingDiscount: number
@@ -874,7 +886,7 @@ function InvoicePreview({
 
       <div className="space-y-1">
         <p className="font-semibold">{details.fullName}</p>
-        <p className="text-muted-foreground">{details.email}</p>
+        {details.email ? <p className="text-muted-foreground">{details.email}</p> : null}
         <p className="text-muted-foreground">{details.phone}</p>
         <p className="text-muted-foreground">
           {[details.address, details.city, details.zip, 'Pakistan'].filter(Boolean).join(', ')}
@@ -884,9 +896,11 @@ function InvoicePreview({
       <div>
         <p className="mb-2 font-semibold">Ordered items</p>
         <ul className="space-y-2">
-          {cartItems.map((item) => (
-            <li key={`${item.name}-${item.quantity}`} className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:justify-between">
-              <span className="min-w-0">
+          {cartItems.map((item, index) => (
+            <li key={`${item.name}-${item.quantity}-${index}`} className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:justify-between">
+              <span className="flex min-w-0 gap-2">
+                <span className="font-mono text-xs font-semibold text-slate-500">{index + 1}.</span>
+                <span className="min-w-0">
                 <span className="block break-words font-medium">{item.name}</span>
                 <span className="text-xs text-muted-foreground">
                   {item.quantity} x {format(item.price)}
@@ -894,6 +908,7 @@ function InvoicePreview({
                 {item.stock_note ? (
                   <span className="mt-1 block text-xs font-medium text-amber-700">{item.stock_note}</span>
                 ) : null}
+                </span>
               </span>
               <span className="shrink-0 text-right font-semibold">{format(item.price * item.quantity)}</span>
             </li>
@@ -902,8 +917,21 @@ function InvoicePreview({
       </div>
 
       <div className="space-y-2 border-t pt-4">
+        <div className="flex justify-between"><span>Total quantity</span><span>{totalQuantity}</span></div>
         <div className="flex justify-between"><span>Subtotal</span><span>{format(subtotal)}</span></div>
-        <div className="flex justify-between"><span>Shipping</span><span>{format(shipping)}</span></div>
+        <div className="flex justify-between">
+          <span>Shipping</span>
+          <span className="text-right">
+            {shippingDiscount > 0 ? (
+              <>
+                <span className="block font-semibold">Free</span>
+                <span className="block text-xs text-muted-foreground">was {format(shipping)}</span>
+              </>
+            ) : (
+              format(shipping)
+            )}
+          </span>
+        </div>
         {couponDiscount > 0 && (
           <div className="flex justify-between text-[#D30000]">
             <span>
@@ -920,12 +948,6 @@ function InvoicePreview({
               {memberDiscountPercent ? ` ${memberDiscountPercent}%` : ''}
             </span>
             <span>-{format(memberDiscount)}</span>
-          </div>
-        )}
-        {shippingDiscount > 0 && (
-          <div className="flex justify-between text-[#D30000]">
-            <span>Shipping waived{memberId ? ` by ${memberId}` : ''}</span>
-            <span>-{format(shippingDiscount)}</span>
           </div>
         )}
         {couponDiscount > 0 && memberDiscount > 0 && (

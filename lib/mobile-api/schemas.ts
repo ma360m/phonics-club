@@ -10,7 +10,7 @@ export const mobilePaginationSchema = z.object({
 
 export const mobileAddressSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
-  email: z.string().trim().email().max(255),
+  email: z.string().trim().email().max(255).optional().or(z.literal('')).default(''),
   phone: z.string().trim().min(7).max(40),
   address: z.string().trim().min(5).max(500),
   city: z.string().trim().min(2).max(120),

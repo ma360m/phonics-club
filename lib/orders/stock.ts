@@ -40,10 +40,14 @@ interface StockProduct {
   metadata?: Record<string, unknown> | null
 }
 
+function isStockManagedOrderItem(item: OrderItem) {
+  return Boolean(item.product_id && !/^(custom|manual|invoice-line):/i.test(item.product_id))
+}
+
 function aggregateItemQuantities(items: OrderItem[]) {
   const quantities = new Map<string, number>()
   for (const item of items) {
-    if (!item.product_id) continue
+    if (!isStockManagedOrderItem(item)) continue
     quantities.set(item.product_id, (quantities.get(item.product_id) ?? 0) + Math.max(0, Number(item.quantity) || 0))
   }
   return quantities
@@ -60,12 +64,14 @@ async function validateAndAnnotateStock(items: OrderItem[], previousItems: Order
     }
   }
 
-  const productIds = Array.from(new Set(items.map((item) => item.product_id).filter(Boolean)))
+  const productIds = Array.from(new Set(items.filter(isStockManagedOrderItem).map((item) => item.product_id).filter(Boolean)))
   const supabase = await createServiceClient()
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, published, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, max_backorder_quantity, max_purchase_quantity, estimated_availability_date, backorder_message, metadata')
-    .in('id', productIds)
+  const { data, error } = productIds.length
+    ? await supabase
+        .from('products')
+        .select('id, name, published, stock, reserved_stock, low_stock_threshold, stock_management_enabled, backorder_policy, max_backorder_quantity, max_purchase_quantity, estimated_availability_date, backorder_message, metadata')
+        .in('id', productIds)
+    : { data: [], error: null }
 
   if (error) {
     return {
@@ -84,6 +90,11 @@ async function validateAndAnnotateStock(items: OrderItem[], previousItems: Order
 
   const annotatedItems: StockAwareOrderItem[] = []
   for (const item of items) {
+    if (!isStockManagedOrderItem(item)) {
+      annotatedItems.push({ ...item })
+      continue
+    }
+
     const product = products.get(item.product_id)
     if (!product || product.published === false) {
       return {

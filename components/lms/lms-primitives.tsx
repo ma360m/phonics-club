@@ -44,25 +44,43 @@ export function LmsStatCard({
   detail,
   icon: Icon,
   tone = 'blue',
+  href,
 }: {
   title: string
   value: string | number
   detail?: string
   icon: LucideIcon
   tone?: keyof typeof toneClasses
+  href?: string
 }) {
-  return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-[#BFDBFE]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-1 text-2xl font-bold text-[#0F172A]">{value}</p>
-          {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
-        </div>
-        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border', toneClasses[tone])}>
-          <Icon className="h-4 w-4" />
-        </span>
+  const className = cn(
+    'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-[#BFDBFE]',
+    href && 'block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2'
+  )
+  const content = (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium text-slate-500">{title}</p>
+        <p className="mt-1 text-2xl font-bold text-[#0F172A]">{value}</p>
+        {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
       </div>
+      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border', toneClasses[tone])}>
+        <Icon className="h-4 w-4" />
+      </span>
+    </div>
+  )
+
+  if (href) {
+    return (
+      <a href={href} className={className} aria-label={`${title}: ${value}. ${detail ?? 'Open details'}`}>
+        {content}
+      </a>
+    )
+  }
+
+  return (
+    <article className={className}>
+      {content}
     </article>
   )
 }

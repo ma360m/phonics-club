@@ -17,9 +17,19 @@ const pakistanPhone = z
     { message: 'Enter a valid Pakistan mobile number (e.g. 0300 8079480 or +92 300 8079480)' }
   )
 
+const optionalEmail = z.preprocess(
+  (value) => String(value ?? '').trim(),
+  z
+    .string()
+    .max(255, 'Enter a shorter email address.')
+    .refine((value) => !value || z.string().email().safeParse(value).success, {
+      message: 'Enter a valid email address.',
+    }),
+)
+
 export const checkoutBaseSchema = z.object({
   fullName: z.string().trim().min(2, 'Enter your full name.').max(120, 'Enter a shorter full name.'),
-  email: z.string().trim().email('Enter a valid email address.'),
+  email: optionalEmail,
   phone: pakistanPhone,
   address: z.string().trim().min(5, 'Enter a complete delivery address.'),
   city: z.string().trim().min(2, 'Enter your city.'),

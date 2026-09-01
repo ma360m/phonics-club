@@ -106,6 +106,7 @@ export function FastInvoiceForm({
     }]
   })
   const subtotal = invoiceItems.reduce((sum, item) => sum + item.lineTotal, 0)
+  const totalQuantity = invoiceItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -230,7 +231,7 @@ export function FastInvoiceForm({
           showPreview()
         }
       }}
-      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]"
+      className="grid w-full max-w-full gap-6 lg:grid-cols-[minmax(0,1fr)_390px]"
     >
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="itemsJson" value={itemsJson} />
@@ -298,51 +299,108 @@ export function FastInvoiceForm({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border">
-          <table className="w-full min-w-[680px] text-sm">
-            <thead className="bg-muted/70 text-left">
-              <tr>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3 text-center">Qty</th>
-                <th className="px-4 py-3 text-right">Price</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 text-right">Remove</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {invoiceItems.map((item) => (
-                <tr key={item.productId}>
-                  <td className="px-4 py-3">
-                    <p className="font-semibold">{item.product.name}</p>
+        <div className="space-y-3">
+          <div className="space-y-3 sm:hidden">
+            {invoiceItems.map((item, index) => (
+              <article key={item.productId} className="rounded-xl border bg-background p-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] font-mono text-xs font-bold text-[#1D4ED8]">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words font-semibold">{item.product.name}</p>
                     {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <QuantityStepper
-                      value={item.quantity}
-                      min={1}
-                      max={getProductPurchaseLimit(item.product)}
-                      onChange={(quantity) => updateQuantity(item.productId, quantity)}
-                      className="mx-auto w-fit rounded-lg"
-                      buttonClassName="h-8 w-8"
-                      inputClassName="h-8 w-10 text-xs"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-right">{format(item.price)}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{format(item.lineTotal)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button type="button" variant="ghost" size="icon-sm" className="rounded-lg text-destructive" onClick={() => removeItem(item.productId)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!invoiceItems.length ? (
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 rounded-lg text-destructive"
+                    onClick={() => removeItem(item.productId)}
+                    aria-label={`Remove ${item.product.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quantity</span>
+                  <QuantityStepper
+                    value={item.quantity}
+                    min={1}
+                    max={getProductPurchaseLimit(item.product)}
+                    onChange={(quantity) => updateQuantity(item.productId, quantity)}
+                    className="w-fit rounded-lg"
+                    buttonClassName="h-8 w-8"
+                    inputClassName="h-8 w-10 text-xs"
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-muted/60 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Price</p>
+                    <p className="mt-1 font-semibold">{format(item.price)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 px-3 py-2 text-right">
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="mt-1 font-bold text-[#1D4ED8]">{format(item.lineTotal)}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+            {!invoiceItems.length ? (
+              <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+                No items selected.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-xl border sm:block">
+            <table className="w-full min-w-[680px] text-sm">
+              <thead className="bg-muted/70 text-left">
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No items selected.</td>
+                  <th className="w-12 px-4 py-3 text-center">#</th>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3 text-center">Qty</th>
+                  <th className="px-4 py-3 text-right">Price</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Remove</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {invoiceItems.map((item, index) => (
+                  <tr key={item.productId}>
+                    <td className="px-4 py-3 text-center font-mono text-xs text-slate-500">{index + 1}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">{item.product.name}</p>
+                      {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <QuantityStepper
+                        value={item.quantity}
+                        min={1}
+                        max={getProductPurchaseLimit(item.product)}
+                        onChange={(quantity) => updateQuantity(item.productId, quantity)}
+                        className="mx-auto w-fit rounded-lg"
+                        buttonClassName="h-8 w-8"
+                        inputClassName="h-8 w-10 text-xs"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right">{format(item.price)}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{format(item.lineTotal)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Button type="button" variant="ghost" size="icon-sm" className="rounded-lg text-destructive" onClick={() => removeItem(item.productId)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {!invoiceItems.length ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No items selected.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -351,8 +409,8 @@ export function FastInvoiceForm({
             <Input id="fast-name" name="fullName" required minLength={2} maxLength={120} className="rounded-xl" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fast-email">Email *</Label>
-            <Input id="fast-email" name="email" type="email" required defaultValue={recipientEmail ?? ''} className="rounded-xl" />
+            <Label htmlFor="fast-email">Email (optional)</Label>
+            <Input id="fast-email" name="email" type="email" defaultValue={recipientEmail ?? ''} placeholder="For invoice email, if available" className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-phone">Phone *</Label>
@@ -434,7 +492,7 @@ export function FastInvoiceForm({
         </div>
       </section>
 
-      <aside className="h-fit rounded-lg border bg-card p-4 sm:p-6 lg:sticky lg:top-24">
+      <aside className="min-w-0 h-fit rounded-lg border bg-card p-4 sm:p-6 lg:sticky lg:top-24">
         <div className="mb-5">
           <p className="text-sm font-semibold text-[#1D4ED8]">Invoice Preview</p>
           <h2 className="mt-1 text-2xl font-bold">Fast order</h2>
@@ -442,6 +500,7 @@ export function FastInvoiceForm({
         {previewReady ? (
           <FastPreview
             items={invoiceItems}
+            totalQuantity={totalQuantity}
             subtotal={subtotal}
             shipping={SHIPPING_FEE_PKR}
             shippingDiscount={shippingDiscount}
@@ -484,6 +543,7 @@ export function FastInvoiceForm({
 
 function FastPreview({
   items,
+  totalQuantity,
   subtotal,
   shipping,
   shippingDiscount,
@@ -499,6 +559,7 @@ function FastPreview({
     lineTotal: number
     stock: { status: ProductStockStatus; message?: string; ok: boolean }
   }>
+  totalQuantity: number
   subtotal: number
   shipping: number
   shippingDiscount: number
@@ -515,12 +576,15 @@ function FastPreview({
         <p className="mt-2 text-xl font-bold">Draft invoice</p>
       </div>
       <ul className="space-y-2">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <li key={item.productId} className="rounded-lg bg-muted/50 p-3">
             <div className="flex justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block break-words font-semibold">{item.product.name}</span>
-                <span className="text-xs text-muted-foreground">{item.quantity} x {format(item.price)}</span>
+              <span className="flex min-w-0 gap-2">
+                <span className="font-mono text-xs font-semibold text-slate-500">{index + 1}.</span>
+                <span className="min-w-0">
+                  <span className="block break-words font-semibold">{item.product.name}</span>
+                  <span className="text-xs text-muted-foreground">{item.quantity} x {format(item.price)}</span>
+                </span>
               </span>
               <span className="shrink-0 font-bold">{format(item.lineTotal)}</span>
             </div>
@@ -529,10 +593,22 @@ function FastPreview({
         ))}
       </ul>
       <div className="space-y-2 border-t pt-4">
+        <div className="flex justify-between"><span>Total quantity</span><span>{totalQuantity}</span></div>
         <div className="flex justify-between"><span>Subtotal</span><span>{format(subtotal)}</span></div>
-        <div className="flex justify-between"><span>Shipping</span><span>{format(shipping)}</span></div>
+        <div className="flex justify-between">
+          <span>Shipping</span>
+          <span className="text-right">
+            {shippingDiscount > 0 ? (
+              <>
+                <span className="block font-semibold">Free</span>
+                <span className="block text-xs text-muted-foreground">was {format(shipping)}</span>
+              </>
+            ) : (
+              format(shipping)
+            )}
+          </span>
+        </div>
         {totalDiscount > 0 ? <div className="flex justify-between text-[#D30000]"><span>Discount</span><span>-{format(totalDiscount)}</span></div> : null}
-        {shippingDiscount > 0 ? <div className="flex justify-between text-[#D30000]"><span>Shipping waived</span><span>-{format(shippingDiscount)}</span></div> : null}
         <div className="flex justify-between text-lg font-bold text-[#1D4ED8]">
           <span>Total</span>
           <span className="text-right">

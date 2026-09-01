@@ -17,6 +17,17 @@ interface CertificateRequestAdminEmailInput {
   status?: string | null
   source?: string | null
   requestedAt?: Date | string | null
+  checklist?: {
+    lessons: { completed: number; required: number; satisfied: boolean }
+    online: { minutes: number; required: number; satisfied: boolean }
+    offline: { minutes: number; required: number; satisfied: boolean }
+    quiz: { score: number | null; required: number; satisfied: boolean }
+    assignments: { passed: number; required: number; satisfied: boolean }
+    activeAccess: { expiresAt: string | null; satisfied: boolean }
+    eligible: boolean
+    completed: boolean
+    progress: number
+  } | null
 }
 
 function baseUrl() {
@@ -68,16 +79,33 @@ function formatDateTime(value?: Date | string | null) {
   })
 }
 
+function completionCheck(value: boolean) {
+  return value ? 'Satisfied' : 'Required'
+}
+
+function quizScoreLabel(checklist: NonNullable<CertificateRequestAdminEmailInput['checklist']>) {
+  return checklist.quiz.score === null
+    ? `Pending / ${checklist.quiz.required}% required`
+    : `${checklist.quiz.score}% / ${checklist.quiz.required}% required`
+}
+
 export async function sendCertificateRequestAdminEmail(input: CertificateRequestAdminEmailInput) {
   const to = adminEmailRecipients()
   if (!to.length) return { sent: false, reason: 'No admin email configured.' }
 
-  const from = process.env.COURSE_LICENSE_EMAIL_FROM?.trim() || process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
+  const from =
+    process.env.CERTIFICATE_REQUEST_EMAIL_FROM?.trim() ||
+    process.env.COURSE_LICENSE_EMAIL_FROM?.trim() ||
+    'Phonics Club <noreply@phonicsclub.com>'
   const studentName = input.student.name?.trim() || 'Student'
   const amount = Number(input.amount ?? 0)
   const amountLabel = formatPrice(Number.isFinite(amount) ? amount : 0, input.currency ?? input.course.currency ?? 'PKR')
   const adminPaymentsUrl = `${baseUrl()}/admin/course-payments`
   const certificatePageUrl = `${baseUrl()}/course/${input.course.id}/certificate?preview=admin`
+  const checklist = input.checklist ?? null
+  const adminNextStep = amount > 0
+    ? 'Review certificate payment status, confirm the paid amount, and use the course payment screen to approve or reject the certificate request.'
+    : `Confirm the learner's full certificate name if needed, then issue or reissue the certificate. Customer support replies should come from ${COMPANY.adminEmail}.`
 
   const html = `
     <!doctype html>
@@ -110,7 +138,18 @@ export async function sendCertificateRequestAdminEmail(input: CertificateRequest
                       ${detailRow('Source', input.source || 'Website certificate page')}
                       ${detailRow('Requested at', formatDateTime(input.requestedAt))}
                       ${input.paymentId ? detailRow('Payment ID', input.paymentId) : ''}
+                      ${checklist ? detailRow('Progress', `${checklist.progress}%`) : ''}
+                      ${checklist ? detailRow('Lessons', `${checklist.lessons.completed}/${checklist.lessons.required} - ${completionCheck(checklist.lessons.satisfied)}`) : ''}
+                      ${checklist ? detailRow('Online minutes', `${checklist.online.minutes}/${checklist.online.required} - ${completionCheck(checklist.online.satisfied)}`) : ''}
+                      ${checklist ? detailRow('Offline minutes', `${checklist.offline.minutes}/${checklist.offline.required} - ${completionCheck(checklist.offline.satisfied)}`) : ''}
+                      ${checklist ? detailRow('Quiz score', `${quizScoreLabel(checklist)} - ${completionCheck(checklist.quiz.satisfied)}`) : ''}
+                      ${checklist ? detailRow('Assignments', `${checklist.assignments.passed}/${checklist.assignments.required} - ${completionCheck(checklist.assignments.satisfied)}`) : ''}
+                      ${checklist ? detailRow('Certificate eligible', checklist.eligible ? 'Yes' : 'No') : ''}
                     </table>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;color:#334155;font-size:14px;line-height:1.7;margin:0 0 22px;padding:16px;">
+                      <strong>Admin next step:</strong><br />
+                      ${escapeHtml(adminNextStep)}
+                    </div>
                     <p style="margin:0 0 18px;">
                       <a href="${escapeHtml(adminPaymentsUrl)}" style="display:inline-block;border-radius:10px;background:#1D4ED8;color:#ffffff;font-size:14px;font-weight:700;line-height:1;text-decoration:none;padding:14px 20px;">Open Course Payments</a>
                     </p>

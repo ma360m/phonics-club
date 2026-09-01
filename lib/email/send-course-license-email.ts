@@ -399,11 +399,15 @@ export async function sendCourseCertificateIssuedEmail({
                       ${verificationUrl ? detailRow('Verification link', verificationUrl) : ''}
                     </table>
                     ${primaryButton('Open Certificate Page', certificateUrl)}
+                    <p style="color:#4b5563;font-size:13px;line-height:1.7;margin:20px 0 0;">
+                      This inbox is not monitored. For certificate name corrections or support, contact
+                      <a href="mailto:${escapeHtml(COMPANY.adminEmail)}" style="color:#1D4ED8;font-weight:700;text-decoration:none;">${escapeHtml(COMPANY.adminEmail)}</a>.
+                    </p>
                   </td>
                 </tr>
                 <tr>
                   <td style="background:#111827;color:#d1d5db;font-size:12px;line-height:1.7;padding:22px 30px;text-align:center;">
-                    This certificate was issued by ${escapeHtml(COMPANY.name)}.
+                    This certificate was issued by ${escapeHtml(COMPANY.name)} from ${escapeHtml(COURSE_LICENSE_EMAIL_ADDRESS)}.
                   </td>
                 </tr>
               </table>

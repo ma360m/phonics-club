@@ -40,7 +40,7 @@ interface OrderEmailOptions {
   accessToken?: string
   pdfBase64?: string
   customerName: string
-  customerEmail: string
+  customerEmail?: string | null
   customerPhone: string
   orderDate: string
   paymentStatus: string
@@ -53,6 +53,8 @@ interface OrderEmailOptions {
   shippingAddress: OrderEmailShippingAddress | null
   requiresAdminConfirmation?: boolean
   adminConfirmationReason?: string | null
+  notificationType?: 'created' | 'updated'
+  sendAdminEmail?: boolean
 }
 
 export interface LowStockEmailAlert {
@@ -95,6 +97,10 @@ function formatStatus(value: string): string {
   if (!clean) return 'Pending'
 
   return clean.replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function isLikelyEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 }
 
 function formatOrderDate(value: string): string {
@@ -207,6 +213,7 @@ function buildCustomerEmailHtml({
   exchangeRate,
   requiresAdminConfirmation,
   adminConfirmationReason,
+  notificationType = 'created',
 }: {
   customerName: string
   invoiceNumber: string
@@ -220,13 +227,21 @@ function buildCustomerEmailHtml({
   exchangeRate?: number
   requiresAdminConfirmation?: boolean
   adminConfirmationReason?: string | null
+  notificationType?: 'created' | 'updated'
 }): string {
   const safeName = customerName.trim() || 'there'
+  const isUpdated = notificationType === 'updated'
   const body = `
     ${buildHeader(
       'Phonics Club',
-      requiresAdminConfirmation ? 'Your order has been received' : 'Your order is confirmed',
-      requiresAdminConfirmation
+      isUpdated
+        ? 'Your order has been updated'
+        : requiresAdminConfirmation
+          ? 'Your order has been received'
+          : 'Your order is confirmed',
+      isUpdated
+        ? 'We updated your order details and attached a refreshed invoice for your records.'
+        : requiresAdminConfirmation
         ? 'Some item stock is low or on backorder, so admin will confirm availability before processing.'
         : 'Thank you for ordering official Phonics Club learning resources.'
     )}
@@ -234,7 +249,9 @@ function buildCustomerEmailHtml({
       <td style="padding:30px;">
         <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">Hi ${escapeHtml(safeName)},</p>
         <p style="color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 24px;">
-          We have received your order and attached your invoice for your records. You can also download or view it any time from the links below.
+          ${isUpdated
+            ? 'Your updated invoice is attached for your records. You can also download or view it any time from the links below.'
+            : 'We have received your order and attached your invoice for your records. You can also download or view it any time from the links below.'}
         </p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
           ${buildDetailRow('Invoice number', invoiceNumber)}
@@ -261,13 +278,13 @@ function buildCustomerEmailHtml({
     </tr>
     <tr>
       <td style="background:#111827;color:#d1d5db;font-size:12px;line-height:1.7;padding:22px 30px;text-align:center;">
-        You are receiving this email because an order was placed with Phonics Club.
+        You are receiving this email because an order was ${isUpdated ? 'updated' : 'placed'} with Phonics Club.
         <br />${escapeHtml(COMPANY.tagline)}
       </td>
     </tr>
   `
 
-  return buildEmailShell(`Order ${invoiceNumber} confirmed`, body)
+  return buildEmailShell(`Order ${invoiceNumber} ${isUpdated ? 'updated' : 'confirmed'}`, body)
 }
 
 function buildAdminEmailHtml({
@@ -287,9 +304,10 @@ function buildAdminEmailHtml({
   invoicePdfUrl,
   requiresAdminConfirmation,
   adminConfirmationReason,
+  notificationType = 'created',
 }: {
   customerName: string
-  customerEmail: string
+  customerEmail?: string | null
   customerPhone: string
   invoiceNumber: string
   items: OrderEmailItem[]
@@ -304,7 +322,9 @@ function buildAdminEmailHtml({
   invoicePdfUrl: string
   requiresAdminConfirmation?: boolean
   adminConfirmationReason?: string | null
+  notificationType?: 'created' | 'updated'
 }): string {
+  const isUpdated = notificationType === 'updated'
   const itemRows = items
     .map((item) => {
       const lineTotal = Number(item.price) * Number(item.quantity)
@@ -321,14 +341,14 @@ function buildAdminEmailHtml({
   const body = `
     ${buildHeader(
       'Admin notification',
-      'New order received',
+      isUpdated ? 'Order updated' : 'New order received',
       `Invoice ${invoiceNumber} is ready for review in the admin dashboard.`
     )}
     <tr>
       <td style="padding:30px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px;">
           ${buildDetailRow('Customer name', customerName || 'Not provided')}
-          ${buildDetailRow('Email', customerEmail)}
+          ${buildDetailRow('Email', customerEmail || 'Not provided')}
           ${buildDetailRow('Phone', customerPhone || 'Not provided')}
           ${buildDetailRow('Invoice number', invoiceNumber)}
           ${buildDetailRow('Payment status', formatStatus(paymentStatus))}
@@ -365,11 +385,11 @@ function buildAdminEmailHtml({
     </tr>
   `
 
-  return buildEmailShell(`New order ${invoiceNumber}`, body)
+  return buildEmailShell(`${notificationType === 'updated' ? 'Updated order' : 'New order'} ${invoiceNumber}`, body)
 }
 
 export async function sendOrderConfirmationEmail(
-  to: string,
+  to: string | null | undefined,
   orderId: string,
   invoiceNumber: string,
   _invoiceHtml: string,
@@ -377,19 +397,25 @@ export async function sendOrderConfirmationEmail(
 ): Promise<{ sent: boolean }> {
   const emailFrom =
     process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
-  const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
+  const adminEmail = process.env.ORDER_ADMIN_EMAIL?.trim() || COMPANY.adminEmail
   const baseUrl = getBaseUrl()
   const tokenParam = options?.accessToken ? `&token=${options.accessToken}` : ''
   const invoicePdfUrl = `${baseUrl}/api/orders/${orderId}/invoice?format=pdf${tokenParam}`
   const invoiceHtmlUrl = `${baseUrl}/api/orders/${orderId}/invoice${options?.accessToken ? `?token=${options.accessToken}` : ''}`
   const adminOrderUrl = `${baseUrl}/admin/orders#order-${orderId}`
+  const notificationType = options.notificationType ?? 'created'
+  const shouldSendAdminEmail = options.sendAdminEmail ?? true
+  const customerRecipient = String(to ?? '').trim()
+  const shouldSendCustomerEmail = isLikelyEmailAddress(customerRecipient)
   const attachment = options?.pdfBase64
     ? [{ filename: `${invoiceFileBaseName(invoiceNumber, options.customerName)}.pdf`, content: options.pdfBase64 }]
     : undefined
 
   const customerEmail: EmailPayload = {
-    to: [to],
-    subject: `Order Confirmation - Invoice ${invoiceNumber}`,
+    to: [customerRecipient],
+    subject: notificationType === 'updated'
+      ? `Updated Order - Invoice ${invoiceNumber}`
+      : `Order Confirmation - Invoice ${invoiceNumber}`,
     html: buildCustomerEmailHtml({
       customerName: options.customerName,
       invoiceNumber,
@@ -403,13 +429,16 @@ export async function sendOrderConfirmationEmail(
       exchangeRate: options.exchangeRate,
       requiresAdminConfirmation: options.requiresAdminConfirmation,
       adminConfirmationReason: options.adminConfirmationReason,
+      notificationType,
     }),
     attachments: attachment,
   }
 
   const adminEmailPayload: EmailPayload = {
     to: [adminEmail],
-    subject: `New order placed - Invoice ${invoiceNumber}`,
+    subject: notificationType === 'updated'
+      ? `Order updated - Invoice ${invoiceNumber}`
+      : `New order placed - Invoice ${invoiceNumber}`,
     html: buildAdminEmailHtml({
       customerName: options.customerName,
       customerEmail: options.customerEmail,
@@ -427,29 +456,42 @@ export async function sendOrderConfirmationEmail(
       invoicePdfUrl,
       requiresAdminConfirmation: options.requiresAdminConfirmation,
       adminConfirmationReason: options.adminConfirmationReason,
+      notificationType,
     }),
     attachments: attachment,
   }
 
-  console.info('Starting customer email', { orderId, invoiceNumber, recipientCount: customerEmail.to.length })
-  const customerResult = await sendTransactionalEmail({ from: emailFrom, ...customerEmail })
+  let customerSent = false
+  if (shouldSendCustomerEmail) {
+    console.info('Starting customer email', { orderId, invoiceNumber, recipientCount: customerEmail.to.length })
+    const customerResult = await sendTransactionalEmail({ from: emailFrom, ...customerEmail })
 
-  if (customerResult.ok) {
-    console.info('Customer email sent', { orderId, invoiceNumber, provider: customerResult.provider })
+    if (customerResult.ok) {
+      customerSent = true
+      console.info('Customer email sent', { orderId, invoiceNumber, provider: customerResult.provider })
+    } else {
+      console.error('Customer email failed', { orderId, invoiceNumber, ...mailFailureForLog(customerResult) })
+    }
   } else {
-    console.error('Customer email failed', { orderId, invoiceNumber, ...mailFailureForLog(customerResult) })
+    console.info('Customer email skipped; no valid customer email provided', { orderId, invoiceNumber })
   }
 
-  console.info('Starting admin email', { orderId, invoiceNumber, recipientCount: adminEmailPayload.to.length })
-  const adminResult = await sendTransactionalEmail({ from: emailFrom, ...adminEmailPayload })
+  let adminSent = true
+  if (shouldSendAdminEmail) {
+    console.info('Starting admin email', { orderId, invoiceNumber, recipientCount: adminEmailPayload.to.length })
+    const adminResult = await sendTransactionalEmail({ from: emailFrom, ...adminEmailPayload })
 
-  if (adminResult.ok) {
-    console.info('Admin email sent', { orderId, invoiceNumber, provider: adminResult.provider })
+    if (adminResult.ok) {
+      console.info('Admin email sent', { orderId, invoiceNumber, provider: adminResult.provider })
+    } else {
+      adminSent = false
+      console.error('Admin email failed', { orderId, invoiceNumber, ...mailFailureForLog(adminResult) })
+    }
   } else {
-    console.error('Admin email failed', { orderId, invoiceNumber, ...mailFailureForLog(adminResult) })
+    console.info('Admin email skipped by caller', { orderId, invoiceNumber })
   }
 
-  return { sent: customerResult.ok && adminResult.ok }
+  return { sent: adminSent && (!shouldSendCustomerEmail || customerSent) }
 }
 
 export async function sendLowStockAlertEmail(
@@ -461,7 +503,7 @@ export async function sendLowStockAlertEmail(
 
   const emailFrom =
     process.env.ORDER_EMAIL_FROM?.trim() || 'Phonics Club <info@phonicsclub.com>'
-  const adminEmail = process.env.ORDER_ADMIN_EMAIL ?? COMPANY.adminEmail
+  const adminEmail = process.env.ORDER_ADMIN_EMAIL?.trim() || COMPANY.adminEmail
 
   const rows = alerts
     .map(

@@ -43,8 +43,8 @@ const SECTIONS = [
   { key: 'terms_policy', label: 'Terms of Service', hint: 'Policy content. lastUpdated is visible here for admin reference only, not on the public page.' },
   { key: 'refunds_policy', label: 'Refund Policy', hint: 'Policy content. lastUpdated is visible here for admin reference only, not on the public page.' },
   { key: 'cookies_policy', label: 'Cookie Policy', hint: 'Policy content. lastUpdated is visible here for admin reference only, not on the public page.' },
-  { key: 'invoice_template', label: 'Invoice Template', hint: 'Object with header, tagline, footer, bankDetails. Leave tagline empty to avoid an invoice subtitle.' },
-  { key: 'bank_details', label: 'Bank Details (Checkout)', hint: 'Object with bankName, accountTitle, accountNumber, iban, instructions' },
+  { key: 'invoice_template', label: 'Invoice Template', hint: 'Object with header, tagline, and footer. Shop invoices always use the Meezan shop account; course bank details stay separate.' },
+  { key: 'bank_details', label: 'Bank Details (Shop Checkout)', hint: 'Shop checkout account only. Consultancy/course account details are managed in Course Bank Details above.' },
 ]
 
 export default async function AdminContentPage() {
@@ -86,7 +86,11 @@ export default async function AdminContentPage() {
     getCourseCatalogueContent(),
   ])
 
-  const contentMap = Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content]))
+  const contentMap = {
+    ...Object.fromEntries(allContent.map((c: { key: string; content: unknown }) => [c.key, c.content])),
+    invoice_template: invoiceTemplate,
+    bank_details: bankDetails,
+  }
   const defaults: Record<string, unknown> = {
     site_videos: websiteVideos,
     social_reels: socialReels,

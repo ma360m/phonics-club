@@ -66,6 +66,7 @@ export function CartPageClient() {
   }, [])
 
   const subtotal = items.reduce((sum, item) => sum + getProductPricing(item.products).displayPrice * item.quantity, 0)
+  const totalQuantity = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
   const delivery = SHIPPING_FEE_PKR
   const total = subtotal + delivery
   const hasUnavailableItems = items.some((item) => getProductStockNotice(item.products, item.quantity)?.ok === false)
@@ -96,12 +97,17 @@ export function CartPageClient() {
           to save your cart and view orders in your dashboard.
         </p>
       )}
-      {items.map((item) => {
+      {items.map((item, index) => {
         const product = item.products
         const pricing = getProductPricing(product)
         const stockNotice = getProductStockNotice(product, item.quantity)
         return (
           <div key={item.id} className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 sm:flex-row">
+            <div className="flex items-start gap-3 sm:block">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] font-mono text-xs font-bold text-[#1D4ED8]">
+                {index + 1}
+              </span>
+            </div>
             <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted shrink-0">
               {product?.images?.[0] ? (
                 <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
@@ -137,6 +143,10 @@ export function CartPageClient() {
         )
       })}
       <div className="space-y-3 pt-6 border-t">
+        <div className="flex justify-between">
+          <span>Total quantity</span>
+          <span className="font-semibold">{totalQuantity}</span>
+        </div>
         <div className="flex justify-between">
           <span>Subtotal</span>
           <span className="font-semibold">{format(subtotal)}</span>

@@ -3,7 +3,8 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
-import { DEFAULT_COURSE_BANK_DETAILS, normalizeBankDetails } from '@/lib/bank-details'
+import { COMPANY_BANK_DETAILS } from '@/lib/company'
+import { DEFAULT_COURSE_BANK_DETAILS, normalizeBankDetails, normalizeShopBankDetails } from '@/lib/bank-details'
 import { normalizeContactSettings } from '@/lib/contact-settings'
 import type { ActionResult } from '@/types'
 
@@ -74,6 +75,12 @@ export async function saveSiteContentFormAction(formData: FormData): Promise<voi
     content = JSON.parse(json)
   } catch {
     throw new Error('Invalid JSON')
+  }
+  if (key === 'bank_details') {
+    content = normalizeShopBankDetails(content)
+  }
+  if (key === 'invoice_template' && content && typeof content === 'object' && !Array.isArray(content)) {
+    content = { ...(content as Record<string, unknown>), bankDetails: COMPANY_BANK_DETAILS }
   }
   const result = await saveSiteContentAction(key, content)
   if (!result.success) throw new Error(result.error)

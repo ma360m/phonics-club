@@ -11,6 +11,7 @@ import {
   DEFAULT_BANK_DETAILS,
   DEFAULT_COURSE_BANK_DETAILS,
   normalizeBankDetails,
+  normalizeShopBankDetails,
   type BankDetails,
 } from '@/lib/bank-details'
 import {
@@ -1186,21 +1187,13 @@ export async function getInvoiceTemplate() {
   return {
     ...template,
     contactPhoneDisplay: contactSettings.phoneDisplay,
-    bankDetails: normalizeBankDetails(template.bankDetails, DEFAULT_BANK_DETAILS),
+    bankDetails: COMPANY_BANK_DETAILS,
   }
 }
 
 export async function getBankDetails(): Promise<BankDetails> {
   const details = await getContent('bank_details', COMPANY_BANK_DETAILS)
-  const normalized = normalizeBankDetails(details, DEFAULT_BANK_DETAILS)
-  const accountNumber = normalized.accountNumber.replace(/\D/g, '')
-  const courseAccountNumber = DEFAULT_COURSE_BANK_DETAILS.accountNumber.replace(/\D/g, '')
-  const looksLikeCourseBankDetails =
-    accountNumber === courseAccountNumber ||
-    normalized.iban === DEFAULT_COURSE_BANK_DETAILS.iban ||
-    normalized.accountTitle.toLowerCase().includes('consultancy')
-
-  return looksLikeCourseBankDetails ? DEFAULT_BANK_DETAILS : normalized
+  return normalizeShopBankDetails(details)
 }
 
 export async function getCourseBankDetails(): Promise<BankDetails> {

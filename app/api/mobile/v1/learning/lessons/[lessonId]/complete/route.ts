@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isEnrollmentActive } from '@/lib/lms'
+import { evaluateCourseCompletion, getCourseById, isEnrollmentActive } from '@/lib/lms'
 import { recordMobileAuditEvent } from '@/lib/mobile-api/audit'
 import { requireMobileUser } from '@/lib/mobile-api/auth'
 import { enforceMobileRateLimit } from '@/lib/mobile-api/rate-limit'
@@ -90,6 +90,9 @@ export async function POST(
       } as never)
       .eq('id', enrollment?.id)
       .eq('user_id', context.user.id)
+
+    const course = await getCourseById(parsed.data.courseId, { includeUnpublished: true })
+    if (course) await evaluateCourseCompletion(course, context.user.id)
 
     await recordMobileAuditEvent({
       request,

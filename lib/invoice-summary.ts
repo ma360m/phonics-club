@@ -2,6 +2,7 @@ import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import type { Order, OrderItem } from '@/types/database'
 
 export interface InvoiceLine {
+  position: number
   item: OrderItem
   lineSubtotal: number
   lineDiscount: number
@@ -17,6 +18,7 @@ export interface InvoiceSummary {
   shippingDiscount: number
   balanceDue: number
   discountPercent: number
+  totalQuantity: number
   lines: InvoiceLine[]
 }
 
@@ -56,6 +58,7 @@ export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
   const shippingDiscount = Number(order.shipping_discount_amount ?? 0)
   const discount = Math.min(Number(order.discount_amount ?? 0), subtotal)
   const discountPercent = Number(order.discount_percent ?? (subtotal > 0 ? (discount / subtotal) * 100 : 0))
+  const totalQuantity = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
   let allocatedDiscount = 0
 
   const lines = items.map((item, index) => {
@@ -73,6 +76,7 @@ export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
     allocatedDiscount += lineDiscount
 
     return {
+      position: index + 1,
       item,
       lineSubtotal,
       lineDiscount,
@@ -90,6 +94,7 @@ export function buildInvoiceSummary(order: InvoiceOrder): InvoiceSummary {
     shippingDiscount,
     balanceDue: totalAfterDiscount + shipping,
     discountPercent,
+    totalQuantity,
     lines,
   }
 }

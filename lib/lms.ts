@@ -101,6 +101,14 @@ function metadata(course: Course): Record<string, unknown> {
   return (course.metadata ?? {}) as Record<string, unknown>
 }
 
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const clean = String(value ?? '').trim()
+    if (clean) return clean
+  }
+  return ''
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.map((item) => String(item).trim()).filter(Boolean)
@@ -1188,6 +1196,15 @@ export async function evaluateCourseCompletion(course: Course, userId: string): 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const supabase = await createServiceClient()
+      const { data: existingCompletionStatus } = await supabase
+        .from('course_completion_status')
+        .select('completed')
+        .eq('user_id', userId)
+        .eq('course_id', course.id)
+        .maybeSingle()
+      const shouldNotifyAdminCompletion = completed && !(existingCompletionStatus as CourseCompletionStatus | null)?.completed
+      const completedAt = new Date().toISOString()
+
       await supabase.from('course_completion_status').upsert(
         {
           user_id: userId,
@@ -1203,7 +1220,7 @@ export async function evaluateCourseCompletion(course: Course, userId: string): 
           eligible_for_certificate: checklist.eligible,
           completed,
           checklist,
-          evaluated_at: new Date().toISOString(),
+          evaluated_at: completedAt,
         } as never,
         { onConflict: 'user_id,course_id' },
       )
@@ -1214,9 +1231,29 @@ export async function evaluateCourseCompletion(course: Course, userId: string): 
           .update({
             progress: checklist.progress,
             status: completed ? 'completed' : enrollment.status ?? 'active',
-            completed_at: completed ? new Date().toISOString() : enrollment.completed_at ?? null,
+            completed_at: completed ? completedAt : enrollment.completed_at ?? null,
           } as never)
           .eq('id', enrollment.id)
+      }
+
+      if (shouldNotifyAdminCompletion) {
+        const [{ data: profile }, { notifyAdminOfCourseCompletion }] = await Promise.all([
+          supabase.from('profiles').select('email, full_name').eq('id', userId).maybeSingle(),
+          import('@/lib/email/send-course-enrollment-admin-email'),
+        ])
+        const profileRow = profile as { email?: string | null; full_name?: string | null } | null
+        await notifyAdminOfCourseCompletion({
+          course,
+          enrollmentId: enrollment?.id ?? null,
+          student: {
+            id: userId,
+            name: firstText(profileRow?.full_name, profileRow?.email, userId),
+            email: firstText(profileRow?.email),
+          },
+          checklist,
+          completedAt,
+          source: 'Course completion evaluator',
+        })
       }
     } catch {
       // The evaluator remains useful before the pending LMS migration is applied.
