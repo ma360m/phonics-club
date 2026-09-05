@@ -12,7 +12,7 @@ import { getProductPricing } from '@/lib/products/sale-pricing'
 import { validateAndAnnotateOrderStock, applyStockChangesForOrder } from '@/lib/orders/stock'
 import { incrementMemberDiscountUsage, normalizeMemberId, validateMemberDiscount } from '@/lib/discounts/member-discounts'
 import { generateOrderAccessToken, buildInvoicePdf } from '@/lib/invoice-pdf'
-import { buildInvoiceHtml } from '@/lib/invoice'
+import { buildInvoiceHtml, generateInvoiceNumber } from '@/lib/invoice'
 import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { getInvoiceTemplate } from '@/lib/site-content'
 import { getCurrencySettings } from '@/lib/currency-settings'
@@ -20,6 +20,7 @@ import { isPaymentMethodEnabled } from '@/lib/payment-method-settings'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail } from '@/lib/email/send-order-email'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
+import { isDuplicateInvoiceNumberError } from '@/lib/invoice-numbering'
 import { APP_URL } from '@/lib/constants'
 import { generateFastInvoiceToken, getFastInvoiceLinkByToken, hashFastInvoiceToken, isFastInvoiceLinkUsable } from '@/lib/fast-invoice'
 import type { ActionResult, OrderItem } from '@/types'
@@ -259,7 +260,7 @@ export async function placeFastInvoiceOrderAction(
   const exchangeRate = currencySettings.usdToPkrRate
   const exchangeRateTimestamp = currencySettings.lastUpdatedAt
   const accessToken = generateOrderAccessToken()
-  const invoiceNumber = await getNextInvoiceNumber()
+  let invoiceNumber = await getNextInvoiceNumber()
   const shippingAddress = {
     fullName: parsed.data.fullName,
     email: customerEmail ?? '',
@@ -305,11 +306,23 @@ export async function placeFastInvoiceOrderAction(
   }
 
   const supabase = await createServiceClient()
-  const { data: order, error } = await supabase
+  let { data: order, error } = await supabase
     .from('orders')
     .insert(orderPayload as never)
     .select()
     .single()
+
+  for (let attempt = 1; error && isDuplicateInvoiceNumberError(error) && attempt <= 5; attempt += 1) {
+    invoiceNumber = attempt >= 3 ? generateInvoiceNumber() : await getNextInvoiceNumber()
+    orderPayload.invoice_number = invoiceNumber
+    const retry = await supabase
+      .from('orders')
+      .insert(orderPayload as never)
+      .select()
+      .single()
+    order = retry.data
+    error = retry.error
+  }
 
   if (error || !order) return { success: false, error: friendlyErrorMessage(error, 'Fast invoice order could not be placed.') }
 

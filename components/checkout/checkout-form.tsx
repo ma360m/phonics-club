@@ -510,12 +510,11 @@ export function CheckoutForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              required
               value={details.email}
               onChange={(event) => updateDetails('email', event.target.value)}
               placeholder="For invoice email"

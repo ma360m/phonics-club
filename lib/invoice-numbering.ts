@@ -1,6 +1,21 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateInvoiceNumber } from '@/lib/invoice'
 
+function errorSearchText(error: unknown) {
+  if (!error || typeof error !== 'object') return String(error ?? '').toLowerCase()
+  const record = error as Record<string, unknown>
+  return [record.code, record.message, record.details, record.hint, record.constraint]
+    .map((value) => String(value ?? ''))
+    .join(' ')
+    .toLowerCase()
+}
+
+export function isDuplicateInvoiceNumberError(error: unknown) {
+  const text = errorSearchText(error)
+  return (text.includes('23505') || text.includes('duplicate') || text.includes('already exists')) &&
+    (text.includes('invoice_number') || text.includes('invoice number') || text.includes('orders_invoice_number_key'))
+}
+
 export async function getNextInvoiceNumber(): Promise<string> {
   try {
     const supabase = await createServiceClient()

@@ -10,7 +10,7 @@ import { checkoutBaseSchema, checkoutSchema, normalizePhone } from '@/lib/valida
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { canCustomerEditOrder } from '@/lib/order-status'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
-import { buildInvoiceHtml } from '@/lib/invoice'
+import { buildInvoiceHtml, generateInvoiceNumber } from '@/lib/invoice'
 import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
 import { buildInvoicePdf, generateOrderAccessToken } from '@/lib/invoice-pdf'
 import { getInvoiceTemplate } from '@/lib/site-content'
@@ -820,7 +820,10 @@ export async function placeOrderAction(
 
   for (let attempt = 1; error && isDuplicateInvoiceNumberError(error) && attempt <= 5; attempt += 1) {
     const collidedInvoiceNumber = invoiceNumber
-    invoiceNumber = await getNextInvoiceNumber()
+    // A stale or unavailable sequence must not block a paid order. After a
+    // couple of sequence retries, use a high-entropy fallback and let the
+    // database uniqueness constraint verify it.
+    invoiceNumber = attempt >= 3 ? generateInvoiceNumber() : await getNextInvoiceNumber()
     orderPayload.invoice_number = invoiceNumber
     console.error('Order invoice number collided; retrying insert with next invoice number', {
       attempt,

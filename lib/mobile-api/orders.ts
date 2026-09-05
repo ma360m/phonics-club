@@ -1,6 +1,6 @@
-import { buildInvoiceHtml } from '@/lib/invoice'
+import { buildInvoiceHtml, generateInvoiceNumber } from '@/lib/invoice'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
-import { getNextInvoiceNumber } from '@/lib/invoice-numbering'
+import { getNextInvoiceNumber, isDuplicateInvoiceNumberError } from '@/lib/invoice-numbering'
 import { getInvoiceTemplate } from '@/lib/site-content'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { convertCurrency, normalizeCurrency } from '@/lib/currency'
@@ -191,7 +191,7 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
   const currencySettings = await getCurrencySettings()
   const displayCurrency = normalizeCurrency(input.selectedDisplayCurrency, currencySettings.usdEnabled)
   const exchangeRate = currencySettings.usdToPkrRate
-  const invoiceNumber = await getNextInvoiceNumber()
+  let invoiceNumber = await getNextInvoiceNumber()
   const customerEmail = input.deliveryAddress.email?.trim() || context.profile.email || context.user.email || ''
   const shippingAddress = {
     fullName: input.deliveryAddress.fullName,
@@ -227,7 +227,7 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
   }
 
-  const { data: order, error } = await context.supabase.rpc('create_mobile_order' as never, {
+  let { data: order, error } = await context.supabase.rpc('create_mobile_order' as never, {
     p_user_id: context.user.id,
     p_idempotency_key: input.idempotencyKey,
     p_order_payload: orderPayload,
@@ -235,6 +235,21 @@ export async function createMobileCheckoutOrder(context: MobileAuthContext, inpu
     p_coupon_code: coupon.couponCode,
     p_stock_threshold: 20,
   } as never)
+
+  for (let attempt = 1; error && isDuplicateInvoiceNumberError(error) && attempt <= 5; attempt += 1) {
+    invoiceNumber = attempt >= 3 ? generateInvoiceNumber() : await getNextInvoiceNumber()
+    orderPayload.invoice_number = invoiceNumber
+    const retry = await context.supabase.rpc('create_mobile_order' as never, {
+      p_user_id: context.user.id,
+      p_idempotency_key: input.idempotencyKey,
+      p_order_payload: orderPayload,
+      p_items: discountedItems,
+      p_coupon_code: coupon.couponCode,
+      p_stock_threshold: 20,
+    } as never)
+    order = retry.data
+    error = retry.error
+  }
 
   if (error || !order) {
     const code = error?.message?.toLowerCase().includes('stock') ? 'INSUFFICIENT_STOCK' : 'CHECKOUT_FAILED'

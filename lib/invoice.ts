@@ -28,7 +28,7 @@ interface InvoiceTemplate {
 
 export function generateInvoiceNumber(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase()
+  const rand = crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
   return `INV_${date}_${rand}`
 }
 
