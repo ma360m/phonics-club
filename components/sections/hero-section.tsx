@@ -9,14 +9,18 @@ function toYouTubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null
   try {
     const parsed = new URL(url)
-    const videoId = parsed.hostname.includes('youtu.be')
-      ? parsed.pathname.slice(1)
-      : parsed.searchParams.get('v')
+    const host = parsed.hostname.toLowerCase()
+    const pathParts = parsed.pathname.split('/').filter(Boolean)
+    const videoId = host === 'youtu.be'
+      ? pathParts[0]
+      : host.includes('youtube.com')
+        ? parsed.searchParams.get('v') ?? (pathParts[0] === 'embed' || pathParts[0] === 'shorts' ? pathParts[1] : undefined)
+        : undefined
     const startSeconds = parsed.searchParams.get('t')?.replace('s', '') ?? ''
     const startParam = startSeconds ? `?start=${Number.parseInt(startSeconds, 10) || 0}` : ''
-    return videoId ? `https://www.youtube.com/embed/${videoId}${startParam}` : url
+    return videoId ? `https://www.youtube.com/embed/${videoId}${startParam}` : null
   } catch {
-    return url
+    return null
   }
 }
 
@@ -32,8 +36,8 @@ export function HeroSection({
   demoButtonUrl?: string | null
 }) {
   const embedUrl = toYouTubeEmbedUrl(videoUrl)
-  const hasVideo = Boolean(embedUrl)
   const directVideo = isDirectVideo(videoUrl)
+  const hasVideo = Boolean(videoUrl && (directVideo || embedUrl))
 
   return (
     <section className="relative max-w-full overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-white to-[#60A5FA]/10">
@@ -109,7 +113,7 @@ export function HeroSection({
                 <div id="watch-demo" className="max-w-full scroll-mt-28 overflow-hidden rounded-xl bg-white p-3 shadow-xl sm:rounded-3xl sm:p-6 sm:shadow-2xl lg:p-8">
                   <div className="mb-3 aspect-video overflow-hidden rounded-lg bg-black sm:mb-6 sm:rounded-2xl">
                     {directVideo ? (
-                      <video src={videoUrl ?? ''} controls playsInline className="h-full w-full object-contain" />
+                      <video src={videoUrl ?? ''} controls playsInline preload="metadata" className="h-full w-full object-contain" />
                     ) : (
                       <iframe
                         className="h-full w-full"
