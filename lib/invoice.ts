@@ -27,9 +27,10 @@ interface InvoiceTemplate {
 }
 
 export function generateInvoiceNumber(): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const rand = crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
-  return `INV_${date}_${rand}`
+  // Emergency-only fallback: keep the customer-facing value short and
+  // invoice-like while the database sequence is repaired or unavailable.
+  const randomNumber = Number.parseInt(crypto.randomUUID().replace(/-/g, '').slice(0, 8), 16) % 900000 + 100000
+  return `INV_${randomNumber}`
 }
 
 function invoiceFileSegment(value: unknown, maxLength = 80): string {
