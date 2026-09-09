@@ -304,8 +304,8 @@ export async function buildInvoicePdf(
 
   function drawInvoiceLine(targetPage: PDFPage, line: (typeof summary.lines)[number], rowBottom: number, rowHeight: number) {
     const nameLines = wrapText(line.item.name, 34)
+    const isbnLines = line.item.isbn ? wrapText(`ISBN: ${line.item.isbn}`, 38).slice(0, 2) : []
     const stockNoteLines = line.item.stock_note ? wrapText(line.item.stock_note, 36).slice(0, 2) : []
-    const itemLines = nameLines.concat(stockNoteLines).slice(0, 6)
     const discountLines = line.lineDiscount > 0
       ? [formatDiscountPercent(line.discountPercent), `-${formatPrice(line.lineDiscount)}`]
       : ['-']
@@ -319,7 +319,20 @@ export async function buildInvoicePdf(
       })
     }
     drawCellText(targetPage, String(line.position), tableColumns[0].x, rowBottom, tableColumns[0].width, rowHeight, 8, font, 'center', rgb(0.39, 0.45, 0.55))
-    drawCellLines(targetPage, itemLines, tableColumns[1].x, rowBottom, tableColumns[1].width, rowHeight, 8.5, font)
+    let itemY = rowBottom + rowHeight - 15.5
+    const itemX = tableColumns[1].x + 7
+    for (const itemNameLine of nameLines.slice(0, 4)) {
+      targetPage.drawText(pdfText(itemNameLine), { x: itemX, y: itemY, size: 8.5, font, color: rgb(0.07, 0.09, 0.15) })
+      itemY -= 11.5
+    }
+    for (const isbnLine of isbnLines) {
+      targetPage.drawText(pdfText(isbnLine), { x: itemX, y: itemY, size: 7, font, color: rgb(0.39, 0.45, 0.55) })
+      itemY -= 10
+    }
+    for (const stockNoteLine of stockNoteLines) {
+      targetPage.drawText(pdfText(stockNoteLine), { x: itemX, y: itemY, size: 7.5, font, color: rgb(0.57, 0.25, 0.05) })
+      itemY -= 10
+    }
     drawCellText(targetPage, String(line.item.quantity), tableColumns[2].x, rowBottom, tableColumns[2].width, rowHeight, 8.5, font, 'center')
     drawCellText(targetPage, formatPrice(line.item.price), tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 8.5, font, 'right')
     if (showDiscountBreakdown) {
@@ -330,8 +343,9 @@ export async function buildInvoicePdf(
 
   function lineRowHeight(line: (typeof summary.lines)[number]) {
     const nameLines = wrapText(line.item.name, 34)
+    const isbnLines = line.item.isbn ? wrapText(`ISBN: ${line.item.isbn}`, 38).slice(0, 2) : []
     const stockNoteLines = line.item.stock_note ? wrapText(line.item.stock_note, 36).slice(0, 2) : []
-    const itemLineCount = nameLines.concat(stockNoteLines).slice(0, 6).length
+    const itemLineCount = nameLines.concat(isbnLines, stockNoteLines).slice(0, 7).length
     const discountLineCount = showDiscountBreakdown && line.lineDiscount > 0 ? 2 : 1
     return Math.max(30, Math.max(itemLineCount, discountLineCount) * 11 + 14)
   }

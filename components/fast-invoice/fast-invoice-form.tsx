@@ -27,6 +27,7 @@ interface FastInvoiceProduct {
   sale_price?: number | null
   sale_percentage?: number | null
   sale_badge_text?: string | null
+  isbn?: string | null
   stock?: number | null
   reserved_stock?: number | null
   low_stock_threshold?: number | null
@@ -112,7 +113,7 @@ export function FastInvoiceForm({
     const term = searchTerm.trim().toLowerCase()
     if (!term) return products.slice(0, 12)
     return products
-      .filter((product) => [product.name, product.category].some((value) => value.toLowerCase().includes(term)))
+      .filter((product) => [product.name, product.category, product.isbn ?? ''].some((value) => value.toLowerCase().includes(term)))
       .slice(0, 18)
   }, [products, searchTerm])
 
@@ -271,6 +272,7 @@ export function FastInvoiceForm({
                         <span className="min-w-0">
                           <span className="block break-words font-medium">{product.name}</span>
                           <span className="text-xs text-muted-foreground">{product.category.replace(/-/g, ' ')}</span>
+                          {product.isbn ? <span className="mt-1 block font-mono text-xs text-muted-foreground">ISBN: {product.isbn}</span> : null}
                           {stock.message ? <span className="mt-1 block text-xs text-amber-700">{stock.message}</span> : null}
                         </span>
                         <span className="shrink-0 font-bold text-[#1D4ED8]">{format(pricing.displayPrice)}</span>
@@ -309,6 +311,7 @@ export function FastInvoiceForm({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-semibold">{item.product.name}</p>
+                    {item.product.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</p> : null}
                     {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
                   </div>
                   <Button
@@ -371,6 +374,7 @@ export function FastInvoiceForm({
                     <td className="px-4 py-3 text-center font-mono text-xs text-slate-500">{index + 1}</td>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{item.product.name}</p>
+                      {item.product.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</p> : null}
                       {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
                     </td>
                     <td className="px-4 py-3">
@@ -583,6 +587,7 @@ function FastPreview({
                 <span className="font-mono text-xs font-semibold text-slate-500">{index + 1}.</span>
                 <span className="min-w-0">
                   <span className="block break-words font-semibold">{item.product.name}</span>
+                  {item.product.isbn ? <span className="mt-1 block font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</span> : null}
                   <span className="text-xs text-muted-foreground">{item.quantity} x {format(item.price)}</span>
                 </span>
               </span>

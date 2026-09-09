@@ -65,6 +65,7 @@ export function buildMetadata({
     icons: {
       icon: [
         { url: '/favicon-48x48.png', type: 'image/png', sizes: '48x48' },
+        { url: '/logo.png', type: 'image/png', sizes: '373x291' },
         { url: '/favicon.ico', type: 'image/x-icon', sizes: 'any' },
         { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
         { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },

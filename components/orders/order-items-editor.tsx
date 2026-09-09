@@ -12,6 +12,7 @@ import type { OrderItem } from '@/types'
 export interface EditableOrderProduct {
   id: string
   name: string
+  isbn?: string
   price: number
   image?: string
 }
@@ -20,6 +21,7 @@ interface EditableOrderItemRow {
   key: string
   productId: string
   name: string
+  isbn: string
   price: number
   quantity: number
   image?: string
@@ -41,6 +43,7 @@ function toRow(item: OrderItem, index: number): EditableOrderItemRow {
     key: `${item.product_id || 'item'}-${index}`,
     productId: item.product_id,
     name: item.name,
+    isbn: item.isbn ?? '',
     price: Math.max(0, Number(item.price) || 0),
     quantity: Math.max(0, Number(item.quantity) || 0),
     image: item.image,
@@ -94,6 +97,7 @@ export function OrderItemsEditor({
           key: `${product.id}-${Date.now().toString(36)}`,
           productId: product.id,
           name: product.name,
+          isbn: product.isbn ?? '',
           price: product.price,
           quantity: 1,
           image: product.image,
@@ -111,6 +115,7 @@ export function OrderItemsEditor({
         key: id,
         productId: id,
         name: 'Custom invoice item',
+        isbn: '',
         price: 0,
         quantity: 1,
         custom: true,
@@ -143,6 +148,7 @@ export function OrderItemsEditor({
             {products.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name} - {formatPrice(product.price)}
+                {product.isbn ? ` - ISBN ${product.isbn}` : ''}
               </option>
             ))}
           </select>
@@ -197,6 +203,22 @@ export function OrderItemsEditor({
                         <p className="break-words font-medium text-slate-800">{row.name}</p>
                       </>
                     )}
+                    <div className="mt-2 max-w-sm">
+                      <Label htmlFor={`${row.key}-isbn`} className="sr-only">
+                        Item {index + 1} ISBN
+                      </Label>
+                      <Input
+                        id={`${row.key}-isbn`}
+                        name="itemIsbn"
+                        value={row.isbn}
+                        maxLength={64}
+                        onChange={(event) => updateRow(row.key, { isbn: event.target.value })}
+                        placeholder="ISBN"
+                        className="h-8 rounded-lg font-mono text-xs text-slate-600"
+                        disabled={disabled}
+                        aria-label={`Item ${index + 1} ISBN`}
+                      />
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-right">
                     {priceEditable || (allowCustomLines && row.custom) ? (

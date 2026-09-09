@@ -280,6 +280,11 @@ function normalizeOrderItemImage(value: unknown) {
   return image || undefined
 }
 
+function normalizeOrderItemIsbn(value: unknown) {
+  const isbn = typeof value === 'string' ? value.trim() : ''
+  return isbn || undefined
+}
+
 function normalizeStoredOrderItems(value: unknown): OrderItem[] {
   if (!Array.isArray(value)) return []
 
@@ -303,6 +308,9 @@ function normalizeStoredOrderItems(value: unknown): OrderItem[] {
       quantity,
     }
 
+    const isbn = normalizeOrderItemIsbn(item.isbn)
+    if (isbn) normalized.isbn = isbn
+
     const image = normalizeOrderItemImage(item.image)
     if (image) normalized.image = image
 
@@ -315,6 +323,7 @@ interface SubmittedOrderItemRow {
   name: string
   priceValue: unknown
   quantityValue: unknown
+  isbn?: string
   image?: string
 }
 
@@ -325,12 +334,14 @@ function submittedOrderItemRows(formData: FormData): SubmittedOrderItemRow[] {
   const submittedNames = formData.getAll('itemName').map((value) => String(value ?? ''))
   const submittedPrices = formData.getAll('itemPrice')
   const submittedQuantities = formData.getAll('itemQuantity')
+  const submittedIsbns = formData.getAll('itemIsbn').map((value) => String(value ?? ''))
   const submittedImages = formData.getAll('itemImage').map((value) => String(value ?? ''))
   const rowCount = Math.max(
     submittedProductIds.length,
     submittedNames.length,
     submittedPrices.length,
     submittedQuantities.length,
+    submittedIsbns.length,
     submittedImages.length,
   )
 
@@ -340,10 +351,11 @@ function submittedOrderItemRows(formData: FormData): SubmittedOrderItemRow[] {
     const name = submittedNames[index]?.trim() ?? ''
     const priceValue = submittedPrices[index]
     const quantityValue = submittedQuantities[index]
+    const isbn = normalizeOrderItemIsbn(submittedIsbns[index])
     const image = normalizeOrderItemImage(submittedImages[index])
-    const hasAnyValue = productId || name || String(priceValue ?? '').trim() || String(quantityValue ?? '').trim() || image
+    const hasAnyValue = productId || name || String(priceValue ?? '').trim() || String(quantityValue ?? '').trim() || isbn || image
     if (!hasAnyValue) continue
-    rows.push({ productId, name, priceValue, quantityValue, image })
+    rows.push({ productId, name, priceValue, quantityValue, isbn, image })
   }
 
   return rows
@@ -399,6 +411,7 @@ async function parseCustomerEditedOrderItems(formData: FormData, existingItems: 
         name: existingItem.name,
         price: Math.max(0, Number(existingItem.price) || 0),
         quantity,
+        ...(existingItem.isbn ? { isbn: existingItem.isbn } : {}),
         ...(existingItem.image ? { image: existingItem.image } : {}),
       })
       continue
@@ -423,6 +436,7 @@ async function parseCustomerEditedOrderItems(formData: FormData, existingItems: 
       name: product.name,
       price: pricing.displayPrice,
       quantity: row.quantity,
+      ...(product.isbn ? { isbn: product.isbn } : {}),
       ...(product.images?.[0] ? { image: product.images[0] } : {}),
     })
   }
@@ -458,6 +472,7 @@ function parseAdminEditedOrderItems(formData: FormData): ParsedOrderItemsResult 
     editedItems.push({
       product_id: row.productId || `custom:${crypto.randomUUID()}`,
       name,
+      ...(row.isbn ? { isbn: row.isbn } : {}),
       price,
       quantity,
       ...(row.image ? { image: row.image } : {}),
@@ -479,6 +494,7 @@ function haveOrderItemsChanged(existingItems: OrderItem[], editedItems: OrderIte
     return !editedItem ||
       item.product_id !== editedItem.product_id ||
       item.name !== editedItem.name ||
+      (item.isbn ?? '') !== (editedItem.isbn ?? '') ||
       Number(item.price) !== Number(editedItem.price) ||
       Number(item.quantity) !== Number(editedItem.quantity) ||
       (item.image ?? '') !== (editedItem.image ?? '')

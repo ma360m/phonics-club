@@ -128,9 +128,12 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       const stockNote = line.item.stock_note
         ? `<br><span style="display:block;margin-top:4px;color:#b45309;font-size:12px;font-weight:700">${escapeHtml(line.item.stock_note)}</span>`
         : ''
+      const isbn = line.item.isbn
+        ? `<br><span style="display:block;margin-top:3px;color:#64748b;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace">ISBN: ${escapeHtml(line.item.isbn)}</span>`
+        : ''
       return `<tr>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:center;color:#64748b">${line.position}</td>
-        <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${stockNote}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${isbn}${stockNote}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
         ${showDiscountBreakdown ? `<td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>` : ''}

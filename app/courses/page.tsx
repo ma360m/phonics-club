@@ -103,9 +103,17 @@ export default async function CoursesPage({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-[#1D4ED8]">Personalized Support</p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                Looking for tutoring for your child or a personalized course plan? Contact us directly for ongoing courses and tailored guidance.
-              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-normal text-[#0F172A]">Personalized Learning, Wherever You Are</h2>
+              <div className="mt-3 max-w-4xl space-y-3 text-sm leading-6 text-slate-600">
+                <p>
+                  Looking for the right learning support? We offer <strong>online classes for students worldwide</strong>, covering a wide range of subjects, academic levels, and international curricula.
+                </p>
+                <p>
+                  From <strong>school subjects and exam preparation to specialized courses and one-to-one tutoring</strong>, our learning plans are tailored to each student&apos;s goals, level, and schedule.
+                </p>
+                <p className="font-semibold text-[#0F172A]">All Subjects &bull; All Levels &bull; Global Access &bull; Personalized Support</p>
+                <p>Contact us to explore ongoing classes or create a personalized learning plan.</p>
+              </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               {courseCatalogue.showButton && (

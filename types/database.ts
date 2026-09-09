@@ -288,6 +288,7 @@ export interface Order {
 export interface OrderItem {
   product_id: string
   name: string
+  isbn?: string
   price: number
   quantity: number
   image?: string

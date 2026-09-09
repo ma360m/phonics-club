@@ -123,6 +123,7 @@ async function loadFastInvoiceItems(itemsJson: string): Promise<{ items?: OrderI
     items.push({
       product_id: product.id,
       name: product.name,
+      isbn: product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined,
       price: pricing.displayPrice,
       quantity: selected.quantity,
       image: product.images?.[0],

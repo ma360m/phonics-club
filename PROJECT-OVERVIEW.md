@@ -1,469 +1,275 @@
-# PHONICS CLUB — Complete Project Reference
-
-> **One-page guide** for developers, admins, and stakeholders to understand what this platform is, every page, and every major feature.
-
----
-
-## 1. What Is This Project?
-
-**PHONICS CLUB** is a full-stack **education e-commerce + LMS (Learning Management System)** web application for **Phonics Club Pvt Ltd** — the official Jolly Phonics & Grammar distributor in Pakistan.
-
-It combines:
-
-| Pillar | Purpose |
-|--------|---------|
-| **E-commerce shop** | Sell ~112 Jolly Phonics books, kits, and teacher resources (PKR pricing, ISBN catalog) |
-| **LMS / courses** | Online teacher training (Jolly Phonics, Preschool Professional, etc.) with curriculum & progress |
-| **Training & consultancy** | Onsite/webinar registration, certified trainers, company info |
-| **Blog & content** | News, phonics tips, PCTB/NOC updates |
-| **Admin CMS** | Full back-office for products, orders, courses, content, and site settings |
-| **AI assistant** | Floating chatbot for courses, products, pricing, and support |
-
-**Company:** Phonics Club Pvt Ltd · Pakistan, LHR  
-**Contact:** support@phonicsclub.com · +92 300 8079480 · +92 3022220448  
-**Social:** [Instagram](https://www.instagram.com/phonics.club/) · [Facebook](https://www.facebook.com/phonicsclub/) · [YouTube](https://youtu.be/8Tjs_Z1I0cM)
-
----
-
-## 2. Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Framework | **Next.js 15** (App Router, Server Components, Server Actions) |
-| UI | **React 19**, **TypeScript**, **Tailwind CSS v4**, **Framer Motion** |
-| Components | **shadcn/ui** (57 UI components) |
-| Backend / DB | **Supabase** (PostgreSQL, Auth, Storage, RLS) |
-| Images (optional) | **Cloudinary** + **Supabase Storage** (`product-images`, `course-images`, `order-receipts`) |
-| Excel import/export | **xlsx** package |
-| Email (optional) | **Resend** API for order confirmations |
-| Package name | `phonics-club` |
-
-**Demo mode:** If Supabase env vars are missing, the app runs with in-code seed data (products, courses, blog).
-
----
-
-## 3. User Roles
-
-| Role | Access |
-|------|--------|
-| **Guest** | Browse shop, courses, blog, contact, FAQs; use AI assistant |
-| **Registered user** | Cart, wishlist, checkout, dashboard, course enrollment, learning player |
-| **Admin** | Full `/admin` panel — products, orders, courses, CMS, trainers, coupons, etc. |
-
-Roles are stored in Supabase `profiles.role` (`user` | `admin`). Middleware protects routes.
-
----
-
-## 4. All Public Pages
-
-### Homepage — `/`
-- Hero, featured products & courses, school partner logos (“Tested at schools throughout Pakistan”)
-- **Vortex Learning** partnership section
-- Testimonials, stats, blog preview, newsletter, social reels (Instagram @phonics.club)
-- Admin-editable announcement ticker at top
-
-### Shop — `/shop`
-- Full Jolly Phonics product catalog (~112 items with images)
-- Filter by category (Activity Books, Pupil Books, Workbooks, Readers, Kits, etc.)
-- Each card: **+ / − quantity**, **Add to cart**, **Wishlist**
-- Prices in **PKR**, ISBN shown
-
-### Product detail — `/shop/[slug]`
-- Image, description, price, stock, ISBN
-- Quantity selector, add to cart, wishlist
-- **Related products** in same category
-- **Back button** to previous page
-
-### Courses listing — `/courses`
-- Browse published courses by category (teacher-courses, phonics, reading, preschool)
-- Featured courses, pricing, instructor, duration
-
-### Course detail — `/courses/[slug]`
-- Udemy-style layout: hero, thumbnail, instructor, rating, curriculum accordion
-- Learning outcomes, requirements, instructor profile, related courses
-- **Enroll** button (free or paid)
-
-### Blog — `/blog`
-- Article listing with category filters
-- **Search** by title, excerpt, tags
-
-### Blog article — `/blog/[slug]`
-- Full post content, SEO metadata, author info
-
-### About — `/about`
-- Company story, mission, synthetic phonics focus
-
-### Contact — `/contact`
-- Email, phone, address, WhatsApp, contact form
-
-### FAQs — `/faqs`
-- Common questions (orders, NOC, training, returns)
-
-### Trainings — `/trainings`
-- 2025 training calendar (Jolly Phonics, Jolly Grammar)
-- Online webinar registration + onsite request forms
-
-### Consultancy — `/consultancy`
-- Consulting services for schools and institutions
-
-### Certified trainers — `/certified-trainers`
-- Grid of certified Jolly Phonics trainers (admin-managed)
-
-### Legal pages
-| Page | URL | Content |
-|------|-----|---------|
-| Privacy Policy | `/privacy` | Data collection & usage |
-| Terms of Service | `/terms` | Orders, payment, IP, shipping |
-| Refund Policy | `/refunds` | Returns, cancellations, training refunds |
-| Cookie Policy | `/cookies` | Cookie types & preferences |
-
-### Auth
-| Page | URL | Purpose |
-|------|-----|---------|
-| Login | `/auth/login` | Email/password sign in |
-| Sign up | `/auth/signup` | Create account |
-| Callback | `/auth/callback` | Supabase OAuth/email verification handler |
-
----
-
-## 5. Student / Customer Pages (Login Required)
-
-| Page | URL | What it does |
-|------|-----|--------------|
-| **Dashboard** | `/dashboard` | Overview: enrolled courses, progress, recent orders, quick links |
-| **My courses** | `/dashboard/my-courses` | All enrollments with progress % and “Continue learning” |
-| **Course player** | `/course/[id]/learn` | Lesson curriculum, mark complete, progress tracking |
-| **Cart** | `/cart` | Line items, quantity controls, subtotal, link to checkout |
-| **Wishlist** | `/wishlist` | Saved products |
-| **Checkout** | `/checkout` | Shipping form, coupon/member ID, COD or bank transfer, receipt upload |
-| **Order success** | `/checkout/success?order=...` | Confirmation + **download invoice** link |
-
-### Checkout features
-- **Email validation** + **Pakistan mobile validation** (03xx / +92 3xx)
-- **Fixed shipping:** PKR **5,500** (with disclaimer that fees may vary by quantity/distance)
-- **Coupon code** discount
-- **Member ID** field + “Contact us” if unknown
-- **Cash on Delivery** → order status `pending`
-- **Bank transfer** → shows bank details, requires receipt upload → status `payment_review` until admin confirms
-
-### Cart badge
-- Red number on cart icon in navbar showing total item quantity
-
----
-
-## 6. Admin Panel — `/admin`
-
-All admin pages require `profiles.role = 'admin'`.
-
-| Page | URL | Features |
-|------|-----|----------|
-| **Dashboard** | `/admin` | Stats: students, courses, enrollments, products, revenue, orders; quick actions |
-| **Products** | `/admin/products` | List, search, bulk select |
-| ↳ Import/Export | (toolbar) | **CSV & Excel** import/export; upsert by **ISBN** |
-| ↳ Bulk update | (dialog) | Stock, price, price %, category, publish/feature |
-| ↳ Bulk delete | (toolbar) | Delete selected products |
-| ↳ Image upload | (dialog) | Supabase Storage; attach to product by ISBN |
-| ↳ Import catalog | (button) | Seed ~112 Jolly Phonics products from image catalog |
-| **New product** | `/admin/products/new` | Create product (ISBN required, unique key) |
-| **Edit product** | `/admin/products/[id]` | Update product + Supabase image upload |
-| **Courses** | `/admin/courses` | List all courses |
-| **New course** | `/admin/courses/new` | Title, slug, price, curriculum builder (modules + lessons), objectives, SEO |
-| **Edit course** | `/admin/courses/[id]` | Full LMS course editor |
-| **Blog** | `/admin/blog` | List posts |
-| **New / edit blog** | `/admin/blog/new`, `/admin/blog/[id]` | Title, content, tags, cover image, SEO, publish |
-| **Orders** | `/admin/orders` | View all orders, line items, payment method, receipt |
-| ↳ Confirm payment | (button) | For bank transfer orders → moves to processing |
-| ↳ Update status | (dropdown) | pending → processing → shipped → delivered, etc. |
-| ↳ Invoice | (link) | Download HTML invoice |
-| **Site content** | `/admin/content` | Edit JSON for: announcements, testimonials, social reels, Vortex Learning, invoice template, bank details |
-| **Trainers** | `/admin/trainers` | Add/remove certified trainers |
-| **Users** | `/admin/users` | View registered users |
-| **Coupons** | `/admin/coupons` | Create discount codes (% or fixed), max uses, expiry |
-| **Certificates** | `/admin/certificates` | Certificate template management |
-| **Training registrations** | `/admin/trainings` | View webinar/onsite registration submissions |
-| **Upload** | `/admin/upload` | General Cloudinary image upload tool |
-
----
-
-## 7. API Routes
-
-| Method | Route | Purpose |
-|--------|-------|---------|
-| GET | `/api/cart/count` | Cart item count for navbar badge |
-| POST | `/api/assistant` | AI chatbot replies (courses, products, FAQs) |
-| GET | `/api/site/announcements` | Active announcement ticker content |
-| GET | `/api/orders/[id]/invoice` | Download order invoice (HTML) |
-| POST | `/api/upload` | Cloudinary image upload |
-| GET | `/api/admin/products/export?format=csv\|xlsx` | Export product catalog |
-| POST | `/api/admin/products/import` | Import CSV/Excel (ISBN upsert) |
-| POST | `/api/admin/products/upload-image` | Product image → Supabase Storage |
-| GET | `/api/admin/products/status` | Supabase connection health |
-| GET | `/sitemap.xml` | SEO sitemap |
-| GET | `/robots.txt` | SEO robots |
-
----
-
-## 8. Product Catalog System
-
-### Categories (10)
-Activity Books · Pupil Books · Workbooks · Grammar Workbooks · Grammar Pupil Books · Teacher's Books · Comprehension · Readers · Teacher Resources · Kits
-
-### Import / export
-- **Unique key:** ISBN (update if exists, create if new)
-- **Columns:** isbn, name, slug, description, price, compare_at_price, category, stock, featured, published, images
-- **Formats:** `.csv`, `.xlsx`
-- **Images:** Local paths (`/images/...`) or Supabase Storage URLs
-
-### Catalog source files
-- `lib/data/catalog-manifest.ts` — master product list
-- `lib/data/catalog-from-images.ts` — builds catalog from `public/images/` folders
-- `public/images/` — ~112 product images organized by category folders
-
----
-
-## 9. LMS (Learning Management System)
-
-### Course features
-- Categories, levels, duration, instructor, thumbnail
-- Objectives, requirements, SEO fields
-- **Curriculum builder:** Module → Lessons (title, duration)
-- Publish/unpublish, featured flag
-- Free or paid pricing
-
-### Student learning
-- Enroll from course detail page
-- Progress % tracked per enrollment
-- **Learning player** at `/course/[id]/learn` — curriculum sidebar, mark lesson complete
-- Certificate mention at 100% progress (templates in admin)
-
-### Course detail page (public)
-Hero, pricing, enroll, curriculum accordion, outcomes, requirements, instructor, related courses
-
----
-
-## 10. Order & Payment Flow
-
-```
-Customer adds to cart → Checkout → Place order
-                                    │
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-            Cash on Delivery                  Bank Transfer
-            status: pending                   status: awaiting_payment
-            │                               Upload receipt → payment_review
-            │                               Admin confirms → processing
-                    └───────────────┬───────────────┘
-                                    ▼
-                            Email + invoice sent
-                            Admin dispatches → shipped → delivered
-```
-
-### Order fields (Supabase)
-- `subtotal`, `shipping_fee` (5500), `discount_amount`, `coupon_code`, `member_id`
-- `payment_method` (cod | credit), `receipt_url`, `invoice_number`
-- `phone`, `shipping_address` (JSON)
-
-### Invoice
-- HTML invoice with company header, line items, shipping disclaimer
-- Admin can customize template via **Site Content → invoice_template**
-- Customer downloads from success page or email link
-
----
-
-## 11. AI Assistant (Chatbot)
-
-**Floating button** bottom-right on every page.
-
-| Capability | Examples |
-|------------|----------|
-| Course advisor | “What courses do you offer?”, “Recommend for beginners” |
-| Product guide | “Show pupil books”, “How much is…?” |
-| Pricing & payment | JazzCash, EasyPaisa, bank transfer info |
-| Training dates | 2025 calendar, webinar registration |
-| Personalized (logged in) | “My enrolled courses”, progress |
-| Support | Contact info, NOC/PCTB, returns |
-
-**Starter buttons:** Find a course · Browse products · Training dates · Contact support · Payment methods
-
-Powered by `/api/assistant` + live data from courses, products, blog.
-
----
-
-## 12. Homepage CMS (Admin-editable)
-
-Managed at **`/admin/content`** (JSON editor):
-
-| Key | Controls |
-|-----|----------|
-| `announcements` | Top ticker / flyer messages, links, coupon codes |
-| `testimonials` | “What schools & teachers say” cards |
-| `social_reels` | Instagram-style grid: thumbnail, video URL, title (play on hover/click) |
-| `vortex_learning` | Partnership section: title, description, course cards |
-| `invoice_template` | Invoice header, tagline, footer/shipping disclaimer |
-| `bank_details` | Bank name, account, IBAN shown at checkout for credit orders |
-
----
-
-## 13. School Partners Section
-
-Homepage **Trust Badges** section:
-- Heading: **“Tested at schools throughout Pakistan”**
-- Logo carousel from `public/images/schools/partners-strip-1.png` and `partners-strip-2.png`
-- Includes: Quixotic Academy, LGS, Froebel's, Ayan Montessori, Beaconhouse, RWIS, Dynamic International, Academus, ALDA, Horizon, etc.
-
----
-
-## 14. Global UI Features
-
-| Feature | Where |
-|---------|-------|
-| **Back button** | Shop, product detail, checkout, trainers, course pages |
-| **Cart badge** | Navbar — red count on cart icon |
-| **WhatsApp floating** | Bottom-left — quick contact |
-| **Announcement bar** | Top of every page — admin-editable |
-| **SEO** | Metadata, JSON-LD, sitemap, robots.txt per page |
-| **Responsive design** | Mobile-first Tailwind layout |
-| **Dark/light** | Theme support via next-themes |
-
----
-
-## 15. Database (Supabase)
-
-### Core tables
-`profiles` · `products` · `courses` · `blog_posts` · `orders` · `cart_items` · `wishlist_items` · `enrollments`
-
-### LMS tables
-`course_modules` · `course_lessons` · `lesson_progress` · `course_reviews` · `certificates` · `course_categories`
-
-### E-commerce extras
-`coupons` · `training_registrations` · `certificate_templates` · `training_packages`
-
-### CMS tables
-`site_content` · `trainers` · `chatbot_knowledge` · `chat_sessions` · `blog_comments`
-
-### Storage buckets
-`product-images` · `course-videos` · `course-materials` · `course-images` · `order-receipts`
-
-### Migrations (run in order)
-1. `supabase/schema.sql`
-2. `supabase/migrations/002_trainings_coupons.sql`
-3. `supabase/migrations/003_product_isbn.sql`
-4. `supabase/migrations/004_isbn_unique_storage.sql`
-5. `supabase/migrations/005_lms_system.sql`
-6. `supabase/migrations/006_orders_cms.sql`
-
----
-
-## 16. Environment Variables
-
-```env
-# App
-NEXT_PUBLIC_APP_URL=https://www.phonicsclub.com
-NEXT_PUBLIC_APP_NAME=PHONICS CLUB
-ADMIN_EMAIL=support@phonicsclub.com
-
-# Supabase (required for production)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=product-images
-
-# Cloudinary (optional)
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-# Order emails (optional)
-RESEND_API_KEY=
-ORDER_EMAIL_FROM=orders@phonicsclub.com
-```
-
----
-
-## 17. Quick Start
-
-```bash
-npm install
-cp .env.example .env.local   # fill Supabase keys
-npm run dev                    # open the local URL printed by Next.js
-```
-
-**Make yourself admin** (after signup, in Supabase SQL):
-```sql
-UPDATE profiles SET role = 'admin' WHERE email = 'your@email.com';
-```
-
-**Seed products:** Admin → Products → **Import Catalog**
-
----
-
-## 18. Page Map (Visual)
-
-```
-PHONICS CLUB
-│
-├── PUBLIC
-│   ├── / ........................ Homepage
-│   ├── /shop .................... Product catalog
-│   ├── /shop/[slug] ............... Product detail
-│   ├── /courses ................... Course listing
-│   ├── /courses/[slug] ............ Course detail (LMS)
-│   ├── /blog / /blog/[slug] ....... Blog
-│   ├── /about / /contact / /faqs .. Info pages
-│   ├── /trainings / /consultancy .. Services
-│   ├── /certified-trainers ........ Trainer profiles
-│   ├── /privacy / /terms / /refunds / /cookies
-│   └── /auth/login / /auth/signup . Authentication
-│
-├── CUSTOMER (login required)
-│   ├── /dashboard ................. Student home
-│   ├── /dashboard/my-courses ...... Enrollments
-│   ├── /course/[id]/learn ......... Lesson player
-│   ├── /cart / /wishlist .......... Shopping
-│   └── /checkout / /checkout/success
-│
-├── ADMIN (admin role)
-│   └── /admin/*
-│       ├── products (+ import/export/bulk)
-│       ├── courses (+ curriculum builder)
-│       ├── blog / orders / users
-│       ├── content / trainers / coupons
-│       └── certificates / trainings / upload
-│
-└── GLOBAL
-    ├── AI Assistant (chatbot)
-    ├── WhatsApp button
-    └── Announcement ticker
-```
-
----
-
-## 19. Feature Checklist Summary
-
-| Area | Status |
-|------|--------|
-| Product shop with 112+ Jolly items | ✅ |
-| Cart + wishlist + quantity controls | ✅ |
-| Checkout COD + bank transfer | ✅ |
-| Coupon & member ID | ✅ |
-| Invoice email + download | ✅ |
-| Product import/export (ISBN upsert) | ✅ |
-| Supabase Storage for images | ✅ |
-| LMS courses + curriculum + player | ✅ |
-| Student dashboard + progress | ✅ |
-| Blog CMS | ✅ |
-| Admin orders + payment confirm | ✅ |
-| Homepage CMS (testimonials, reels, ticker) | ✅ |
-| Vortex Learning section | ✅ |
-| School partner logos | ✅ |
-| Certified trainers admin | ✅ |
-| AI assistant | ✅ |
-| Legal pages | ✅ |
-| SEO (sitemap, JSON-LD) | ✅ |
-| Payment gateway (Stripe/JazzCash live) | 🔜 Prepared |
-| PDF certificates auto-generate | 🔜 Templates ready |
-| Video upload to course-videos bucket | 🔜 Schema ready |
-
----
-
-*Last updated: May 2026 · Phonics Club Pvt Ltd*
+# PHONICS CLUB - Full Project Report
+
+Generated: 2026-09-09
+Project root: `C:\Users\DELL\Downloads\education-ecommerce-ui`
+
+## Executive Summary
+
+Phonics Club is a full-stack education e-commerce and LMS platform for Phonics Club Pvt Ltd. It combines a Jolly Phonics product shop, online course catalogue, customer dashboard, checkout and invoice system, admin back office, content management, training registrations, blog/news content, mobile API routes, and a floating assistant.
+
+The project is built with Next.js App Router, React, TypeScript, Tailwind CSS, Supabase, PDF/email utilities, and a large static asset catalogue under `public`.
+
+## Technology Stack
+
+| Area | Technology |
+| --- | --- |
+| Web framework | Next.js 15 App Router |
+| UI | React 19, TypeScript, Tailwind CSS v4 |
+| Components | shadcn/ui style component set in `components/ui` |
+| Backend | Next.js Server Actions and API routes |
+| Database/auth/storage | Supabase |
+| Invoices | HTML renderer and PDF renderer with `pdf-lib` |
+| Email | Nodemailer-based order, payment, training, course, and certificate emails |
+| Data import/export | `xlsx`, CSV helpers, Supabase product upserts |
+| Deployment support | Vercel config, OpenNext/Cloudflare generated output present |
+
+## Top-Level Structure
+
+| Path | Purpose |
+| --- | --- |
+| `app` | All public pages, admin pages, API routes, global layout, sitemap, robots, manifest, and global CSS. |
+| `components` | Reusable UI for layout, shop, cart, checkout, courses, LMS, admin screens, assistant, and display preferences. |
+| `actions` | Server Actions for auth, cart, orders, fast invoices, LMS, trainings, admin product/course/content flows. |
+| `lib` | Business logic: Supabase clients, invoices, order stock, product search, LMS, site content, currency, email, mobile API helpers. |
+| `public` | Logos, favicons, product images, course images, blog/event galleries, audio, PDFs, placeholders. |
+| `supabase` | Base schema, seed SQL, and numbered migrations. |
+| `scripts` | Maintenance scripts for catalogue building/imports, event image manifest generation, LearnPress migration, and mobile backend checks. |
+| `types` | Shared TypeScript interfaces for database rows and app results. |
+| `docs` | Project documentation, audits, launch notes, API/security docs, and migration reports. |
+| `tmp` | Temporary migration and dev-server artifacts. |
+
+## Public Website
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Homepage with hero, featured shop items, featured courses, trust badges, testimonials, newsletter, blog preview, and content sections. |
+| `/shop` | Product catalogue with search/filtering, ISBN-aware product cards, pricing, cart/wishlist actions. |
+| `/shop/[slug]` | Product detail page with images, price, stock, ISBN, add-to-cart, wishlist, and related products. |
+| `/cart` | Shopping cart with item quantities, totals, and checkout entry. |
+| `/checkout` | Customer checkout for guest/user orders, shipping details, payment method, discounts, and receipt flow. |
+| `/checkout/success` | Order confirmation page with invoice links and optional edit token support. |
+| `/courses` | Course catalogue with filters, search, course cards, and personalized learning support panel. |
+| `/courses/[slug]` | Course sales/detail page with curriculum, instructor, enrollment/payment entry. |
+| `/courses/[slug]/payment` | Course payment workflow. |
+| `/course/[id]/learn` | LMS learning player for enrolled students. |
+| `/course/[id]/quiz` | Course quiz flow. |
+| `/course/[id]/certificate` | Certificate request/download flow. |
+| `/blog` and `/blog/[slug]` | Blog listing and article/event gallery pages. |
+| `/trainings` | Training/webinar information and registration. |
+| `/consultancy` | Consultancy service page. |
+| `/contact` | Contact details and form. |
+| `/about`, `/privacy`, `/terms`, `/refunds`, `/cookies`, `/account-deletion` | Company and policy pages. |
+| `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password` | Authentication and password recovery pages. |
+
+## Admin Back Office
+
+Admin pages are protected by middleware and role checks.
+
+| Route | Main Capabilities |
+| --- | --- |
+| `/admin` | Dashboard and operational overview. |
+| `/admin/products` | Product search, import/export, bulk updates, image upload, stock/pricing/publish controls. |
+| `/admin/products/new`, `/admin/products/[id]` | Product creation and editing, including ISBN fields. |
+| `/admin/orders` | Order list, search, invoice links, invoice number updates, payment confirmation, status/shipping controls, customer/order edits, line item edits. |
+| `/admin/orders/invoice-numbering` | Invoice number management. |
+| `/admin/fast-invoices` | Private fast invoice link creation and link history. |
+| `/admin/courses`, `/admin/courses/new`, `/admin/courses/[id]`, `/admin/courses/[id]/builder` | Course creation/editing and curriculum builder. |
+| `/admin/course-payments` | Course payment review and workflow management. |
+| `/admin/enrollments` | Student enrollment and progress visibility. |
+| `/admin/lms-reports` | LMS reporting dashboard. |
+| `/admin/content` | Site content, announcements, invoice template, bank details, homepage content, FAQs/media. |
+| `/admin/blog`, `/admin/blog/new`, `/admin/blog/[id]` | Blog CMS. |
+| `/admin/trainers` | Certified trainer management. |
+| `/admin/trainings`, `/admin/training-sessions` | Training registrations and session visibility. |
+| `/admin/certificates` | Certificate templates and records. |
+| `/admin/coupons` | Discount codes and member-related discounts. |
+| `/admin/customers`, `/admin/users`, `/admin/activity-logs` | Customer, user, and operational visibility. |
+| `/admin/settings/appearance`, `/admin/settings/currency`, `/admin/settings/payment-methods` | Appearance/accessibility, currency, and payment settings. |
+
+## E-Commerce Flow
+
+1. Customer browses `/shop`.
+2. Product cards and product pages use product data from Supabase or seed fallback data.
+3. Cart state is stored for logged-in users in Supabase and for guests via guest cart support.
+4. Checkout validates customer details, payment method, discounts, and product stock.
+5. Orders are stored in Supabase `orders` with JSON line items.
+6. Invoices are generated through `lib/invoice.ts` for HTML and `lib/invoice-pdf.ts` for PDF.
+7. Order emails are sent through `lib/email/send-order-email.ts`.
+8. Admin manages orders through `/admin/orders`.
+
+## Invoice System
+
+| File | Role |
+| --- | --- |
+| `lib/invoice-summary.ts` | Calculates invoice lines, discounts, totals, shipping, and balance due. |
+| `lib/invoice.ts` | Builds HTML invoices. |
+| `lib/invoice-pdf.ts` | Builds downloadable PDF invoices. |
+| `app/api/orders/[id]/invoice/route.ts` | Serves invoice HTML/PDF. |
+| `actions/orders.ts` | Creates orders and processes admin/customer order edits. |
+| `components/orders/order-items-editor.tsx` | Admin/customer item editor UI. |
+
+Current invoice capabilities:
+
+| Feature | Status |
+| --- | --- |
+| Invoice number generation and editing | Implemented |
+| HTML invoice download | Implemented |
+| PDF invoice download | Implemented |
+| Product names, quantity, price, totals | Implemented |
+| Discount and shipping breakdown | Implemented |
+| Bank details and stock/payment notice | Implemented |
+| Optional ISBN under product name in invoices | Implemented |
+| Admin ISBN editing in order invoice item editor | Implemented |
+
+## Fast Invoice Flow
+
+Fast invoices allow admins to create private tokenized links for customers. Customers open `/fast-invoice/[token]`, select allowed products, enter customer/shipping/payment details, and create a normal order/invoice.
+
+| File | Role |
+| --- | --- |
+| `app/admin/fast-invoices/page.tsx` | Admin fast invoice link page. |
+| `components/admin/fast-invoice-link-form.tsx` | Link creation UI. |
+| `app/fast-invoice/[token]/page.tsx` | Customer-facing private invoice page. |
+| `components/fast-invoice/fast-invoice-form.tsx` | Product picker, customer form, preview, and payment choice. |
+| `actions/fast-invoice.ts` | Validates token, loads products, creates order, sends invoice email. |
+
+## Courses And LMS
+
+The LMS supports public course discovery, enrollments, course payment workflows, lesson playback, quizzes, progress tracking, certificates, and admin reporting.
+
+| File | Role |
+| --- | --- |
+| `app/courses/page.tsx` | Course catalogue page. |
+| `app/courses/[slug]/page.tsx` | Public course details. |
+| `components/courses/course-card.tsx` | Course card UI. |
+| `components/courses/course-detail-view.tsx` | Course detail experience. |
+| `components/courses/course-learn-player.tsx` | LMS learning player. |
+| `lib/lms.ts` | LMS queries and business logic. |
+| `actions/lms.ts` | LMS server actions. |
+
+Recent content update:
+
+The course catalogue support panel now uses the heading "Personalized Learning, Wherever You Are" and describes worldwide online classes, all subjects, all levels, global access, exam prep, specialized courses, and one-to-one tutoring.
+
+## Product Catalogue
+
+The product catalogue is ISBN-centered. Products include name, slug, description, price, sale pricing, category, product number, SKU/barcodes, ISBN, images, stock fields, and publish/feature flags.
+
+| File | Role |
+| --- | --- |
+| `lib/data/catalog-manifest.ts` | Product image/name/price/category source manifest. |
+| `lib/data/catalog-from-images.ts` | Builds product data from image catalogue metadata. |
+| `lib/data/product-catalog.json` | Generated/static catalogue data. |
+| `lib/products/search.ts` | Product search helpers, including ISBN search. |
+| `lib/products/import-export.ts` | CSV/XLSX product import/export. |
+| `actions/admin/products.ts` | Product create/update actions. |
+| `components/admin/products-manager.tsx` | Product admin UI. |
+
+## Content And SEO
+
+| Area | Files |
+| --- | --- |
+| Metadata and favicons | `utils/seo.ts`, `app/manifest.ts`, `public/favicon-*`, `public/icon.svg`, `public/logo.png` |
+| Sitemap and robots | `app/sitemap.ts`, `app/robots.ts` |
+| Organization and website structured data | `utils/seo.ts` |
+| CMS content loading | `lib/site-content.ts` |
+| Admin content editing | `actions/admin/site-content.ts`, `app/admin/content/page.tsx` |
+
+The browser/search icon configuration now points at the Phonics Club logo assets and the stale generic `public/icon.svg` has been replaced with the Phonics Club `P` mark.
+
+## Mobile API
+
+The app includes mobile backend endpoints under `app/api/mobile/v1`, with helpers in `lib/mobile-api`.
+
+| Area | Example Routes |
+| --- | --- |
+| Auth/current user | `/api/mobile/v1/auth/me` |
+| Config | `/api/mobile/v1/config` |
+| Orders | `/api/mobile/v1/orders`, `/api/mobile/v1/orders/[orderId]`, invoice/receipt endpoints |
+| Course payments | `/api/mobile/v1/course-payments` |
+| Learning | `/api/mobile/v1/learning/courses`, lessons, sessions, resources |
+| Certificates | `/api/mobile/v1/certificates` |
+| Support | `/api/mobile/v1/support/issues` |
+| Admin products/reviews/overview | `/api/mobile/v1/admin/*` |
+
+## Database And Migrations
+
+Supabase stores profiles, products, orders, courses, course modules/lessons, enrollments, progress, reviews, payments, certificates, site content, trainers, discounts, training events, mobile-related records, display preferences, and operational data.
+
+| File/Folder | Role |
+| --- | --- |
+| `supabase/schema.sql` | Base schema. |
+| `supabase/seed-products.sql` | Product seed data. |
+| `supabase/newsletters.sql` | Newsletter schema/data helpers. |
+| `supabase/migrations/*.sql` | Incremental schema changes. |
+
+| Range | Theme |
+| --- | --- |
+| `002`-`004` | Trainings, coupons, product ISBN and storage uniqueness. |
+| `005`-`014` | LMS foundation and premium hierarchy. |
+| `015`-`023` | Site pages, trainers, media, payment statuses, currency/payment/shop content. |
+| `024`-`027` | Mobile auth, storage, orders, admin, support, deletion. |
+| `028`-`034` | Appearance/accessibility, discounts, homepage media, child course pricing. |
+| `035`-`043` | Fast invoice/customer edit improvements, course payment licences/reminders, invoice numbering reliability. |
+
+## Assets
+
+Static assets live in `public`.
+
+| Asset Area | Notes |
+| --- | --- |
+| Logos/icons | `logo.png`, `logo.svg`, `icon.svg`, favicon PNG/ICO files, app icons. |
+| Product images | Organized by product category folders such as Activity Books, Readers, Pupilbooks, KITS, workbooks, resources, and teacher books. |
+| Course images | `public/images/courses`. |
+| Blog/event galleries | `public/images/blog`, `public/images/photos`, `public/images/gallery`. |
+| Audio | Jolly Phonics 42 sounds and group audio under `public/audio`. |
+| Catalog PDFs | `public/catalogs/Phonics_Club_Catalogue.pdf`. |
+
+## Environment Variables
+
+Key variables are documented in `.env.example`.
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Public site URL. |
+| `NEXT_PUBLIC_APP_NAME` | App/site name. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase browser anon key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase service key. |
+| `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET` | Default product image bucket. |
+| `CLOUDINARY_*` | Optional Cloudinary upload support. |
+| `ORDER_EMAIL_FROM` | Order email sender. |
+
+## Development Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm install` | Install dependencies. |
+| `npm run dev` | Start local dev server after regenerating event image manifest. |
+| `npm run build` | Production build check. |
+| `npm run start` | Start built app. |
+| `npm run lint` | Runs ESLint if the binary is installed. |
+| `npm run test:mobile-backend` | Runs mobile backend static checks. |
+| `npm run generate:event-image-manifest` | Regenerates event/gallery image manifest. |
+
+## Recent Changes In This Report Pass
+
+| Area | Change |
+| --- | --- |
+| Invoices | Optional ISBN now appears below item/product names in a smaller font on HTML and PDF invoices. |
+| Admin orders | The order item editor now includes an editable ISBN field under each invoice item in the customer invoice edit area. |
+| Order data | `OrderItem` supports optional `isbn`; checkout, customer edits, admin edits, and fast invoice creation preserve ISBN where available. |
+| Fast invoices | Product search/selection and invoice preview show ISBNs when products have them. |
+| Courses page | Personalized support copy was replaced with the new personalized global online learning message. |
+| SEO/icon | Search/browser icon metadata now includes the Phonics Club logo asset, and `public/icon.svg` no longer contains the generic framework icon. |
+
+## Verification
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | Passed. |
+| `npm run lint` | Could not run because `eslint` is not installed or not available in this checkout. |
+
+## Maintenance Notes
+
+Use `docs/PROJECT_FILE_GUIDE.md` for a more detailed file-by-file guide. Use this report as the high-level project overview for stakeholders and future development work.

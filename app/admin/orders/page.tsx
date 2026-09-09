@@ -335,6 +335,7 @@ export default async function AdminOrdersPage({
   const editableProducts = products.map((product) => ({
     id: product.id,
     name: product.name,
+    isbn: product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined,
     price: getProductPricing(product).displayPrice,
     image: product.images?.[0],
   }))

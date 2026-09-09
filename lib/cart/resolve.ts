@@ -7,6 +7,7 @@ import type { OrderItem } from '@/types'
 export interface ResolvedCartItem {
   product_id: string
   name: string
+  isbn?: string
   price: number
   quantity: number
   image?: string
@@ -23,6 +24,7 @@ type CartProduct = {
   sale_price?: number | null
   sale_percentage?: number | null
   sale_badge_text?: string | null
+  isbn?: string | null
   images?: string[]
   stock?: number | null
   reserved_stock?: number | null
@@ -42,6 +44,7 @@ function resolvedCartItemFromProduct(product: CartProduct, quantity: number): Re
   return {
     product_id: product.id,
     name: product.name,
+    isbn: product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined,
     price: pricing.displayPrice,
     quantity,
     image: product.images?.[0],
@@ -99,6 +102,7 @@ export function cartItemsToOrderItems(items: ResolvedCartItem[]): OrderItem[] {
   return items.map((i) => ({
     product_id: i.product_id,
     name: i.name,
+    isbn: i.isbn,
     price: i.price,
     quantity: i.quantity,
     image: i.image,
