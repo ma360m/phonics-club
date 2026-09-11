@@ -17,7 +17,7 @@ import { getInvoiceTemplate } from '@/lib/site-content'
 import { sendLowStockAlertEmail, sendOrderConfirmationEmail } from '@/lib/email/send-order-email'
 import { notifyAdminOfPaymentReceipt } from '@/lib/email/send-payment-receipt-admin-email'
 import { uploadOrderReceiptFile, type OrderReceiptUpload } from '@/lib/orders/receipt-upload'
-import { applyStockChangesForOrder, applyStockDeltaForOrderEdit, validateAndAnnotateEditedOrderStock, validateAndAnnotateOrderStock } from '@/lib/orders/stock'
+import { applyStockDeltaForOrderEdit, validateAndAnnotateEditedOrderStock, validateAndAnnotateOrderStock, type StockChangeAlert } from '@/lib/orders/stock'
 import { resolveCartForCheckout, cartItemsToOrderItems } from '@/lib/cart/resolve'
 import { GUEST_CART_COOKIE } from '@/lib/cart/guest'
 import { friendlyErrorMessage } from '@/lib/friendly-error'
@@ -33,7 +33,7 @@ const lockedCustomerStatuses = new Set(['payment_confirmed', 'processing', 'read
 const MAX_CUSTOMER_ITEM_QUANTITY = 999
 const MAX_BULK_INVOICE_ORDER_COUNT = 200
 const OPTIONAL_ORDER_COLUMN_ERROR_PATTERN =
-  /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source/i
+  /display_currency|exchange_rate|display_subtotal|display_total|discount_percent|coupon_discount_percent|member_discount_percent|shipping_discount_amount|shipping_discount_reason|requires_admin_confirmation|admin_confirmation_reason|source|document_type|po_number|ntn_number|finalized_at|finalized_by|stock_deducted_at|stock_deducted_by/i
 
 const orderReceiptSchema = z.object({
   orderId: z.string().uuid('Order link is invalid. Open the order success link again and try uploading the receipt there.'),
@@ -74,6 +74,9 @@ const adminOrderEditSchema = checkoutBaseSchema
   .extend({
     orderId: z.string().uuid('Order link is invalid.'),
     status: z.enum(ORDER_STATUSES),
+    notes: z.string().trim().max(2000, 'Notes are too long.').optional(),
+    poNumber: z.string().trim().max(120, 'PO number is too long.').optional(),
+    ntnNumber: z.string().trim().max(120, 'NTN number is too long.').optional(),
     createdAt: z.string().trim().optional(),
     shippingFee: z.coerce.number().min(0, 'Shipping fee cannot be negative.').max(10_000_000, 'Shipping fee is too high.'),
     resendCustomerEmail: z.preprocess(
@@ -185,7 +188,7 @@ async function getAuthorizedCustomerOrder(orderId: string, token?: string, editT
   const serviceSupabase = await createServiceClient()
   const { data: order, error } = await serviceSupabase
     .from('orders')
-    .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason')
+    .select('id, user_id, access_token, customer_edit_token, customer_edit_allowed_until, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, document_type, finalized_at, stock_deducted_at, requires_admin_confirmation, admin_confirmation_reason')
     .eq('id', orderId)
     .single()
 
@@ -714,7 +717,8 @@ export async function placeOrderAction(
   const exchangeRateTimestamp = currencySettings.lastUpdatedAt
 
   const accessToken = user ? null : generateOrderAccessToken()
-  let invoiceNumber = await getNextInvoiceNumber()
+  const documentType = paymentMethod === 'cod' ? 'invoice' : 'estimate'
+  let invoiceNumber = paymentMethod === 'cod' ? await getNextInvoiceNumber() : null
   let receiptUrl: string | null = null
   let receiptUpload: OrderReceiptUpload | null = null
   const receiptFile = formData.get('receipt') as File | null
@@ -771,8 +775,14 @@ export async function placeOrderAction(
     receipt_size_bytes: receiptUpload?.sizeBytes ?? null,
     receipt_uploaded_at: receiptUpload ? new Date().toISOString() : null,
     invoice_number: invoiceNumber,
+    document_type: documentType,
+    finalized_at: null,
+    finalized_by: null,
+    stock_deducted_at: null,
+    stock_deducted_by: null,
     items,
     shipping_address: shippingAddress,
+    notes: String(formData.get('notes') ?? '').trim().slice(0, 2000) || null,
     display_currency: displayCurrency,
     exchange_rate: exchangeRate,
     exchange_rate_timestamp: exchangeRateTimestamp,
@@ -822,6 +832,13 @@ export async function placeOrderAction(
       delete legacyPayload.requires_admin_confirmation
       delete legacyPayload.admin_confirmation_reason
       delete legacyPayload.source
+      delete legacyPayload.document_type
+      delete legacyPayload.po_number
+      delete legacyPayload.ntn_number
+      delete legacyPayload.finalized_at
+      delete legacyPayload.finalized_by
+      delete legacyPayload.stock_deducted_at
+      delete legacyPayload.stock_deducted_by
       result = await supabase
         .from('orders')
         .insert(legacyPayload as never)
@@ -877,9 +894,8 @@ export async function placeOrderAction(
     order = { ...order, receipt_url: receiptUrl }
   }
 
-  console.info('Starting stock update', { orderId: order.id, invoiceNumber, itemCount: items.length })
-  const lowStockAlerts = await applyStockChangesForOrder(order.id, items)
-  console.info('Stock update completed', { orderId: order.id, invoiceNumber, alertCount: lowStockAlerts.length })
+  const lowStockAlerts: StockChangeAlert[] = []
+  console.info('Stock update deferred until admin confirmation', { orderId: order.id, invoiceNumber: invoiceNumber ?? 'EST', itemCount: items.length })
 
   if (couponCode) {
     const couponClient = await createServiceClient()
@@ -912,8 +928,8 @@ export async function placeOrderAction(
   let pdfBase64: string | undefined
   try {
     const template = await getInvoiceTemplate()
-    invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber } as never, template)
-    const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber } as never, template)
+    invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber, document_type: documentType } as never, template)
+    const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber, document_type: documentType } as never, template)
     pdfBase64 = Buffer.from(pdfBytes).toString('base64')
   } catch (invoiceError) {
     console.error('Invoice generation for email failed; order will remain saved and emails will continue without attachment if possible', {
@@ -924,7 +940,7 @@ export async function placeOrderAction(
   }
 
   try {
-    const emailResult = await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber, invoiceHtml, {
+    const emailResult = await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber ?? 'EST', invoiceHtml, {
       accessToken: accessToken ?? undefined,
       pdfBase64,
       customerName: parsed.data.fullName,
@@ -956,7 +972,7 @@ export async function placeOrderAction(
   if (receiptUpload && receiptFile && receiptFile.size > 0) {
     await notifyAdminOfOrderReceiptUpload({
       orderId: order.id,
-      invoiceNumber,
+      invoiceNumber: invoiceNumber ?? 'EST',
       total: Number(order.total ?? total),
       status: order.status,
       paymentMethod,
@@ -971,11 +987,11 @@ export async function placeOrderAction(
   }
 
   try {
-    await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
+    await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber ?? 'EST')
   } catch (stockEmailError) {
     console.error('Low stock email trigger failed; order remains saved', {
       orderId: order.id,
-      invoiceNumber,
+      invoiceNumber: invoiceNumber ?? 'EST',
       error: errorForLog(stockEmailError),
     })
   }
@@ -1158,6 +1174,10 @@ export async function updateCustomerOrderDetailsAction(
       shipping_address: shippingAddress,
       status,
     }
+    if (!result.order.finalized_at) {
+      updatePayload.document_type = paymentMethod === 'cod' ? 'invoice' : 'estimate'
+      if (paymentMethod !== 'cod') updatePayload.invoice_number = null
+    }
     if (editedTotals) {
       updatePayload.items = editedTotals.items
       updatePayload.subtotal = editedTotals.subtotal
@@ -1209,7 +1229,7 @@ export async function updateCustomerOrderDetailsAction(
       })
     }
 
-    if (editedTotals) {
+    if (editedTotals && result.order.stock_deducted_at) {
       const lowStockAlerts = await applyStockDeltaForOrderEdit(result.order.id, existingItems, editedTotals.items)
       await sendLowStockAlertEmail(
         lowStockAlerts,
@@ -1255,7 +1275,9 @@ export async function cancelCustomerOrderAction(
 
     if (error) return { success: false, error: friendlyErrorMessage(error, 'Order could not be cancelled.') }
 
-    await applyStockDeltaForOrderEdit(result.order.id, normalizeStoredOrderItems(result.order.items), [])
+    if (result.order.stock_deducted_at) {
+      await applyStockDeltaForOrderEdit(result.order.id, normalizeStoredOrderItems(result.order.items), [])
+    }
 
     revalidatePath('/checkout/success')
     revalidatePath('/dashboard')
@@ -1283,6 +1305,9 @@ export async function adminUpdateOrderDetailsAction(
     country: formData.get('country') || 'Pakistan',
     paymentMethod: formData.get('paymentMethod'),
     status: formData.get('status'),
+    notes: formData.get('notes') || '',
+    poNumber: formData.get('poNumber') || '',
+    ntnNumber: formData.get('ntnNumber') || '',
     createdAt: formData.get('createdAt') || undefined,
     shippingFee: formData.get('shippingFee'),
     resendCustomerEmail: formData.get('resendCustomerEmail'),
@@ -1311,7 +1336,7 @@ export async function adminUpdateOrderDetailsAction(
     const supabase = await createServiceClient()
     const { data: order, error: fetchError } = await supabase
       .from('orders')
-      .select('id, user_id, access_token, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, requires_admin_confirmation, admin_confirmation_reason, payment_method, phone, guest_email, shipping_address')
+      .select('id, user_id, access_token, status, created_at, receipt_url, receipt_path, items, subtotal, shipping_fee, discount_amount, discount_percent, total, display_currency, exchange_rate, invoice_number, document_type, po_number, ntn_number, finalized_at, stock_deducted_at, requires_admin_confirmation, admin_confirmation_reason, payment_method, phone, guest_email, shipping_address, notes')
       .eq('id', parsed.data.orderId)
       .single()
 
@@ -1340,6 +1365,9 @@ export async function adminUpdateOrderDetailsAction(
       phone: shippingAddress.phone,
       shipping_address: shippingAddress,
       status: parsed.data.status,
+      notes: parsed.data.notes?.trim() || null,
+      po_number: parsed.data.poNumber?.trim() || null,
+      ntn_number: parsed.data.ntnNumber?.trim() || null,
       subtotal: editedTotals.subtotal,
       shipping_fee: editedTotals.shippingFee,
       discount_amount: editedTotals.discountAmount,
@@ -1361,6 +1389,10 @@ export async function adminUpdateOrderDetailsAction(
       }
     }
     if (!order.user_id) updatePayload.guest_email = customerEmail
+    if (!order.finalized_at) {
+      updatePayload.document_type = paymentMethod === 'cod' ? 'invoice' : 'estimate'
+      if (paymentMethod !== 'cod') updatePayload.invoice_number = null
+    }
 
     const { error: updateError } = await supabase
       .from('orders')
@@ -1369,7 +1401,7 @@ export async function adminUpdateOrderDetailsAction(
 
     if (updateError) return { success: false, error: friendlyErrorMessage(updateError, 'Order could not be updated.') }
 
-    if (itemsChanged && recalculatedEditedTotals) {
+    if (itemsChanged && recalculatedEditedTotals && order.stock_deducted_at) {
       const lowStockAlerts = await applyStockDeltaForOrderEdit(order.id, existingItems, recalculatedEditedTotals.items)
       await sendLowStockAlertEmail(
         lowStockAlerts,
@@ -1437,21 +1469,23 @@ export async function adminUpdateOrderDetailsAction(
   }
 }
 
-export async function confirmOrderPaymentAction(orderId: string): Promise<ActionResult> {
+export async function confirmOrderPaymentAction(orderId: string): Promise<ActionResult<{ invoiceNumber: string }>> {
   const admin = await requireAdmin()
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status: 'payment_confirmed',
-      payment_confirmed_at: new Date().toISOString(),
-      payment_confirmed_by: admin.id,
-    } as never)
-    .eq('id', orderId)
+  if (!z.string().uuid().safeParse(orderId).success) return { success: false, error: 'Order link is invalid.' }
+  const supabase = await createServiceClient()
+  const { data, error } = await supabase.rpc('finalize_order_for_admin' as never, {
+    p_order_id: orderId,
+    p_admin_id: admin.id,
+  } as never)
 
-  if (error) return { success: false, error: friendlyErrorMessage(error, 'Payment could not be confirmed.') }
+  if (error || !data?.[0]) return { success: false, error: friendlyErrorMessage(error, 'Payment could not be confirmed.') }
   revalidatePath('/admin/orders')
-  return { success: true }
+  revalidatePath('/admin/invoices')
+  return { success: true, data: { invoiceNumber: data[0].invoice_number } }
+}
+
+export async function finalizeCodDeliveryAction(orderId: string): Promise<ActionResult<{ invoiceNumber: string }>> {
+  return confirmOrderPaymentAction(orderId)
 }
 
 export async function updateOrderStatusAction(orderId: string, status: string): Promise<ActionResult> {
@@ -1498,6 +1532,9 @@ export async function updateOrderInvoiceNumberAction(orderId: string, invoiceNum
   if (!cleanInvoiceNumber) return { success: false, error: 'Invoice number is required' }
 
   const supabase = await createClient()
+  const { data: order, error: orderError } = await supabase.from('orders').select('document_type').eq('id', orderId).maybeSingle()
+  if (orderError) return { success: false, error: friendlyErrorMessage(orderError, 'Invoice could not be loaded.') }
+  if (order?.document_type === 'estimate') return { success: false, error: 'Bank-transfer estimates receive an INV number only after payment confirmation.' }
   const { error } = await supabase
     .from('orders')
     .update({ invoice_number: cleanInvoiceNumber } as never)
@@ -1505,7 +1542,23 @@ export async function updateOrderInvoiceNumberAction(orderId: string, invoiceNum
 
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Invoice number could not be updated.') }
   revalidatePath('/admin/orders')
+  revalidatePath('/admin/invoices')
   return { success: true }
+}
+
+export async function bulkUpdateOrderStatusAction(orderIds: string[], status: string): Promise<ActionResult<{ updated: number }>> {
+  await requireAdmin()
+  const uniqueOrderIds = Array.from(new Set(orderIds.map((orderId) => orderId.trim()).filter(Boolean)))
+  if (!uniqueOrderIds.length) return { success: false, error: 'Select at least one order.' }
+  if (uniqueOrderIds.length > MAX_BULK_INVOICE_ORDER_COUNT) return { success: false, error: `Select ${MAX_BULK_INVOICE_ORDER_COUNT} orders or fewer at a time.` }
+  if (!uniqueOrderIds.every((orderId) => z.string().uuid().safeParse(orderId).success)) return { success: false, error: 'One selected order is invalid. Refresh Orders and try again.' }
+  if (!(ORDER_STATUSES as readonly string[]).includes(status)) return { success: false, error: 'Choose a valid order status.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('orders').update({ status } as never).in('id', uniqueOrderIds)
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Order statuses could not be updated.') }
+  revalidatePath('/admin/orders')
+  return { success: true, data: { updated: uniqueOrderIds.length } }
 }
 
 export async function bulkUpdateOrderInvoiceNumbersAction(
@@ -1529,6 +1582,14 @@ export async function bulkUpdateOrderInvoiceNumbersAction(
   }
 
   const supabase = await createClient()
+  const { data: selectedOrders, error: selectedOrdersError } = await supabase
+    .from('orders')
+    .select('id, document_type')
+    .in('id', uniqueOrderIds)
+  if (selectedOrdersError) return { success: false, error: friendlyErrorMessage(selectedOrdersError, 'Selected invoices could not be loaded.') }
+  if ((selectedOrders ?? []).some((order) => order.document_type === 'estimate')) {
+    return { success: false, error: 'Bank-transfer estimates receive INV numbers only after payment confirmation.' }
+  }
   for (let index = 0; index < uniqueOrderIds.length; index += 1) {
     const { error } = await supabase
       .from('orders')
@@ -1540,6 +1601,7 @@ export async function bulkUpdateOrderInvoiceNumbersAction(
 
   revalidatePath('/admin/orders')
   revalidatePath('/admin/orders/invoice-numbering')
+  revalidatePath('/admin/invoices')
   return {
     success: true,
     data: {
@@ -1595,6 +1657,20 @@ export async function updateOrderStatusFormAction(formData: FormData): Promise<v
 export async function confirmPaymentFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const result = await confirmOrderPaymentAction(orderId)
+  if (!result.success) throw new Error(result.error)
+}
+
+export async function bulkUpdateOrderStatusFormAction(formData: FormData): Promise<void> {
+  const orderIds = formData.getAll('orderId').map((value) => String(value ?? ''))
+  const status = String(formData.get('status') ?? '')
+  const result = await bulkUpdateOrderStatusAction(orderIds, status)
+  if (!result.success) throw new Error(result.error)
+  redirect(`/admin/orders?updatedStatuses=${result.data?.updated ?? orderIds.length}`)
+}
+
+export async function finalizeCodDeliveryFormAction(formData: FormData): Promise<void> {
+  const orderId = String(formData.get('orderId'))
+  const result = await finalizeCodDeliveryAction(orderId)
   if (!result.success) throw new Error(result.error)
 }
 

@@ -11,6 +11,7 @@ export interface FastInvoiceLink {
   max_uses: number | null
   used_count: number
   active: boolean
+  admin_only?: boolean | null
   created_at: string
 }
 

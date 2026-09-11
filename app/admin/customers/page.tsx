@@ -1,5 +1,5 @@
-import { getAdminCustomerRows, type CustomerReportRow } from '@/lib/admin/customers'
-import { sendCustomerPasswordResetAction } from '@/actions/admin/customers'
+import { getAdminCustomerRows, getAdminInvoiceCustomers, type AdminInvoiceCustomer, type CustomerReportRow } from '@/lib/admin/customers'
+import { sendCustomerPasswordResetAction, updateAdminCustomerAction } from '@/actions/admin/customers'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Download, KeyRound, UsersRound } from 'lucide-react'
@@ -146,13 +146,79 @@ function CustomerRow({ customer }: { customer: CustomerReportRow }) {
   )
 }
 
+function InvoiceCustomerRow({ customer }: { customer: AdminInvoiceCustomer }) {
+  return (
+    <details className="group rounded-2xl border bg-card shadow-sm">
+      <summary className="grid cursor-pointer list-none gap-3 px-4 py-4 transition-colors hover:bg-[#F8FAFC] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-[#0F172A]">{customer.name || 'Unnamed customer'}</p>
+          <p className="mt-1 truncate text-xs text-slate-500">{customer.email || 'No email'}{customer.member_id ? ` · ${customer.member_id}` : ''}</p>
+        </div>
+        <div className="min-w-0 text-sm text-slate-600">
+          <p className="truncate">{customer.phone || 'No phone number'}</p>
+          <p className="mt-1 truncate">{[customer.city, customer.address].filter(Boolean).join(' · ') || 'No address saved'}</p>
+        </div>
+        <span className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#1D4ED8] shadow-sm group-open:border-[#BFDBFE] group-open:bg-[#EFF6FF]">
+          Edit details
+          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="border-t bg-[#F8FAFC]/70 px-4 py-5">
+        <form action={updateAdminCustomerAction} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <input type="hidden" name="customerId" value={customer.source === 'directory' ? customer.id : ''} />
+          <input type="hidden" name="userId" value={customer.user_id ?? ''} />
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Full name</span>
+            <input name="name" required minLength={2} maxLength={120} defaultValue={customer.name} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Email</span>
+            <input name="email" type="email" defaultValue={customer.email ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Phone</span>
+            <input name="phone" required defaultValue={customer.phone ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Member ID</span>
+            <input name="memberId" defaultValue={customer.member_id ?? ''} className="w-full rounded-lg border bg-white px-3 py-2 font-mono" />
+          </label>
+          <label className="space-y-1 text-sm lg:col-span-2">
+            <span className="font-medium text-slate-700">Address</span>
+            <input name="address" defaultValue={customer.address ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">City</span>
+            <input name="city" defaultValue={customer.city ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Postal code</span>
+            <input name="zip" defaultValue={customer.zip ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700">Country</span>
+            <input name="country" defaultValue={customer.country || 'Pakistan'} className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm lg:col-span-3">
+            <span className="font-medium text-slate-700">Notes / other information</span>
+            <input name="notes" defaultValue={customer.notes ?? ''} placeholder="School, delivery preference, alternate contact…" className="w-full rounded-lg border bg-white px-3 py-2" />
+          </label>
+          <div className="flex items-end">
+            <Button type="submit" className="w-full rounded-xl bg-[#1D4ED8]">Save customer</Button>
+          </div>
+        </form>
+      </div>
+    </details>
+  )
+}
+
 export default async function AdminCustomersPage({
   searchParams,
 }: {
   searchParams?: Promise<{ message?: string; error?: string }>
 }) {
   const notice = await searchParams
-  const customers = await getAdminCustomerRows()
+  const [customers, invoiceCustomers] = await Promise.all([getAdminCustomerRows(), getAdminInvoiceCustomers()])
 
   return (
     <div className="space-y-6">
@@ -189,6 +255,18 @@ export default async function AdminCustomersPage({
           {notice.error}
         </p>
       ) : null}
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Invoice customer directory</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Edit saved customer details here. These records appear in admin-only Fast Invoice links.</p>
+          </div>
+          <span className="rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#1D4ED8]">{invoiceCustomers.length} customers</span>
+        </div>
+        {invoiceCustomers.map((customer) => <InvoiceCustomerRow key={customer.id} customer={customer} />)}
+        {invoiceCustomers.length === 0 ? <div className="rounded-2xl border bg-card px-4 py-8 text-center text-muted-foreground">No customer records yet.</div> : null}
+      </section>
 
       <section className="space-y-3">
         {customers.map((customer) => (

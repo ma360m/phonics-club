@@ -3,6 +3,9 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { ExternalLink, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { bulkUpdateOrderStatusFormAction } from '@/actions/orders'
+import { ORDER_STATUSES } from '@/lib/commerce'
+import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 
 interface BulkInvoiceSelectionContextValue {
   selectedIds: string[]
@@ -79,6 +82,15 @@ export function AdminOrderBulkInvoiceToolbar() {
         <p className="text-xs text-muted-foreground">{selectedCount} selected</p>
       </div>
       <div className="flex flex-wrap gap-2">
+        <form action={bulkUpdateOrderStatusFormAction} className="flex flex-wrap items-center gap-2">
+          {selectedIds.map((orderId) => <input key={orderId} type="hidden" name="orderId" value={orderId} />)}
+          <select name="status" defaultValue="processing" className="h-9 rounded-xl border bg-background px-2 text-xs" disabled={!selectedCount} aria-label="Bulk order status">
+            {ORDER_STATUSES.map((status) => <option key={status} value={status}>{getCustomerOrderStatusLabel(status)}</option>)}
+          </select>
+          <Button type="submit" size="sm" variant="outline" className="rounded-xl" disabled={!selectedCount}>
+            Update status
+          </Button>
+        </form>
         {selectedCount > 0 ? (
           <Button type="button" size="sm" variant="ghost" className="rounded-xl" onClick={clearSelection}>
             <X className="h-4 w-4" />

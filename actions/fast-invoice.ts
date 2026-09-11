@@ -9,7 +9,7 @@ import { checkoutSchema, normalizePhone } from '@/lib/validations/checkout'
 import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 import { normalizeShopPaymentMethod, shopPaymentNeedsReceipt } from '@/lib/payment-methods'
 import { getProductPricing } from '@/lib/products/sale-pricing'
-import { validateAndAnnotateOrderStock, applyStockChangesForOrder } from '@/lib/orders/stock'
+import { validateAndAnnotateOrderStock, type StockChangeAlert } from '@/lib/orders/stock'
 import { incrementMemberDiscountUsage, normalizeMemberId, validateMemberDiscount } from '@/lib/discounts/member-discounts'
 import { generateOrderAccessToken, buildInvoicePdf } from '@/lib/invoice-pdf'
 import { buildInvoiceHtml, generateInvoiceNumber } from '@/lib/invoice'
@@ -23,6 +23,7 @@ import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { isDuplicateInvoiceNumberError } from '@/lib/invoice-numbering'
 import { APP_URL } from '@/lib/constants'
 import { generateFastInvoiceToken, getFastInvoiceLinkByToken, hashFastInvoiceToken, isFastInvoiceLinkUsable } from '@/lib/fast-invoice'
+import { getAdminInvoiceCustomers } from '@/lib/admin/customers'
 import type { ActionResult, OrderItem } from '@/types'
 
 const fastInvoiceItemSchema = z.object({
@@ -36,6 +37,7 @@ const createFastInvoiceLinkSchema = z.object({
   requiredMemberId: z.string().trim().max(40).optional(),
   expiresInDays: z.coerce.number().int().min(1).max(365).default(30),
   maxUses: z.coerce.number().int().min(1).max(500).default(1),
+  adminOnly: z.boolean().default(false),
 })
 
 function appBaseUrl() {
@@ -144,6 +146,7 @@ export async function createFastInvoiceLinkAction(
     requiredMemberId: formData.get('requiredMemberId') || undefined,
     expiresInDays: formData.get('expiresInDays') || 30,
     maxUses: formData.get('maxUses') || 1,
+    adminOnly: formData.get('adminOnly') === 'on',
   })
 
   if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message }
@@ -159,6 +162,7 @@ export async function createFastInvoiceLinkAction(
     expires_at: expiresAt,
     max_uses: parsed.data.maxUses,
     created_by: admin.id,
+    admin_only: parsed.data.adminOnly,
   } as never)
 
   if (error) return { success: false, error: friendlyErrorMessage(error, 'Fast invoice link could not be created.') }
@@ -175,6 +179,27 @@ export async function placeFastInvoiceOrderAction(
   const link = await getFastInvoiceLinkByToken(token)
   if (!isFastInvoiceLinkUsable(link)) {
     return { success: false, error: 'This fast invoice link is invalid, expired, or already used.' }
+  }
+
+  if (link?.admin_only) {
+    await requireAdmin()
+  }
+
+  const selectedCustomerId = String(formData.get('customerId') ?? '').trim()
+  let assignedUserId: string | null = null
+  let selectedCustomerMemberId = ''
+  if (link?.admin_only && !selectedCustomerId) {
+    return { success: false, error: 'Select a customer before creating the invoice.' }
+  }
+
+  if (link?.admin_only) {
+    const customers = await getAdminInvoiceCustomers()
+    const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId)
+    if (!selectedCustomer) {
+      return { success: false, error: 'Choose a valid customer from the customer directory.' }
+    }
+    assignedUserId = selectedCustomer.user_id
+    selectedCustomerMemberId = selectedCustomer.member_id ?? ''
   }
 
   const parsed = checkoutSchema.safeParse({
@@ -251,6 +276,9 @@ export async function placeFastInvoiceOrderAction(
   items = applyItemDiscounts(items, discountAmount, discountPercent)
 
   const total = Math.max(0, subtotal + chargedShippingFee - discountAmount)
+  const storedMemberId = String(formData.get('customerMemberId') ?? '').trim() || selectedCustomerMemberId || memberId
+  const poNumber = String(formData.get('poNumber') ?? '').trim().slice(0, 120) || null
+  const ntnNumber = String(formData.get('ntnNumber') ?? '').trim().slice(0, 120) || null
   const paymentMethod = normalizeShopPaymentMethod(parsed.data.paymentMethod)
   if (!(await isPaymentMethodEnabled(paymentMethod, total))) {
     return { success: false, error: 'This payment method is currently unavailable. Please choose another payment method.' }
@@ -261,7 +289,8 @@ export async function placeFastInvoiceOrderAction(
   const exchangeRate = currencySettings.usdToPkrRate
   const exchangeRateTimestamp = currencySettings.lastUpdatedAt
   const accessToken = generateOrderAccessToken()
-  let invoiceNumber = await getNextInvoiceNumber()
+  const documentType = paymentMethod === 'cod' ? 'invoice' : 'estimate'
+  let invoiceNumber = paymentMethod === 'cod' ? await getNextInvoiceNumber() : null
   const shippingAddress = {
     fullName: parsed.data.fullName,
     email: customerEmail ?? '',
@@ -273,8 +302,8 @@ export async function placeFastInvoiceOrderAction(
   }
 
   const orderPayload: Record<string, unknown> = {
-    user_id: null,
-    guest_email: customerEmail,
+    user_id: assignedUserId,
+    guest_email: assignedUserId ? null : customerEmail,
     access_token: accessToken,
     status,
     total,
@@ -287,11 +316,19 @@ export async function placeFastInvoiceOrderAction(
     shipping_discount_amount: shippingDiscountAmount,
     shipping_discount_reason: shippingDiscountReason,
     coupon_code: couponCode,
-    member_id: memberId,
+    member_id: storedMemberId || null,
     payment_method: paymentMethod,
     phone: shippingAddress.phone,
     receipt_url: null,
+    notes: String(formData.get('notes') ?? '').trim() || null,
     invoice_number: invoiceNumber,
+    document_type: documentType,
+    po_number: poNumber,
+    ntn_number: ntnNumber,
+    finalized_at: null,
+    finalized_by: null,
+    stock_deducted_at: null,
+    stock_deducted_by: null,
     items,
     shipping_address: shippingAddress,
     display_currency: displayCurrency,
@@ -301,7 +338,7 @@ export async function placeFastInvoiceOrderAction(
     display_shipping_fee: convertCurrency(chargedShippingFee, displayCurrency, exchangeRate),
     display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
-    source: 'api',
+    source: 'fast_invoice',
     requires_admin_confirmation: stockCheck.requiresAdminConfirmation,
     admin_confirmation_reason: stockCheck.adminConfirmationReason,
   }
@@ -327,7 +364,7 @@ export async function placeFastInvoiceOrderAction(
 
   if (error || !order) return { success: false, error: friendlyErrorMessage(error, 'Fast invoice order could not be placed.') }
 
-  const lowStockAlerts = await applyStockChangesForOrder(order.id, items)
+  const lowStockAlerts: StockChangeAlert[] = []
 
   if (couponCode) {
     const { data: coupon } = await supabase.from('coupons').select('id, used_count').eq('code', couponCode).single()
@@ -344,11 +381,11 @@ export async function placeFastInvoiceOrderAction(
   }
 
   const template = await getInvoiceTemplate()
-  const invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber } as never, template)
-  const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber } as never, template)
+  const invoiceHtml = buildInvoiceHtml({ ...order, invoice_number: invoiceNumber, document_type: documentType } as never, template)
+  const pdfBytes = await buildInvoicePdf({ ...order, invoice_number: invoiceNumber, document_type: documentType } as never, template)
   const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
 
-  await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber, invoiceHtml, {
+  await sendOrderConfirmationEmail(customerEmail, order.id, invoiceNumber ?? 'EST', invoiceHtml, {
     accessToken,
     pdfBase64,
     customerName: parsed.data.fullName,
@@ -366,7 +403,7 @@ export async function placeFastInvoiceOrderAction(
     requiresAdminConfirmation: stockCheck.requiresAdminConfirmation,
     adminConfirmationReason: stockCheck.adminConfirmationReason,
   })
-  await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber)
+  await sendLowStockAlertEmail(lowStockAlerts, order.id, invoiceNumber ?? 'EST')
 
   revalidatePath('/admin/orders')
   redirect(`/checkout/success?order=${order.id}&token=${accessToken}`)

@@ -6,7 +6,6 @@ import { normalizeShopBankDetails } from '@/lib/bank-details'
 import {
   buildInvoiceSummary,
   formatDiscountPercent,
-  invoiceHasProvidedDiscount,
   type InvoiceOrder,
 } from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
@@ -14,6 +13,7 @@ import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { INVOICE_STOCK_PAYMENT_NOTICE } from '@/lib/invoice-notices'
+import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 
 interface InvoiceTemplate {
   header?: string
@@ -156,6 +156,10 @@ function discountMeta(order: InvoiceOrder) {
 }
 
 function shippingValue(summary: ReturnType<typeof buildInvoiceSummary>) {
+  if (summary.shipping <= 0) {
+    return `Free (-${formatPrice(SHIPPING_FEE_PKR)})`
+  }
+
   if (summary.shippingDiscount > 0) {
     const originalShipping = summary.shipping + summary.shippingDiscount
     return `${formatPrice(summary.shipping)} (was ${formatPrice(originalShipping)})`
@@ -185,38 +189,32 @@ export async function buildInvoicePdf(
   }
 
   const summary = buildInvoiceSummary(order)
-  const showDiscountBreakdown = invoiceHasProvidedDiscount(order)
+  const showDiscountBreakdown = true
   const addr = order.shipping_address as Record<string, string> | null
   const bankDetails = normalizeShopBankDetails(COMPANY_BANK_DETAILS)
   const showBankDetails = true
+  const isEstimate = order.document_type === 'estimate'
+  const documentLabel = isEstimate ? 'Estimate' : 'Invoice'
+  const documentReference = isEstimate ? 'EST' : (order.invoice_number ?? order.id.slice(0, 8).toUpperCase())
+  const customerName = String(addr?.fullName ?? addr?.customerName ?? addr?.name ?? '').trim()
   const discountMetaText = discountMeta(order)
   const footerNote =
     template?.footer ??
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
   const tagline = invoiceTagline(template?.tagline)
   const contactPhoneDisplay = template?.contactPhoneDisplay?.trim() || COMPANY.phoneDisplay
-  const invoiceNo = order.invoice_number ?? order.id.slice(0, 8).toUpperCase()
 
   const tableBorder = rgb(0.68, 0.76, 0.9)
-  const tableHeaderFill = rgb(0.92, 0.95, 1)
+  const tableHeaderFill = rgb(0.24, 0.70, 0.78)
   const tableX = margin
   const tableWidth = width - margin * 2
-  const tableColumns = showDiscountBreakdown
-    ? [
-        { label: '#', x: tableX, width: 30, align: 'center' as const },
-        { label: 'Item', x: tableX + 30, width: 200, align: 'left' as const },
-        { label: 'Qty', x: tableX + 230, width: 42, align: 'center' as const },
-        { label: 'Price', x: tableX + 272, width: 74, align: 'right' as const },
-        { label: 'Discount', x: tableX + 346, width: 92, align: 'right' as const },
-        { label: 'Total', x: tableX + 438, width: tableWidth - 438, align: 'right' as const },
-      ]
-    : [
-        { label: '#', x: tableX, width: 30, align: 'center' as const },
-        { label: 'Item', x: tableX + 30, width: 254, align: 'left' as const },
-        { label: 'Qty', x: tableX + 284, width: 42, align: 'center' as const },
-        { label: 'Price', x: tableX + 326, width: 84, align: 'right' as const },
-        { label: 'Total', x: tableX + 410, width: tableWidth - 410, align: 'right' as const },
-      ]
+  const tableColumns = [
+    { label: 'DESCRIPTION', x: tableX, width: 190, align: 'left' as const },
+    { label: 'RATE', x: tableX + 190, width: 78, align: 'right' as const },
+    { label: 'QTY', x: tableX + 268, width: 45, align: 'center' as const },
+    { label: 'DISCOUNT', x: tableX + 313, width: 95, align: 'right' as const },
+    { label: 'TOTAL', x: tableX + 408, width: tableWidth - 408, align: 'right' as const },
+  ]
   const headerHeight = 24
 
   function addInvoicePage() {
@@ -240,13 +238,21 @@ export async function buildInvoicePdf(
     }
 
     currentY -= 98
-    targetPage.drawText(pdfText(`Invoice #: ${invoiceNo}`), { x: margin, y: currentY, size: 10, font })
+    targetPage.drawText(pdfText(`${documentLabel}: ${documentReference}${isEstimate && customerName ? ` - ${customerName}` : ''}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
     targetPage.drawText(pdfText(`Status: ${getCustomerOrderStatusLabel(order.status, order.payment_method)}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
     targetPage.drawText(pdfText(`Date: ${new Date(order.created_at).toLocaleDateString('en-PK')}`), { x: margin, y: currentY, size: 10, font })
     currentY -= 14
     targetPage.drawText(pdfText(`Payment: ${shopPaymentLabel(order.payment_method)}`), { x: margin, y: currentY, size: 10, font })
+    if (order.po_number?.trim()) {
+      currentY -= 14
+      targetPage.drawText(pdfText(`PO Number: ${order.po_number}`), { x: margin, y: currentY, size: 10, font })
+    }
+    if (order.ntn_number?.trim()) {
+      currentY -= 14
+      targetPage.drawText(pdfText(`NTN Number: ${order.ntn_number}`), { x: margin, y: currentY, size: 10, font })
+    }
 
     let billY = height - 146
     targetPage.drawText('Bill To:', { x: 330, y: billY, size: 10, font: fontBold })
@@ -277,7 +283,7 @@ export async function buildInvoicePdf(
     }
 
     drawCentered(targetPage, template?.header ?? 'PHONICS CLUB PVT LTD', width / 2, topY, 14, fontBold, rgb(0.11, 0.31, 0.85))
-    targetPage.drawText(pdfText(`Invoice #: ${invoiceNo} | ${label}`), {
+    targetPage.drawText(pdfText(`${documentLabel}: ${documentReference}${isEstimate && customerName ? ` - ${customerName}` : ''} | ${label}`), {
       x: margin,
       y: topY - 56,
       size: 9,
@@ -296,31 +302,30 @@ export async function buildInvoicePdf(
         border: tableBorder,
         borderWidth: 0.9,
       })
-      drawCellText(targetPage, column.label, column.x, tableBottom, column.width, headerHeight, 9, fontBold, column.align)
+      drawCellText(targetPage, column.label, column.x, tableBottom, column.width, headerHeight, 9, fontBold, column.align, rgb(1, 1, 1))
     }
 
     return tableBottom
   }
 
   function drawInvoiceLine(targetPage: PDFPage, line: (typeof summary.lines)[number], rowBottom: number, rowHeight: number) {
-    const nameLines = wrapText(line.item.name, 34)
+    const nameLines = wrapText(line.item.name, 30)
     const isbnLines = line.item.isbn ? wrapText(`ISBN: ${line.item.isbn}`, 38).slice(0, 2) : []
     const stockNoteLines = line.item.stock_note ? wrapText(line.item.stock_note, 36).slice(0, 2) : []
+    const perUnitDiscount = line.item.quantity > 0 ? line.lineDiscount / line.item.quantity : 0
     const discountLines = line.lineDiscount > 0
-      ? [formatDiscountPercent(line.discountPercent), `-${formatPrice(line.lineDiscount)}`]
+      ? [`-${formatPrice(line.lineDiscount)}`, `(${formatDiscountPercent(line.discountPercent)}; -${formatPrice(perUnitDiscount)} / unit)`]
       : ['-']
-    const totalColumn = tableColumns[showDiscountBreakdown ? 5 : 4]
     const lineDisplayTotal = showDiscountBreakdown ? line.lineTotal : line.lineSubtotal
 
     for (const column of tableColumns) {
       drawCell(targetPage, column.x, rowBottom, column.width, rowHeight, {
-        fill: rgb(1, 1, 1),
+        fill: line.position % 2 === 0 ? rgb(0.85, 0.95, 0.97) : rgb(1, 1, 1),
         border: tableBorder,
       })
     }
-    drawCellText(targetPage, String(line.position), tableColumns[0].x, rowBottom, tableColumns[0].width, rowHeight, 8, font, 'center', rgb(0.39, 0.45, 0.55))
     let itemY = rowBottom + rowHeight - 15.5
-    const itemX = tableColumns[1].x + 7
+    const itemX = tableColumns[0].x + 7
     for (const itemNameLine of nameLines.slice(0, 4)) {
       targetPage.drawText(pdfText(itemNameLine), { x: itemX, y: itemY, size: 8.5, font, color: rgb(0.07, 0.09, 0.15) })
       itemY -= 11.5
@@ -333,20 +338,18 @@ export async function buildInvoicePdf(
       targetPage.drawText(pdfText(stockNoteLine), { x: itemX, y: itemY, size: 7.5, font, color: rgb(0.57, 0.25, 0.05) })
       itemY -= 10
     }
+    drawCellText(targetPage, formatPrice(line.item.price), tableColumns[1].x, rowBottom, tableColumns[1].width, rowHeight, 8.5, font, 'right')
     drawCellText(targetPage, String(line.item.quantity), tableColumns[2].x, rowBottom, tableColumns[2].width, rowHeight, 8.5, font, 'center')
-    drawCellText(targetPage, formatPrice(line.item.price), tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 8.5, font, 'right')
-    if (showDiscountBreakdown) {
-      drawCellLines(targetPage, discountLines, tableColumns[4].x, rowBottom, tableColumns[4].width, rowHeight, 8, font, 'right', rgb(0.3, 0.36, 0.45))
-    }
-    drawCellText(targetPage, formatPrice(lineDisplayTotal), totalColumn.x, rowBottom, totalColumn.width, rowHeight, 8.5, fontBold, 'right')
+    drawCellLines(targetPage, discountLines, tableColumns[3].x, rowBottom, tableColumns[3].width, rowHeight, 7.5, font, 'right', rgb(0.3, 0.36, 0.45))
+    drawCellText(targetPage, formatPrice(lineDisplayTotal), tableColumns[4].x, rowBottom, tableColumns[4].width, rowHeight, 8.5, fontBold, 'right')
   }
 
   function lineRowHeight(line: (typeof summary.lines)[number]) {
-    const nameLines = wrapText(line.item.name, 34)
+    const nameLines = wrapText(line.item.name, 30)
     const isbnLines = line.item.isbn ? wrapText(`ISBN: ${line.item.isbn}`, 38).slice(0, 2) : []
     const stockNoteLines = line.item.stock_note ? wrapText(line.item.stock_note, 36).slice(0, 2) : []
     const itemLineCount = nameLines.concat(isbnLines, stockNoteLines).slice(0, 7).length
-    const discountLineCount = showDiscountBreakdown && line.lineDiscount > 0 ? 2 : 1
+    const discountLineCount = line.lineDiscount > 0 ? 2 : 1
     return Math.max(30, Math.max(itemLineCount, discountLineCount) * 11 + 14)
   }
 
@@ -365,9 +368,10 @@ export async function buildInvoicePdf(
   }
 
   const totalsRows: Array<[string, string, boolean]> = [
-    ['Items Total', formatPrice(summary.subtotal), false],
+    ['Subtotal', formatPrice(summary.subtotal), false],
     ['Total Quantity', String(summary.totalQuantity), false],
   ]
+  totalsRows.push(['Shipping', shippingValue(summary), false])
   if (showDiscountBreakdown && summary.discount > 0) {
     totalsRows.push([
       `Discount (${formatDiscountPercent(Number(order.discount_percent ?? summary.discountPercent))})`,
@@ -375,10 +379,6 @@ export async function buildInvoicePdf(
       false,
     ])
   }
-  if (showDiscountBreakdown) {
-    totalsRows.push(['Total after Discount', formatPrice(summary.totalAfterDiscount), false])
-  }
-  totalsRows.push(['Shipping', shippingValue(summary), false])
   totalsRows.push(['Balance Due', formatPrice(summary.balanceDue), true])
   if (order.display_currency === 'USD' && order.display_total && order.exchange_rate) {
     if (order.display_subtotal) {
@@ -407,9 +407,12 @@ export async function buildInvoicePdf(
     `Bank: ${bankDetails.bankName}`,
     `Account Title: ${bankDetails.accountTitle}`,
     `Account Number: ${bankDetails.accountNumber}`,
+    'Bank transfer support: If you face any issue, contact 0300 8079480.',
   ].concat(bankDetails.iban ? [`IBAN: ${bankDetails.iban}`] : [])
   const instructionLines = bankDetails.instructions ? wrapText(bankDetails.instructions, 72) : []
   const bankBoxHeight = showBankDetails ? 34 + bankLines.length * 12 + instructionLines.length * 10 + 14 : 0
+  const notesLines = order.notes?.trim() ? wrapText(order.notes, 86) : []
+  const notesBoxHeight = notesLines.length ? 28 + notesLines.length * 10 + 12 : 0
   const stockPaymentNoticeLines = wrapText(`Stock & Payment Notice: ${INVOICE_STOCK_PAYMENT_NOTICE}`, 90)
   const footerLines = [
     ...stockPaymentNoticeLines,
@@ -419,8 +422,9 @@ export async function buildInvoicePdf(
   const footerBottomY = 56
   const footerStartY = footerBottomY + footerLines.length * footerLineHeight + 8
   const footerReserveHeight = footerStartY + 22
-  const requiredSummarySpace =
-    18 + totalsRows.length * totalsRowHeight + discountMetaHeight + (showBankDetails ? 28 + bankBoxHeight : 12) + footerReserveHeight
+  const summaryContentHeight =
+    18 + totalsRows.length * totalsRowHeight + discountMetaHeight + (notesLines.length ? 52 + notesBoxHeight : 0) + (showBankDetails ? 28 + bankBoxHeight : 12)
+  const requiredSummarySpace = Math.max(summaryContentHeight, footerReserveHeight)
 
   if (y < requiredSummarySpace) {
     page = addInvoicePage()
@@ -446,6 +450,26 @@ export async function buildInvoicePdf(
     for (const line of discountMetaLines) {
       page.drawText(pdfText(line), { x: totalsX + 7, y, size: 7.5, font, color: rgb(0.39, 0.45, 0.55) })
       y -= 9
+    }
+  }
+
+  if (notesLines.length) {
+    y -= 48
+    const notesBoxTop = y + 12
+    page.drawRectangle({
+      x: margin,
+      y: notesBoxTop - notesBoxHeight,
+      width: width - margin * 2,
+      height: notesBoxHeight,
+      borderColor: rgb(0.62, 0.68, 0.75),
+      borderWidth: 1,
+      color: rgb(1, 1, 1),
+    })
+    page.drawText('Notes', { x: margin + 14, y, size: 10, font: fontBold })
+    y -= 14
+    for (const line of notesLines) {
+      page.drawText(pdfText(line), { x: margin + 14, y, size: 8.5, font, color: rgb(0.29, 0.35, 0.42) })
+      y -= 10
     }
   }
 

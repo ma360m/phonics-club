@@ -86,6 +86,53 @@ CREATE TABLE IF NOT EXISTS orders (
   items JSONB NOT NULL DEFAULT '[]',
   shipping_address JSONB,
   notes TEXT,
+  document_type TEXT NOT NULL DEFAULT 'invoice' CHECK (document_type IN ('estimate', 'invoice')),
+  po_number TEXT,
+  ntn_number TEXT,
+  finalized_at TIMESTAMPTZ,
+  finalized_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  stock_deducted_at TIMESTAMPTZ,
+  stock_deducted_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Admin-managed customer directory used by admin-only Fast Invoice links.
+CREATE TABLE IF NOT EXISTS admin_customers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  name TEXT NOT NULL DEFAULT '',
+  email TEXT,
+  phone TEXT,
+  member_id TEXT,
+  address TEXT,
+  city TEXT,
+  zip TEXT,
+  country TEXT NOT NULL DEFAULT 'Pakistan',
+  notes TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}',
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS admin_customers_user_id_unique
+  ON admin_customers (user_id) WHERE user_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS fast_invoice_links (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  token_hash TEXT NOT NULL UNIQUE,
+  label TEXT,
+  recipient_email TEXT,
+  required_member_id TEXT,
+  expires_at TIMESTAMPTZ,
+  max_uses INTEGER CHECK (max_uses IS NULL OR max_uses > 0),
+  used_count INTEGER NOT NULL DEFAULT 0 CHECK (used_count >= 0),
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  admin_only BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  last_used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -146,6 +193,10 @@ CREATE TRIGGER blog_posts_updated_at BEFORE UPDATE ON blog_posts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER orders_updated_at BEFORE UPDATE ON orders
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER admin_customers_updated_at BEFORE UPDATE ON admin_customers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER fast_invoice_links_updated_at BEFORE UPDATE ON fast_invoice_links
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -176,6 +227,8 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cart_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wishlist_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fast_invoice_links ENABLE ROW LEVEL SECURITY;
 
 -- Helper: check admin
 CREATE OR REPLACE FUNCTION is_admin()
@@ -219,6 +272,12 @@ CREATE POLICY "Users create own orders"
   ON orders FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Admins manage orders"
   ON orders FOR UPDATE USING (is_admin());
+
+CREATE POLICY "Admins manage admin customers"
+  ON admin_customers FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY "Admins manage fast invoice links"
+  ON fast_invoice_links FOR ALL USING (is_admin()) WITH CHECK (is_admin());
 
 -- Cart
 CREATE POLICY "Users manage own cart"

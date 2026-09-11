@@ -20,6 +20,7 @@ export function getAdminOrderItems(order: Order): OrderItem[] {
 }
 
 export function getAdminOrderInvoiceLabel(order: Order) {
+  if (order.document_type === 'estimate') return `EST · ${getAdminOrderCustomerName(order)}`
   return order.invoice_number ?? `#${order.id.slice(0, 8)}`
 }
 

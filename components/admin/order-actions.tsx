@@ -69,17 +69,18 @@ export function AdminOrderDeleteButton({ orderId }: { orderId: string }) {
   )
 }
 
-export function AdminOrderInvoiceLinks({ orderId }: { orderId: string }) {
+export function AdminOrderInvoiceLinks({ orderId, documentType }: { orderId: string; documentType?: 'estimate' | 'invoice' | null }) {
+  const label = documentType === 'estimate' ? 'Estimate' : 'Invoice'
   return (
     <>
       <Button asChild size="sm" variant="ghost" className="rounded-xl">
         <Link href={`/api/orders/${orderId}/invoice?format=pdf`} target="_blank">
-          Invoice PDF
+          {label} PDF
         </Link>
       </Button>
       <Button asChild size="sm" variant="ghost" className="rounded-xl">
         <Link href={`/api/orders/${orderId}/invoice`} target="_blank">
-          Invoice HTML
+          {label} HTML
         </Link>
       </Button>
     </>

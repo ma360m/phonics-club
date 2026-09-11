@@ -61,6 +61,7 @@ interface CheckoutDetails {
   address: string
   city: string
   zip: string
+  notes: string
 }
 
 interface CouponPreview {
@@ -137,6 +138,7 @@ export function CheckoutForm({
     address: '',
     city: 'Lahore',
     zip: '',
+    notes: '',
   })
   const [couponCode, setCouponCode] = useState('')
   const [memberId, setMemberId] = useState('')
@@ -572,6 +574,19 @@ export function CheckoutForm({
               className="rounded-lg"
             />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="notes">Notes (optional)</Label>
+          <textarea
+            id="notes"
+            name="notes"
+            value={details.notes}
+            onChange={(event) => updateDetails('notes', event.target.value)}
+            placeholder="Optional note to print on the invoice"
+            rows={3}
+            maxLength={2000}
+            className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+          />
         </div>
         <input type="hidden" name="country" value="Pakistan" />
         {isGuest && <input type="hidden" name="guestCart" value={guestCartJson} />}

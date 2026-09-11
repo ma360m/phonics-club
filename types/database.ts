@@ -265,6 +265,13 @@ export interface Order {
   receipt_size_bytes?: number | null
   receipt_uploaded_at?: string | null
   invoice_number?: string | null
+  document_type?: 'estimate' | 'invoice' | null
+  po_number?: string | null
+  ntn_number?: string | null
+  finalized_at?: string | null
+  finalized_by?: string | null
+  stock_deducted_at?: string | null
+  stock_deducted_by?: string | null
   display_currency?: string | null
   exchange_rate?: number | null
   exchange_rate_timestamp?: string | null
@@ -297,6 +304,25 @@ export interface OrderItem {
   stock_status?: 'in_stock' | 'low_stock' | 'backorder' | 'out_of_stock'
   stock_note?: string
   stock_available?: number
+}
+
+export interface AdminCustomer {
+  id: string
+  user_id: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  member_id: string | null
+  address: string | null
+  city: string | null
+  zip: string | null
+  country: string
+  notes: string | null
+  metadata: Record<string, unknown>
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface Trainer {
@@ -1156,6 +1182,7 @@ export interface Database {
       courses: { Row: Course; Insert: Partial<Course>; Update: Partial<Course> }
       blog_posts: { Row: BlogPost; Insert: Partial<BlogPost>; Update: Partial<BlogPost> }
       orders: { Row: Order; Insert: Partial<Order>; Update: Partial<Order> }
+      admin_customers: { Row: AdminCustomer; Insert: Partial<AdminCustomer>; Update: Partial<AdminCustomer> }
       cart_items: { Row: CartItem; Insert: Partial<CartItem>; Update: Partial<CartItem> }
       wishlist_items: { Row: WishlistItem; Insert: Partial<WishlistItem>; Update: Partial<WishlistItem> }
       enrollments: { Row: Enrollment; Insert: Partial<Enrollment>; Update: Partial<Enrollment> }

@@ -1,5 +1,10 @@
 import { requireAdmin } from '@/lib/auth'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import type { AdminCustomer } from '@/types/database'
+
+export type AdminInvoiceCustomer = Pick<AdminCustomer, 'id' | 'user_id' | 'name' | 'email' | 'phone' | 'member_id' | 'address' | 'city' | 'zip' | 'country' | 'notes'> & {
+  source: 'directory' | 'profile' | 'order'
+}
 
 export type CustomerReportRow = {
   key: string
@@ -319,6 +324,121 @@ export function customerRowsToCsv(rows: CustomerReportRow[]) {
   ].map(escape).join(','))
 
   return [headers.map(escape).join(','), ...lines].join('\n')
+}
+
+function directoryKey(input: { userId?: string | null; email?: string | null; phone?: string | null; fallback: string }) {
+  const userId = clean(input.userId)
+  const email = clean(input.email).toLowerCase()
+  const phone = clean(input.phone).replace(/[^\d+]/g, '')
+  if (userId) return `user:${userId}`
+  if (email) return `email:${email}`
+  if (phone) return `phone:${phone}`
+  return input.fallback
+}
+
+export async function getAdminInvoiceCustomers(): Promise<AdminInvoiceCustomer[]> {
+  await requireAdmin()
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? await createServiceClient() : await createClient()
+  const [directoryResult, profilesResult, ordersResult] = await Promise.all([
+    supabase.from('admin_customers').select('id, user_id, name, email, phone, member_id, address, city, zip, country, notes').order('name', { ascending: true }),
+    supabase.from('profiles').select('id, full_name, email, role').not('role', 'in', '(admin,super_admin)'),
+    supabase.from('orders').select('id, user_id, guest_email, phone, shipping_address, member_id, created_at').order('created_at', { ascending: false }).limit(1000),
+  ])
+
+  const rows = new Map<string, AdminInvoiceCustomer>()
+  const userToKey = new Map<string, string>()
+
+  function addCustomer(input: {
+    id: string
+    source: AdminInvoiceCustomer['source']
+    userId?: string | null
+    name?: unknown
+    email?: unknown
+    phone?: unknown
+    memberId?: unknown
+    address?: unknown
+    city?: unknown
+    zip?: unknown
+    country?: unknown
+    notes?: unknown
+  }) {
+    const email = clean(input.email).toLowerCase()
+    const phone = clean(input.phone)
+    const key = userToKey.get(clean(input.userId)) ?? directoryKey({ userId: input.userId, email, phone, fallback: input.id })
+    const existing = rows.get(key)
+    const next: AdminInvoiceCustomer = existing ?? {
+      id: input.id,
+      user_id: clean(input.userId) || null,
+      name: clean(input.name),
+      email: email || null,
+      phone: phone || null,
+      member_id: clean(input.memberId) || null,
+      address: clean(input.address) || null,
+      city: clean(input.city) || null,
+      zip: clean(input.zip) || null,
+      country: clean(input.country) || 'Pakistan',
+      notes: clean(input.notes) || null,
+      source: input.source,
+    }
+    if (input.userId) {
+      next.user_id = input.userId
+      userToKey.set(input.userId, key)
+    }
+    if (!next.name) next.name = clean(input.name)
+    if (!next.email && email) next.email = email
+    if (!next.phone && phone) next.phone = phone
+    if (!next.member_id && clean(input.memberId)) next.member_id = clean(input.memberId)
+    if (!next.address && clean(input.address)) next.address = clean(input.address)
+    if (!next.city && clean(input.city)) next.city = clean(input.city)
+    if (!next.zip && clean(input.zip)) next.zip = clean(input.zip)
+    if (!next.country && clean(input.country)) next.country = clean(input.country)
+    rows.set(key, next)
+  }
+
+  for (const customer of (directoryResult.data ?? []) as AdminCustomer[]) {
+    addCustomer({
+      id: customer.id,
+      source: 'directory',
+      userId: customer.user_id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      memberId: customer.member_id,
+      address: customer.address,
+      city: customer.city,
+      zip: customer.zip,
+      country: customer.country,
+      notes: customer.notes,
+    })
+  }
+
+  for (const profile of profilesResult.data ?? []) {
+    if (profile.role === 'admin' || profile.role === 'super_admin' || profile.role === 'instructor') continue
+    addCustomer({ id: `profile:${profile.id}`, source: 'profile', userId: profile.id, name: profile.full_name, email: profile.email })
+  }
+
+  for (const order of ordersResult.data ?? []) {
+    const address = order.shipping_address as Record<string, unknown> | null
+    const email = clean(address?.email ?? order.guest_email)
+    const phone = clean(order.phone ?? address?.phone)
+    addCustomer({
+      id: `order:${order.id}`,
+      source: 'order',
+      userId: order.user_id,
+      name: address?.fullName ?? address?.name,
+      email,
+      phone,
+      memberId: order.member_id,
+      address: address?.address,
+      city: address?.city,
+      zip: address?.zip,
+      country: address?.country,
+    })
+  }
+
+  return [...rows.values()]
+    .filter((customer) => customer.name || customer.email || customer.phone)
+    .sort((a, b) => `${a.name} ${a.email ?? ''}`.localeCompare(`${b.name} ${b.email ?? ''}`))
 }
 
 export function studentRowsToCsv(rows: CustomerReportRow[]) {

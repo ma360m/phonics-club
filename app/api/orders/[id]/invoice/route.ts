@@ -47,7 +47,7 @@ export async function GET(
   }
 
   const template = await getInvoiceTemplate()
-  const invoiceNo = order.invoice_number ?? id.slice(0, 8)
+  const invoiceNo = order.document_type === 'estimate' ? 'EST' : (order.invoice_number ?? id.slice(0, 8))
   const invoiceFileName = invoiceFileBaseName(invoiceNo, invoiceCustomerName(order as never))
 
   if (format === 'pdf') {

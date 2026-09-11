@@ -24,6 +24,9 @@ export interface InvoiceSummary {
 
 export type InvoiceOrder = Order & {
   invoice_number?: string | null
+  document_type?: 'estimate' | 'invoice' | null
+  po_number?: string | null
+  ntn_number?: string | null
   subtotal?: number
   shipping_fee?: number
   discount_amount?: number

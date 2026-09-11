@@ -4,6 +4,7 @@ import { getAllOrders, getProducts } from '@/lib/data/queries'
 import {
   adminUpdateOrderDetailsFormAction,
   confirmPaymentFormAction,
+  finalizeCodDeliveryFormAction,
   updateOrderInvoiceNumberFormAction,
   updateOrderShippingFormAction,
   updateOrderStatusFormAction,
@@ -20,7 +21,7 @@ import { OrderItemsEditor, type EditableOrderProduct } from '@/components/orders
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ORDER_STATUSES, SHIPPING_FEE_PKR } from '@/lib/commerce'
-import { shopPaymentLabel } from '@/lib/payment-methods'
+import { normalizeShopPaymentMethod, shopPaymentLabel } from '@/lib/payment-methods'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { getProductPricing } from '@/lib/products/sale-pricing'
 import {
@@ -57,6 +58,9 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
   const customerPhone = getAdminOrderCustomerPhone(order)
   const addressText = getAdminOrderAddressText(order)
   const needsPaymentReview = ['awaiting_payment', 'payment_submitted', 'payment_review'].includes(order.status)
+  const isCod = normalizeShopPaymentMethod(order.payment_method) === 'cod'
+  const needsCodFinalization = isCod && !order.finalized_at
+  const needsBankFinalization = !isCod && !order.finalized_at && (needsPaymentReview || order.status === 'payment_confirmed')
   const discountPercent = Number(order.discount_percent ?? 0)
   const couponPercent = Number(order.coupon_discount_percent ?? 0)
   const memberPercent = Number(order.member_discount_percent ?? 0)
@@ -80,6 +84,8 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
                 <p className="font-mono text-sm font-semibold text-[#0F172A]">{invoiceLabel}</p>
                 {!order.user_id ? <Badge variant="outline">Guest order</Badge> : null}
                 {order.source === 'fast_invoice' ? <Badge variant="outline">Fast invoice</Badge> : null}
+                {order.document_type === 'estimate' ? <Badge variant="secondary">EST · Awaiting payment</Badge> : null}
+                {order.finalized_at ? <Badge className="bg-emerald-600">Finalized</Badge> : null}
                 {order.requires_admin_confirmation ? <Badge variant="secondary">Needs stock review</Badge> : null}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
@@ -187,11 +193,20 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
                   </Button>
                 </form>
 
-                {needsPaymentReview ? (
+                {needsBankFinalization ? (
                   <form action={confirmPaymentFormAction}>
                     <input type="hidden" name="orderId" value={order.id} />
                     <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
                       Mark Payment Confirmed
+                    </Button>
+                  </form>
+                ) : null}
+
+                {needsCodFinalization ? (
+                  <form action={finalizeCodDeliveryFormAction}>
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
+                      Confirm Delivery &amp; Finalize
                     </Button>
                   </form>
                 ) : null}
@@ -227,7 +242,7 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
                   </Button>
                 ) : null}
 
-                <AdminOrderInvoiceLinks orderId={order.id} />
+                <AdminOrderInvoiceLinks orderId={order.id} documentType={order.document_type} />
                 <AdminOrderEditLinkButton orderId={order.id} />
                 <AdminOrderDeleteButton orderId={order.id} />
               </div>
@@ -267,6 +282,21 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
                     <label className="space-y-1 text-sm">
                       <span className="font-medium text-slate-700">Postal code</span>
                       <input name="zip" defaultValue={addr.zip ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">PO number</span>
+                      <input name="poNumber" defaultValue={order.po_number ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" placeholder="Optional" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">NTN number</span>
+                      <input name="ntnNumber" defaultValue={order.ntn_number ?? ''} className="w-full rounded-lg border bg-white px-3 py-2" placeholder="Optional" />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="font-medium text-slate-700">Invoice notes</span>
+                      <textarea name="notes" defaultValue={order.notes ?? ''} rows={2} maxLength={2000} className="w-full rounded-lg border bg-white px-3 py-2" placeholder="Optional note" />
                     </label>
                   </div>
 
@@ -327,9 +357,9 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; updatedStatuses?: string }>
 }) {
-  const { q = '' } = await searchParams
+  const { q = '', updatedStatuses } = await searchParams
   const searchQuery = q.trim()
   const [orders, products] = await Promise.all([getAllOrders(), getProducts()])
   const editableProducts = products.map((product) => ({
@@ -349,6 +379,8 @@ export default async function AdminOrdersPage({
   return (
     <div>
       <h1 className="mb-8 text-3xl font-bold">Orders</h1>
+
+      {updatedStatuses ? <p className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">Updated statuses for {updatedStatuses} orders.</p> : null}
 
       <form action="/admin/orders" className="mb-5 rounded-2xl border bg-card p-4">
         <label htmlFor="admin-order-search" className="mb-2 block text-sm font-semibold">

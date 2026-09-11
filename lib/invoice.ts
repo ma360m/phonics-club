@@ -3,7 +3,6 @@ import { normalizeShopBankDetails } from '@/lib/bank-details'
 import {
   buildInvoiceSummary,
   formatDiscountPercent,
-  invoiceHasProvidedDiscount,
   type InvoiceOrder,
 } from '@/lib/invoice-summary'
 import { getCustomerOrderStatusLabel } from '@/lib/order-status'
@@ -11,6 +10,7 @@ import { shopPaymentLabel } from '@/lib/payment-methods'
 import { formatPrice } from '@/utils/format'
 import { formatCurrency } from '@/lib/currency'
 import { INVOICE_STOCK_PAYMENT_NOTICE } from '@/lib/invoice-notices'
+import { SHIPPING_FEE_PKR } from '@/lib/commerce'
 
 interface InvoiceTemplate {
   header?: string
@@ -80,6 +80,10 @@ function buildDiscountMeta(order: InvoiceOrder) {
 }
 
 function shippingValueHtml(summary: ReturnType<typeof buildInvoiceSummary>) {
+  if (summary.shipping <= 0) {
+    return `Free <span style="color:#64748b;font-size:11px;font-weight:400">(-${formatPrice(SHIPPING_FEE_PKR)})</span>`
+  }
+
   if (summary.shippingDiscount > 0) {
     const originalShipping = summary.shipping + summary.shippingDiscount
     return `${formatPrice(summary.shipping)} <span style="color:#64748b;font-size:11px;font-weight:400">(was ${formatPrice(originalShipping)})</span>`
@@ -90,12 +94,16 @@ function shippingValueHtml(summary: ReturnType<typeof buildInvoiceSummary>) {
 
 export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate): string {
   const summary = buildInvoiceSummary(order)
-  const showDiscountBreakdown = invoiceHasProvidedDiscount(order)
+  const showDiscountBreakdown = true
   const addr = order.shipping_address as Record<string, string> | null
   const bankDetails = normalizeShopBankDetails(COMPANY_BANK_DETAILS)
   const showBankDetails = true
   const tagline = invoiceTagline(template?.tagline)
   const contactPhoneDisplay = template?.contactPhoneDisplay?.trim() || COMPANY.phoneDisplay
+  const isEstimate = order.document_type === 'estimate'
+  const documentLabel = isEstimate ? 'Estimate' : 'Invoice'
+  const documentReference = isEstimate ? 'EST' : (order.invoice_number ?? order.id.slice(0, 8).toUpperCase())
+  const customerName = invoiceCustomerName(order)
   const discountMeta = buildDiscountMeta(order)
   const displayCurrency = order.display_currency === 'USD' ? 'USD' : null
   const exchangeRate = Number(order.exchange_rate ?? 0)
@@ -103,10 +111,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
   const displayShipping = Number(order.display_shipping_fee ?? 0)
   const displayDiscount = Number(order.display_discount_amount ?? 0)
   const displayTotal = Number(order.display_total ?? 0)
-  const discountLabel =
-    order.coupon_code || order.member_id
-      ? formatDiscountPercent(summary.discountPercent)
-      : formatDiscountPercent(summary.discountPercent)
+  const discountLabel = formatDiscountPercent(summary.discountPercent)
   const usdSummary =
     displayCurrency && exchangeRate && displayTotal
       ? `<div style="margin-bottom:24px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;padding:14px;color:#1e3a8a">
@@ -120,9 +125,10 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       : ''
 
   const rows = summary.lines
-    .map((line) => {
+    .map((line, index) => {
+      const perUnitDiscount = line.item.quantity > 0 ? line.lineDiscount / line.item.quantity : 0
       const discountText = line.lineDiscount > 0
-        ? `${formatDiscountPercent(line.discountPercent)}<br><span style="color:#64748b">-${formatPrice(line.lineDiscount)}</span>`
+        ? `-${formatPrice(line.lineDiscount)}<br><span style="color:#64748b;font-size:11px">(${formatDiscountPercent(line.discountPercent)}; -${formatPrice(perUnitDiscount)} / unit)</span>`
         : '-'
       const lineDisplayTotal = showDiscountBreakdown ? line.lineTotal : line.lineSubtotal
       const stockNote = line.item.stock_note
@@ -131,12 +137,11 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       const isbn = line.item.isbn
         ? `<br><span style="display:block;margin-top:3px;color:#64748b;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace">ISBN: ${escapeHtml(line.item.isbn)}</span>`
         : ''
-      return `<tr>
-        <td style="padding:10px;border:1px solid #cbd5e1;text-align:center;color:#64748b">${line.position}</td>
+      return `<tr style="background:${index % 2 ? '#D8F3F7' : '#FFFFFF'}">
         <td style="padding:10px;border:1px solid #cbd5e1">${escapeHtml(line.item.name)}${isbn}${stockNote}</td>
-        <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(line.item.price)}</td>
-        ${showDiscountBreakdown ? `<td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>` : ''}
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:center">${line.item.quantity}</td>
+        <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${discountText}</td>
         <td style="padding:10px;border:1px solid #cbd5e1;text-align:right">${formatPrice(lineDisplayTotal)}</td>
       </tr>`
     })
@@ -146,7 +151,7 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     template?.footer ??
     'Phonics Club reserves the right to increase or decrease shipping fees based on quantity, distance, and product weight.'
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${escapeHtml(order.invoice_number ?? order.id.slice(0, 8))}</title></head>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${documentLabel} ${escapeHtml(documentReference)}${customerName ? ` - ${escapeHtml(customerName)}` : ''}</title></head>
 <body style="font-family:Arial,sans-serif;max-width:840px;margin:0 auto;padding:24px;color:#111827;background:#FBF3D2">
   <main style="background:#FFF8E1;border:1px solid #E8DFAE;border-radius:12px;padding:28px">
     <div style="border-top:5px solid #1D4ED8;padding:18px 0;margin-bottom:24px;display:grid;grid-template-columns:130px 1fr 130px;align-items:center;gap:20px">
@@ -160,10 +165,12 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
 
     <div style="display:flex;justify-content:space-between;gap:32px;margin-bottom:24px">
       <div style="min-width:240px">
-        <p style="margin:4px 0"><strong>Invoice #:</strong> ${escapeHtml(order.invoice_number ?? order.id.slice(0, 8).toUpperCase())}</p>
+        <p style="margin:4px 0"><strong>${documentLabel}:</strong> ${escapeHtml(documentReference)}${isEstimate && customerName ? ` - ${escapeHtml(customerName)}` : ''}</p>
         <p style="margin:4px 0"><strong>Status:</strong> ${escapeHtml(getCustomerOrderStatusLabel(order.status, order.payment_method))}</p>
         <p style="margin:4px 0"><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-PK')}</p>
         <p style="margin:4px 0"><strong>Payment:</strong> ${shopPaymentLabel(order.payment_method)}</p>
+        ${order.po_number?.trim() ? `<p style="margin:4px 0"><strong>PO Number:</strong> ${escapeHtml(order.po_number)}</p>` : ''}
+        ${order.ntn_number?.trim() ? `<p style="margin:4px 0"><strong>NTN Number:</strong> ${escapeHtml(order.ntn_number)}</p>` : ''}
       </div>
       <div style="min-width:240px;text-align:left">
         <p style="margin:4px 0 8px"><strong>Bill To:</strong></p>
@@ -176,24 +183,22 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
     </div>
 
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:white;border:1px solid #b6c3d8">
-      <thead><tr style="background:#f1f5f9">
-        <th style="width:42px;padding:10px;text-align:center;border:1px solid #b6c3d8">#</th>
-        <th style="padding:10px;text-align:left;border:1px solid #b6c3d8">Item</th>
-        <th style="padding:10px;text-align:center;border:1px solid #b6c3d8">Qty</th>
-        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Price</th>
-        ${showDiscountBreakdown ? '<th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Discount</th>' : ''}
-        <th style="padding:10px;text-align:right;border:1px solid #b6c3d8">Total</th>
+      <thead><tr style="background:#3EB3C8;color:white">
+        <th style="padding:10px;text-align:left;border:1px solid #2E9FB4">DESCRIPTION</th>
+        <th style="padding:10px;text-align:right;border:1px solid #2E9FB4">RATE</th>
+        <th style="padding:10px;text-align:center;border:1px solid #2E9FB4">QTY</th>
+        <th style="padding:10px;text-align:right;border:1px solid #2E9FB4">DISCOUNT</th>
+        <th style="padding:10px;text-align:right;border:1px solid #2E9FB4">TOTAL</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="width:340px;border:1px solid #b6c3d8;background:white;border-radius:8px;overflow:hidden">
-        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Items Total</span><strong>${formatPrice(summary.subtotal)}</strong></p>
+        <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Subtotal</span><strong>${formatPrice(summary.subtotal)}</strong></p>
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total Quantity</span><strong>${summary.totalQuantity}</strong></p>
-        ${showDiscountBreakdown && summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Discount${discountLabel !== '0%' ? ` (${discountLabel})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
-        ${showDiscountBreakdown ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Total after Discount</span><strong>${formatPrice(summary.totalAfterDiscount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Shipping</span><strong>${shippingValueHtml(summary)}</strong></p>
+        ${showDiscountBreakdown && summary.discount > 0 ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;border-bottom:1px solid #cbd5e1"><span>Discount${discountLabel !== '0%' ? ` (${discountLabel})` : ''}</span><strong>-${formatPrice(summary.discount)}</strong></p>` : ''}
         <p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:12px;background:#eaf0ff;font-size:1.15em;color:#1D4ED8"><span>Balance Due</span><strong>${formatPrice(summary.balanceDue)}</strong></p>
         ${discountMeta ? `<p style="margin:0;padding:8px 12px;background:#f8fafc;color:#64748b;font-size:11px;line-height:1.4">${escapeHtml(discountMeta)}</p>` : ''}
         ${displayCurrency && exchangeRate && displayTotal ? `<p style="display:grid;grid-template-columns:1fr auto;gap:12px;margin:0;padding:10px 12px;background:#f8fafc;color:#64748b;font-size:12px"><span>Displayed at checkout</span><strong>${formatCurrency(displayTotal, 'USD', { freeLabel: false })}</strong></p><p style="margin:0;padding:0 12px 10px;background:#f8fafc;color:#64748b;font-size:12px">Exchange rate: 1 USD = ${escapeHtml(exchangeRate.toLocaleString('en-PK'))} PKR</p>` : ''}
@@ -207,7 +212,13 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       <p style="margin:4px 0"><strong>Account Title:</strong> ${escapeHtml(bankDetails.accountTitle)}</p>
       <p style="margin:4px 0"><strong>Account Number:</strong> ${escapeHtml(bankDetails.accountNumber)}</p>
       ${bankDetails.iban ? `<p style="margin:4px 0"><strong>IBAN:</strong> ${escapeHtml(bankDetails.iban)}</p>` : ''}
-      ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px">${escapeHtml(bankDetails.instructions)}</p>` : ''}
+      ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px;white-space:pre-line">${escapeHtml(bankDetails.instructions)}</p>` : ''}
+      <p style="margin:8px 0 0;color:#475569;font-size:12px"><strong>Bank transfer support:</strong> If you face any issue, contact 0300 8079480.</p>
+    </div>` : ''}
+
+    ${order.notes?.trim() ? `<div style="border:1px solid #CBD5E1;background:#FFFFFF;padding:14px;border-radius:8px;margin-bottom:24px">
+      <p style="margin:0 0 6px;font-weight:bold;color:#111827">Notes</p>
+      <p style="margin:0;color:#475569;white-space:pre-line">${escapeHtml(order.notes)}</p>
     </div>` : ''}
 
     <div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:12px;color:#475569">

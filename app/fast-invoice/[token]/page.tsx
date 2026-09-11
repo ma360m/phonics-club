@@ -5,6 +5,8 @@ import { getFastInvoiceLinkByToken, isFastInvoiceLinkUsable } from '@/lib/fast-i
 import { getProducts } from '@/lib/data/queries'
 import { getEnabledPaymentMethodSettings } from '@/lib/payment-method-settings'
 import { buildMetadata } from '@/utils/seo'
+import { requireAdmin } from '@/lib/auth'
+import { getAdminInvoiceCustomers } from '@/lib/admin/customers'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,9 +17,12 @@ export default async function FastInvoicePage({ params }: { params: Promise<{ to
   const link = await getFastInvoiceLinkByToken(token)
   if (!isFastInvoiceLinkUsable(link)) notFound()
 
-  const [products, paymentMethods] = await Promise.all([
+  if (link?.admin_only) await requireAdmin()
+
+  const [products, paymentMethods, customers] = await Promise.all([
     getProducts(),
     getEnabledPaymentMethodSettings(0),
+    link?.admin_only ? getAdminInvoiceCustomers() : Promise.resolve([]),
   ])
 
   return (
@@ -39,6 +44,8 @@ export default async function FastInvoicePage({ params }: { params: Promise<{ to
           }))}
           recipientEmail={link?.recipient_email}
           requiredMemberId={link?.required_member_id}
+          adminOnly={Boolean(link?.admin_only)}
+          customers={customers}
         />
       </div>
       <Footer />

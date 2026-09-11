@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { Copy, Link2 } from 'lucide-react'
+import { Copy, Link2, ShieldCheck } from 'lucide-react'
 import { createFastInvoiceLinkAction } from '@/actions/fast-invoice'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,6 +49,13 @@ export function FastInvoiceLinkForm() {
             <Input id="fast-uses" name="maxUses" type="number" min={1} max={500} defaultValue={1} className="rounded-xl" />
           </div>
         </div>
+        <label className="flex items-start gap-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-sm lg:col-span-5">
+          <input type="checkbox" name="adminOnly" className="mt-1 h-4 w-4 accent-[#1D4ED8]" />
+          <span>
+            <span className="flex items-center gap-1.5 font-semibold text-[#1D4ED8]"><ShieldCheck className="h-4 w-4" /> Admin-only customer picker</span>
+            <span className="mt-1 block text-xs text-slate-600">Only signed-in admins can open this link. They can select a saved customer and load the customer details automatically.</span>
+          </span>
+        </label>
         <div className="lg:col-span-5">
           <Button type="submit" disabled={pending} className="rounded-xl bg-[#1D4ED8]">
             <Link2 className="h-4 w-4" />

@@ -62,6 +62,7 @@ const adminLinks = [
   { href: '/admin/settings/appearance', label: 'Appearance', icon: Palette },
   { href: '/admin/blog', label: 'Blog', icon: FileText },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/admin/invoices', label: 'INVOICES', icon: FileText },
   { href: '/admin/customers', label: 'Customers', icon: Users },
   { href: '/admin/content', label: 'Content & Videos', icon: Megaphone },
   { href: '/admin/developer-mode', label: 'Developer Mode', icon: Code2 },

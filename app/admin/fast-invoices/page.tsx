@@ -37,6 +37,7 @@ export default async function AdminFastInvoicesPage() {
                 <th className="px-5 py-3">Label</th>
                 <th className="px-5 py-3">Recipient</th>
                 <th className="px-5 py-3">Member</th>
+                <th className="px-5 py-3">Access</th>
                 <th className="px-5 py-3">Uses</th>
                 <th className="px-5 py-3">Expires</th>
                 <th className="px-5 py-3">Status</th>
@@ -48,6 +49,7 @@ export default async function AdminFastInvoicesPage() {
                   <td className="px-5 py-4 font-semibold">{link.label ?? 'Fast invoice link'}</td>
                   <td className="px-5 py-4 text-muted-foreground">{link.recipient_email ?? '-'}</td>
                   <td className="px-5 py-4 font-mono text-xs">{link.required_member_id ?? '-'}</td>
+                  <td className="px-5 py-4">{link.admin_only ? 'Admin only' : 'Private link'}</td>
                   <td className="px-5 py-4">{Number(link.used_count ?? 0)} / {link.max_uses ?? 'Any'}</td>
                   <td className="px-5 py-4">{link.expires_at ? formatDate(link.expires_at) : 'No expiry'}</td>
                   <td className="px-5 py-4">{link.active ? 'Active' : 'Disabled'}</td>
@@ -55,7 +57,7 @@ export default async function AdminFastInvoicesPage() {
               ))}
               {(!links || links.length === 0) && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">No fast invoice links yet.</td>
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">No fast invoice links yet.</td>
                 </tr>
               )}
             </tbody>

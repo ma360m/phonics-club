@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Check, Plus, Search, Trash2, UserRound } from 'lucide-react'
 import { placeFastInvoiceOrderAction } from '@/actions/fast-invoice'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,18 +64,37 @@ interface SelectedItem {
   quantity: number
 }
 
+interface AdminInvoiceCustomer {
+  id: string
+  user_id: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  member_id: string | null
+  address: string | null
+  city: string | null
+  zip: string | null
+  country: string
+  notes: string | null
+  source: 'directory' | 'profile' | 'order'
+}
+
 export function FastInvoiceForm({
   token,
   products,
   paymentOptions,
   recipientEmail,
   requiredMemberId,
+  adminOnly = false,
+  customers = [],
 }: {
   token: string
   products: FastInvoiceProduct[]
   paymentOptions: PaymentOption[]
   recipientEmail?: string | null
   requiredMemberId?: string | null
+  adminOnly?: boolean
+  customers?: AdminInvoiceCustomer[]
 }) {
   const { currency, settings, format } = useCurrency()
   const [state, formAction, pending] = useActionState(placeFastInvoiceOrderAction, initialState)
@@ -88,6 +107,21 @@ export function FastInvoiceForm({
   const [paymentMethod, setPaymentMethod] = useState<ShopPaymentMethod>(paymentOptions[0]?.value ?? 'cod')
   const [couponCode, setCouponCode] = useState('')
   const [memberId, setMemberId] = useState(requiredMemberId ?? '')
+  const [customerId, setCustomerId] = useState('')
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
+  const [poNumber, setPoNumber] = useState('')
+  const [ntnNumber, setNtnNumber] = useState('')
+  const [customerDetails, setCustomerDetails] = useState({
+    fullName: '',
+    email: recipientEmail ?? '',
+    phone: '',
+    address: '',
+    city: 'Lahore',
+    zip: '',
+    notes: '',
+    memberId: requiredMemberId ?? '',
+  })
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
   const [couponChecking, setCouponChecking] = useState(false)
   const [previewReady, setPreviewReady] = useState(false)
@@ -116,6 +150,14 @@ export function FastInvoiceForm({
       .filter((product) => [product.name, product.category, product.isbn ?? ''].some((value) => value.toLowerCase().includes(term)))
       .slice(0, 18)
   }, [products, searchTerm])
+
+  const filteredCustomers = useMemo(() => {
+    const term = customerSearch.trim().toLowerCase()
+    if (!term) return customers
+    return customers
+      .filter((customer) => [customer.name, customer.email ?? '', customer.phone ?? '', customer.member_id ?? ''].some((value) => value.toLowerCase().includes(term)))
+      .slice(0, 100)
+  }, [customers, customerSearch])
 
   useEffect(() => {
     const code = couponCode.trim()
@@ -179,6 +221,27 @@ export function FastInvoiceForm({
     setPickerOpen(false)
   }
 
+  function selectCustomer(customer: AdminInvoiceCustomer) {
+    setCustomerId(customer.id)
+    setCustomerSearch(`${customer.name}${customer.member_id ? ` · ${customer.member_id}` : ''}`)
+    setCustomerPickerOpen(false)
+    setCustomerDetails({
+      fullName: customer.name,
+      email: customer.email ?? '',
+      phone: customer.phone ?? '',
+      address: customer.address ?? '',
+      city: customer.city ?? 'Lahore',
+      zip: customer.zip ?? '',
+      notes: customer.notes ?? '',
+      memberId: customer.member_id ?? '',
+    })
+    if (requiredMemberId) setMemberId(customer.member_id ?? '')
+  }
+
+  function updateCustomerField(field: keyof typeof customerDetails, value: string) {
+    setCustomerDetails((current) => ({ ...current, [field]: value }))
+  }
+
   function addSelectedProduct() {
     const product = productMap.get(selectedProductId)
     if (!product) return
@@ -238,6 +301,7 @@ export function FastInvoiceForm({
       <input type="hidden" name="itemsJson" value={itemsJson} />
       <input type="hidden" name="country" value="Pakistan" />
       <input type="hidden" name="displayCurrency" value={currency} />
+      {adminOnly ? <input type="hidden" name="customerId" value={customerId} /> : null}
 
       <section className="min-w-0 space-y-5 rounded-lg border bg-card p-4 sm:p-6">
         {state.error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p> : null}
@@ -407,32 +471,102 @@ export function FastInvoiceForm({
           </div>
         </div>
 
+        {adminOnly ? (
+          <div className="space-y-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4">
+            <div>
+              <Label htmlFor="fast-customer-search">Assign invoice to customer *</Label>
+              <p className="mt-1 text-xs text-slate-600">Select a customer to load their saved contact and delivery details. You can still adjust them for this invoice.</p>
+            </div>
+            <div className="relative">
+              <UserRound className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#1D4ED8]" />
+              <Input
+                id="fast-customer-search"
+                value={customerSearch}
+                onFocus={() => setCustomerPickerOpen(true)}
+                onChange={(event) => {
+                  setCustomerSearch(event.target.value)
+                  setCustomerId('')
+                  setCustomerPickerOpen(true)
+                }}
+                placeholder="Search name, email, phone, or member ID"
+                className="rounded-xl border-[#BFDBFE] bg-white pl-9"
+              />
+              {customerPickerOpen ? (
+                <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border bg-background shadow-xl">
+                  {filteredCustomers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="flex w-full items-start justify-between gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+                      onClick={() => selectCustomer(customer)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{customer.name || 'Unnamed customer'}</span>
+                        <span className="mt-1 block truncate text-xs text-muted-foreground">{customer.email || customer.phone || 'No contact saved'}</span>
+                      </span>
+                      <span className="shrink-0 text-right text-xs text-muted-foreground">
+                        {customer.member_id ? <span className="block font-mono">{customer.member_id}</span> : null}
+                        {customer.source === 'directory' ? 'Saved customer' : 'Existing customer'}
+                      </span>
+                    </button>
+                  ))}
+                  {!filteredCustomers.length ? <p className="px-3 py-4 text-sm text-muted-foreground">No matching customers.</p> : null}
+                </div>
+              ) : null}
+            </div>
+            {customerId ? <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Customer selected. Details loaded below.</p> : <p className="text-xs font-medium text-amber-700">Choose a customer before submitting this admin invoice.</p>}
+          </div>
+        ) : null}
+
+        {adminOnly ? (
+          <div className="grid gap-4 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="fast-po-number">PO Number (optional)</Label>
+              <Input id="fast-po-number" name="poNumber" value={poNumber} onChange={(event) => setPoNumber(event.target.value)} placeholder="Shown below the invoice number" className="rounded-xl bg-white" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fast-ntn-number">NTN Number (optional)</Label>
+              <Input id="fast-ntn-number" name="ntnNumber" value={ntnNumber} onChange={(event) => setNtnNumber(event.target.value)} placeholder="Shown below the invoice number" className="rounded-xl bg-white" />
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="fast-name">Full Name *</Label>
-            <Input id="fast-name" name="fullName" required minLength={2} maxLength={120} className="rounded-xl" />
+            <Input id="fast-name" name="fullName" required minLength={2} maxLength={120} value={customerDetails.fullName} onChange={(event) => updateCustomerField('fullName', event.target.value)} className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-email">Email (optional)</Label>
-            <Input id="fast-email" name="email" type="email" defaultValue={recipientEmail ?? ''} placeholder="For invoice email, if available" className="rounded-xl" />
+            <Input id="fast-email" name="email" type="email" value={customerDetails.email} onChange={(event) => updateCustomerField('email', event.target.value)} placeholder="For invoice email, if available" className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-phone">Phone *</Label>
-            <Input id="fast-phone" name="phone" required className="rounded-xl" />
+            <Input id="fast-phone" name="phone" required value={customerDetails.phone} onChange={(event) => updateCustomerField('phone', event.target.value)} className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-city">City *</Label>
-            <Input id="fast-city" name="city" required defaultValue="Lahore" className="rounded-xl" />
+            <Input id="fast-city" name="city" required value={customerDetails.city} onChange={(event) => updateCustomerField('city', event.target.value)} className="rounded-xl" />
           </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="fast-address">Address *</Label>
-          <Input id="fast-address" name="address" required minLength={5} className="rounded-xl" />
+          <Input id="fast-address" name="address" required minLength={5} value={customerDetails.address} onChange={(event) => updateCustomerField('address', event.target.value)} className="rounded-xl" />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="fast-notes">Notes / other information (optional)</Label>
+          <textarea id="fast-notes" name="notes" value={customerDetails.notes} onChange={(event) => updateCustomerField('notes', event.target.value)} placeholder="Optional note to print on the invoice" rows={3} maxLength={2000} className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring" />
+        </div>
+        {adminOnly ? (
+          <div className="space-y-2">
+            <Label htmlFor="fast-customer-member">Customer Member ID</Label>
+            <Input id="fast-customer-member" name="customerMemberId" value={customerDetails.memberId} onChange={(event) => updateCustomerField('memberId', event.target.value)} className="rounded-xl font-mono" />
+          </div>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="fast-zip">Postal Code</Label>
-            <Input id="fast-zip" name="zip" className="rounded-xl" />
+            <Input id="fast-zip" name="zip" value={customerDetails.zip} onChange={(event) => updateCustomerField('zip', event.target.value)} className="rounded-xl" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fast-coupon">Coupon Code</Label>
@@ -446,7 +580,7 @@ export function FastInvoiceForm({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fast-member">Member ID</Label>
+            <Label htmlFor="fast-member">{adminOnly ? 'Discount Member ID (optional)' : 'Member ID'}</Label>
             <Input
               id="fast-member"
               name="memberId"
