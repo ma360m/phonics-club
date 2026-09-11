@@ -358,7 +358,10 @@ export async function placeFastInvoiceOrderAction(
     display_shipping_fee: convertCurrency(chargedShippingFee, displayCurrency, exchangeRate),
     display_discount_amount: convertCurrency(discountAmount, displayCurrency, exchangeRate),
     display_total: convertCurrency(total, displayCurrency, exchangeRate),
-    source: 'fast_invoice',
+    // The existing orders_source_check allows the canonical admin source.
+    // Fast Invoice is an admin-created order, so use that value instead of
+    // introducing a new source enum value just for this workflow.
+    source: 'admin',
     requires_admin_confirmation: stockCheck.requiresAdminConfirmation,
     admin_confirmation_reason: stockCheck.adminConfirmationReason,
   }

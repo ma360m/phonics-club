@@ -84,7 +84,7 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-mono text-sm font-semibold text-[#0F172A]">{invoiceLabel}</p>
                 {!order.user_id ? <Badge variant="outline">Guest order</Badge> : null}
-                {order.source === 'fast_invoice' ? <Badge variant="outline">Fast invoice</Badge> : null}
+                {order.source === 'admin' ? <Badge variant="outline">Fast invoice</Badge> : null}
                 {order.document_type === 'estimate' ? <Badge variant="secondary">EST · Awaiting payment</Badge> : null}
                 {order.finalized_at ? <Badge className="bg-emerald-600">Finalized</Badge> : null}
                 {order.requires_admin_confirmation ? <Badge variant="secondary">Needs stock review</Badge> : null}
