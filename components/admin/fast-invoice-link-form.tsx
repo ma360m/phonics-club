@@ -50,10 +50,10 @@ export function FastInvoiceLinkForm() {
           </div>
         </div>
         <label className="flex items-start gap-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-sm lg:col-span-5">
-          <input type="checkbox" name="adminOnly" className="mt-1 h-4 w-4 accent-[#1D4ED8]" />
+          <input type="checkbox" name="adminOnly" defaultChecked className="mt-1 h-4 w-4 accent-[#1D4ED8]" />
           <span>
-            <span className="flex items-center gap-1.5 font-semibold text-[#1D4ED8]"><ShieldCheck className="h-4 w-4" /> Admin-only customer picker</span>
-            <span className="mt-1 block text-xs text-slate-600">Only signed-in admins can open this link. They can select a saved customer and load the customer details automatically.</span>
+            <span className="flex items-center gap-1.5 font-semibold text-[#1D4ED8]"><ShieldCheck className="h-4 w-4" /> Admin-only invoice workspace</span>
+            <span className="mt-1 block text-xs text-slate-600">Recommended: only signed-in admins can open this link, select a saved customer, edit items, add PO/NTN, and choose Invoice or Estimate. Uncheck for a regular private customer link.</span>
           </span>
         </label>
         <div className="lg:col-span-5">

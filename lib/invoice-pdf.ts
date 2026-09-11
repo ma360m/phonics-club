@@ -407,7 +407,6 @@ export async function buildInvoicePdf(
     `Bank: ${bankDetails.bankName}`,
     `Account Title: ${bankDetails.accountTitle}`,
     `Account Number: ${bankDetails.accountNumber}`,
-    'Bank transfer support: If you face any issue, contact 0300 8079480.',
   ].concat(bankDetails.iban ? [`IBAN: ${bankDetails.iban}`] : [])
   const instructionLines = bankDetails.instructions ? wrapText(bankDetails.instructions, 72) : []
   const bankBoxHeight = showBankDetails ? 34 + bankLines.length * 12 + instructionLines.length * 10 + 14 : 0

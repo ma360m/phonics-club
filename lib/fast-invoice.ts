@@ -34,12 +34,22 @@ export async function getFastInvoiceLinkByToken(token: string) {
   const cleanToken = token.trim()
   if (!cleanToken) return null
 
-  const supabase = await createServiceClient()
-  const { data } = await supabase
-    .from('fast_invoice_links')
-    .select('*')
-    .eq('token_hash', hashFastInvoiceToken(cleanToken))
-    .maybeSingle()
+  try {
+    const supabase = await createServiceClient()
+    const { data, error } = await supabase
+      .from('fast_invoice_links')
+      .select('*')
+      .eq('token_hash', hashFastInvoiceToken(cleanToken))
+      .maybeSingle()
 
-  return (data as FastInvoiceLink | null) ?? null
+    if (error) {
+      console.error('[Fast invoice] Failed to load link:', error)
+      return null
+    }
+
+    return (data as FastInvoiceLink | null) ?? null
+  } catch (error) {
+    console.error('[Fast invoice] Failed to load link:', error)
+    return null
+  }
 }

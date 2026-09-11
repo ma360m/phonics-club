@@ -24,6 +24,9 @@ export default function AppError({
       <p className="mt-3 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
         {friendlyErrorMessage(error, 'The website ran into a problem.')}
       </p>
+      {error.digest ? (
+        <p className="mt-3 text-xs text-muted-foreground">Error reference: {error.digest}</p>
+      ) : null}
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Button type="button" onClick={reset} className="rounded-xl bg-[#1D4ED8]">
           <RefreshCw className="mr-2 h-4 w-4" />

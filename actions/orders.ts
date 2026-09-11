@@ -1488,6 +1488,58 @@ export async function finalizeCodDeliveryAction(orderId: string): Promise<Action
   return confirmOrderPaymentAction(orderId)
 }
 
+export async function promoteEstimateToInvoiceAction(
+  orderId: string,
+  invoiceNumber = '',
+): Promise<ActionResult<{ invoiceNumber: string }>> {
+  const admin = await requireAdmin()
+  if (!z.string().uuid().safeParse(orderId).success) return { success: false, error: 'Order link is invalid.' }
+
+  const requestedInvoiceNumber = invoiceNumber.trim()
+  const supabase = await createServiceClient()
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, document_type')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (orderError || !order) return { success: false, error: friendlyErrorMessage(orderError ?? 'Order not found', 'Estimate could not be loaded.') }
+  if (order.document_type !== 'estimate') return { success: false, error: 'This document is already an invoice.' }
+
+  if (requestedInvoiceNumber) {
+    const { data: existing, error: duplicateCheckError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('invoice_number', requestedInvoiceNumber)
+      .neq('id', orderId)
+      .maybeSingle()
+    if (duplicateCheckError) return { success: false, error: friendlyErrorMessage(duplicateCheckError, 'Invoice number could not be checked.') }
+    if (existing) return { success: false, error: 'That invoice number is already in use.' }
+  }
+
+  const { data, error } = await supabase.rpc('finalize_order_for_admin' as never, {
+    p_order_id: orderId,
+    p_admin_id: admin.id,
+  } as never)
+  if (error || !data?.[0]) return { success: false, error: friendlyErrorMessage(error, 'Estimate could not be promoted to an invoice.') }
+
+  let finalInvoiceNumber = String(data[0].invoice_number ?? '')
+  if (requestedInvoiceNumber) {
+    const { error: renameError } = await supabase
+      .from('orders')
+      .update({ invoice_number: requestedInvoiceNumber } as never)
+      .eq('id', orderId)
+    if (renameError) {
+      return { success: false, error: `Estimate was promoted as ${finalInvoiceNumber}, but the custom invoice number could not be saved.` }
+    }
+    finalInvoiceNumber = requestedInvoiceNumber
+  }
+
+  revalidatePath('/admin/orders')
+  revalidatePath('/admin/invoices')
+  return { success: true, data: { invoiceNumber: finalInvoiceNumber } }
+}
+
 export async function updateOrderStatusAction(orderId: string, status: string): Promise<ActionResult> {
   await requireAdmin()
   if (!(ORDER_STATUSES as readonly string[]).includes(status)) {
@@ -1671,6 +1723,13 @@ export async function bulkUpdateOrderStatusFormAction(formData: FormData): Promi
 export async function finalizeCodDeliveryFormAction(formData: FormData): Promise<void> {
   const orderId = String(formData.get('orderId'))
   const result = await finalizeCodDeliveryAction(orderId)
+  if (!result.success) throw new Error(result.error)
+}
+
+export async function promoteEstimateToInvoiceFormAction(formData: FormData): Promise<void> {
+  const orderId = String(formData.get('orderId') ?? '')
+  const invoiceNumber = String(formData.get('invoiceNumber') ?? '')
+  const result = await promoteEstimateToInvoiceAction(orderId, invoiceNumber)
   if (!result.success) throw new Error(result.error)
 }
 

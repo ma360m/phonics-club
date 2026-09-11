@@ -23,12 +23,15 @@ import { friendlyErrorMessage } from '@/lib/friendly-error'
 import { isDuplicateInvoiceNumberError } from '@/lib/invoice-numbering'
 import { APP_URL } from '@/lib/constants'
 import { generateFastInvoiceToken, getFastInvoiceLinkByToken, hashFastInvoiceToken, isFastInvoiceLinkUsable } from '@/lib/fast-invoice'
-import { getAdminInvoiceCustomers } from '@/lib/admin/customers'
+import { getAdminInvoiceCustomers, type AdminInvoiceCustomer } from '@/lib/admin/customers'
 import type { ActionResult, OrderItem } from '@/types'
 
 const fastInvoiceItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.coerce.number().int().min(1).max(999),
+  name: z.string().trim().min(1).max(240).optional(),
+  price: z.coerce.number().min(0).max(10_000_000).optional(),
+  isbn: z.string().trim().max(80).optional(),
 })
 
 const createFastInvoiceLinkSchema = z.object({
@@ -95,7 +98,7 @@ function applyItemDiscounts(items: OrderItem[], discountAmount: number, discount
   })
 }
 
-async function loadFastInvoiceItems(itemsJson: string): Promise<{ items?: OrderItem[]; error?: string }> {
+async function loadFastInvoiceItems(itemsJson: string, allowCustomValues = false): Promise<{ items?: OrderItem[]; error?: string }> {
   let rawItems: unknown
   try {
     rawItems = JSON.parse(itemsJson)
@@ -124,9 +127,11 @@ async function loadFastInvoiceItems(itemsJson: string): Promise<{ items?: OrderI
     const pricing = getProductPricing(product)
     items.push({
       product_id: product.id,
-      name: product.name,
-      isbn: product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined,
-      price: pricing.displayPrice,
+      name: allowCustomValues && selected.name ? selected.name : product.name,
+      isbn: allowCustomValues && selected.isbn !== undefined
+        ? selected.isbn || undefined
+        : product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined,
+      price: allowCustomValues && selected.price !== undefined ? selected.price : pricing.displayPrice,
       quantity: selected.quantity,
       image: product.images?.[0],
     })
@@ -228,7 +233,7 @@ export async function placeFastInvoiceOrderAction(
     }
   }
 
-  const loaded = await loadFastInvoiceItems(String(formData.get('itemsJson') ?? ''))
+  const loaded = await loadFastInvoiceItems(String(formData.get('itemsJson') ?? ''), Boolean(link?.admin_only))
   if (loaded.error || !loaded.items) return { success: false, error: loaded.error ?? 'Choose valid invoice items.' }
 
   let items = loaded.items
@@ -289,8 +294,23 @@ export async function placeFastInvoiceOrderAction(
   const exchangeRate = currencySettings.usdToPkrRate
   const exchangeRateTimestamp = currencySettings.lastUpdatedAt
   const accessToken = generateOrderAccessToken()
-  const documentType = paymentMethod === 'cod' ? 'invoice' : 'estimate'
-  let invoiceNumber = paymentMethod === 'cod' ? await getNextInvoiceNumber() : null
+  const requestedDocumentType = String(formData.get('documentType') ?? '').trim().toLowerCase()
+  if (link?.admin_only && paymentMethod !== 'cod' && requestedDocumentType === 'invoice') {
+    return { success: false, error: 'Bank-transfer fast invoices remain estimates until payment is confirmed.' }
+  }
+  const documentType = link?.admin_only
+    ? requestedDocumentType === 'estimate' ? 'estimate' : 'invoice'
+    : paymentMethod === 'cod' ? 'invoice' : 'estimate'
+  let invoiceNumber = documentType === 'invoice' ? await getNextInvoiceNumber() : null
+  const invoiceDateValue = String(formData.get('invoiceDate') ?? '').trim()
+  let invoiceDate: string | null = null
+  if (link?.admin_only && invoiceDateValue) {
+    const parsedInvoiceDate = new Date(invoiceDateValue)
+    if (Number.isNaN(parsedInvoiceDate.getTime())) {
+      return { success: false, error: 'Enter a valid invoice date.' }
+    }
+    invoiceDate = parsedInvoiceDate.toISOString()
+  }
   const shippingAddress = {
     fullName: parsed.data.fullName,
     email: customerEmail ?? '',
@@ -342,6 +362,7 @@ export async function placeFastInvoiceOrderAction(
     requires_admin_confirmation: stockCheck.requiresAdminConfirmation,
     admin_confirmation_reason: stockCheck.adminConfirmationReason,
   }
+  if (invoiceDate) orderPayload.created_at = invoiceDate
 
   const supabase = await createServiceClient()
   let { data: order, error } = await supabase
@@ -407,4 +428,165 @@ export async function placeFastInvoiceOrderAction(
 
   revalidatePath('/admin/orders')
   redirect(`/checkout/success?order=${order.id}&token=${accessToken}`)
+}
+
+const fastInvoiceCustomerSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().optional().or(z.literal('')),
+  phone: z.string().trim().min(3).max(40),
+  address: z.string().trim().max(500).optional(),
+  city: z.string().trim().max(100).optional(),
+  zip: z.string().trim().max(30).optional(),
+  memberId: z.string().trim().max(40).optional(),
+  notes: z.string().trim().max(2000).optional(),
+})
+
+const fastInvoiceCustomerFields = 'id, user_id, name, email, phone, member_id, address, city, zip, country, notes'
+
+function customerActionError(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) return 'Customer could not be saved.'
+  if (error.code === '42P01' || /admin_customers|schema cache/i.test(error.message ?? '')) {
+    return 'Customer directory is not ready. Apply migration 044_admin_invoice_workflow.sql in Supabase first.'
+  }
+  return friendlyErrorMessage(error, 'Customer could not be saved.')
+}
+
+function asFastInvoiceCustomer(row: Record<string, unknown>): AdminInvoiceCustomer {
+  return {
+    id: String(row.id),
+    user_id: row.user_id ? String(row.user_id) : null,
+    name: String(row.name ?? ''),
+    email: row.email ? String(row.email) : null,
+    phone: row.phone ? String(row.phone) : null,
+    member_id: row.member_id ? String(row.member_id) : null,
+    address: row.address ? String(row.address) : null,
+    city: row.city ? String(row.city) : null,
+    zip: row.zip ? String(row.zip) : null,
+    country: String(row.country ?? 'Pakistan'),
+    notes: row.notes ? String(row.notes) : null,
+    source: 'directory',
+  }
+}
+
+export async function createFastInvoiceCustomerAction(
+  _prev: ActionResult<AdminInvoiceCustomer>,
+  formData: FormData,
+): Promise<ActionResult<AdminInvoiceCustomer>> {
+  const admin = await requireAdmin()
+  const parsed = fastInvoiceCustomerSchema.safeParse({
+    name: formData.get('name'),
+    email: String(formData.get('email') ?? '').trim().toLowerCase(),
+    phone: formData.get('phone'),
+    address: formData.get('address') || undefined,
+    city: formData.get('city') || undefined,
+    zip: formData.get('zip') || undefined,
+    memberId: formData.get('memberId') || undefined,
+    notes: formData.get('notes') || undefined,
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message ?? 'Enter valid customer details.' }
+
+  const email = parsed.data.email ? parsed.data.email.toLowerCase() : null
+  const phone = normalizePhone(parsed.data.phone)
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? await createServiceClient() : await createClient()
+
+  let existing = null
+  if (email) {
+    const result = await supabase.from('admin_customers').select(fastInvoiceCustomerFields).eq('email', email).maybeSingle()
+    if (result.error) return { success: false, error: customerActionError(result.error) }
+    existing = result.data
+  }
+  if (!existing && phone) {
+    const result = await supabase.from('admin_customers').select(fastInvoiceCustomerFields).eq('phone', phone).maybeSingle()
+    if (result.error) return { success: false, error: customerActionError(result.error) }
+    existing = result.data
+  }
+  if (existing) return { success: true, data: asFastInvoiceCustomer(existing as Record<string, unknown>) }
+
+  const { data, error } = await supabase
+    .from('admin_customers')
+    .insert({
+      name: parsed.data.name,
+      email,
+      phone,
+      member_id: parsed.data.memberId || null,
+      address: parsed.data.address || null,
+      city: parsed.data.city || null,
+      zip: parsed.data.zip || null,
+      country: 'Pakistan',
+      notes: parsed.data.notes || null,
+      created_by: admin.id,
+      updated_by: admin.id,
+    } as never)
+    .select(fastInvoiceCustomerFields)
+    .single()
+
+  if (error || !data) return { success: false, error: customerActionError(error) }
+  revalidatePath('/admin/customers')
+  return { success: true, data: asFastInvoiceCustomer(data as Record<string, unknown>) }
+}
+
+const fastInvoiceCouponSchema = z.object({
+  code: z.string().trim().min(3).max(40).transform((value) => value.toUpperCase()),
+  discountPercent: z.coerce.number().int().min(1).max(100),
+  maxUses: z.coerce.number().int().min(1).optional(),
+})
+
+export async function createFastInvoiceCouponAction(
+  _prev: ActionResult<{ code: string }>,
+  formData: FormData,
+): Promise<ActionResult<{ code: string }>> {
+  await requireAdmin()
+  const parsed = fastInvoiceCouponSchema.safeParse({
+    code: formData.get('code'),
+    discountPercent: formData.get('discountPercent'),
+    maxUses: formData.get('maxUses') || undefined,
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message ?? 'Enter valid coupon details.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('coupons').insert({
+    code: parsed.data.code,
+    discount_percent: parsed.data.discountPercent,
+    discount_amount: null,
+    max_uses: parsed.data.maxUses ?? null,
+    used_count: 0,
+    active: true,
+  } as never)
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Coupon could not be created.') }
+  revalidatePath('/admin/coupons')
+  return { success: true, data: { code: parsed.data.code } }
+}
+
+const fastInvoiceMemberSchema = z.object({
+  memberId: z.string().trim().min(3).max(40).transform(normalizeMemberId).refine((value) => /^[A-Z0-9_-]{3,40}$/.test(value), 'Member ID may only contain letters, numbers, underscores, and hyphens.'),
+  discountPercent: z.coerce.number().int().min(1).max(100),
+  freeShipping: z.boolean().default(false),
+})
+
+export async function createFastInvoiceMemberDiscountAction(
+  _prev: ActionResult<{ memberId: string }>,
+  formData: FormData,
+): Promise<ActionResult<{ memberId: string }>> {
+  const admin = await requireAdmin()
+  const parsed = fastInvoiceMemberSchema.safeParse({
+    memberId: formData.get('memberId'),
+    discountPercent: formData.get('discountPercent'),
+    freeShipping: formData.get('freeShipping') === 'on',
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0]?.message ?? 'Enter valid member discount details.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('member_discounts').upsert({
+    member_id: parsed.data.memberId,
+    discount_amount: 0,
+    discount_percent: parsed.data.discountPercent,
+    free_shipping_enabled: parsed.data.freeShipping,
+    max_uses: null,
+    used_count: 0,
+    active: true,
+    created_by: admin.id,
+  } as never, { onConflict: 'member_id' })
+  if (error) return { success: false, error: friendlyErrorMessage(error, 'Member ID discount could not be created.') }
+  revalidatePath('/admin/coupons')
+  return { success: true, data: { memberId: parsed.data.memberId } }
 }

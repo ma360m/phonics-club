@@ -213,7 +213,6 @@ export function buildInvoiceHtml(order: InvoiceOrder, template?: InvoiceTemplate
       <p style="margin:4px 0"><strong>Account Number:</strong> ${escapeHtml(bankDetails.accountNumber)}</p>
       ${bankDetails.iban ? `<p style="margin:4px 0"><strong>IBAN:</strong> ${escapeHtml(bankDetails.iban)}</p>` : ''}
       ${bankDetails.instructions ? `<p style="margin:8px 0 0;color:#475569;font-size:12px;white-space:pre-line">${escapeHtml(bankDetails.instructions)}</p>` : ''}
-      <p style="margin:8px 0 0;color:#475569;font-size:12px"><strong>Bank transfer support:</strong> If you face any issue, contact 0300 8079480.</p>
     </div>` : ''}
 
     ${order.notes?.trim() ? `<div style="border:1px solid #CBD5E1;background:#FFFFFF;padding:14px;border-radius:8px;margin-bottom:24px">

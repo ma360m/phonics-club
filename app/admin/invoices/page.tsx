@@ -7,6 +7,7 @@ import { getCustomerOrderStatusLabel } from '@/lib/order-status'
 import { formatDate, formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { updateOrderInvoiceNumberFormAction } from '@/actions/orders'
 import type { Order } from '@/types/database'
 
 const FINAL_STATUSES = new Set(['payment_confirmed', 'processing', 'ready_to_dispatch', 'shipped', 'delivered'])
@@ -61,6 +62,11 @@ function InvoiceArchiveMonth({ month, orders }: { month: string; orders: Order[]
                   <p className="font-bold text-[#1D4ED8]">{formatPrice(order.total)}</p>
                   <Badge variant="outline" className="mt-1">{getCustomerOrderStatusLabel(order.status, order.payment_method)}</Badge>
                 </div>
+                <form action={updateOrderInvoiceNumberFormAction} className="flex items-center gap-2">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input name="invoiceNumber" defaultValue={order.invoice_number ?? ''} aria-label={`Invoice number for ${getAdminOrderCustomerName(order)}`} className="w-32 rounded-xl border bg-white px-3 py-1.5 font-mono text-xs" />
+                  <Button type="submit" size="sm" variant="outline" className="rounded-xl">Rename</Button>
+                </form>
                 <Button asChild size="sm" variant="outline" className="rounded-xl">
                   <Link href={`/api/orders/${order.id}/invoice?format=pdf`} target="_blank">PDF</Link>
                 </Button>

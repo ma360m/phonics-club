@@ -29,8 +29,7 @@ export const COMPANY_BANK_DETAILS = {
   accountTitle: 'PHONICS CLUB PRIVATE LTD',
   accountNumber: '02590104584267',
   iban: '',
-  instructions:
-    'PAYMENT INSTRUCTIONS:\nBANK TRANSFER:\nTITLE: MEEZAN BANK LTD. AC#02590104584267\nMEEZAN BANK LTD. ACCOUNT PHONICS CLUB PRIVATE LTD',
+  instructions: 'PAYMENT INSTRUCTIONS: Facing issue with payment? contact us at 0300 8079480',
 } as const
 
 export const TRAINING_MONTHS_2026 = [

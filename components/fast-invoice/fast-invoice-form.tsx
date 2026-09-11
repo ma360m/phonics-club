@@ -1,8 +1,13 @@
 'use client'
 
-import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
 import { Check, Plus, Search, Trash2, UserRound } from 'lucide-react'
-import { placeFastInvoiceOrderAction } from '@/actions/fast-invoice'
+import {
+  createFastInvoiceCouponAction,
+  createFastInvoiceCustomerAction,
+  createFastInvoiceMemberDiscountAction,
+  placeFastInvoiceOrderAction,
+} from '@/actions/fast-invoice'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -62,6 +67,9 @@ interface CouponPreview {
 interface SelectedItem {
   productId: string
   quantity: number
+  name?: string
+  price?: number
+  isbn?: string
 }
 
 interface AdminInvoiceCustomer {
@@ -79,6 +87,20 @@ interface AdminInvoiceCustomer {
   source: 'directory' | 'profile' | 'order'
 }
 
+interface AdminInvoiceCoupon {
+  code: string
+  active?: boolean | null
+  discount_percent?: number | null
+  discount_amount?: number | null
+}
+
+interface AdminInvoiceMemberDiscount {
+  member_id: string
+  active?: boolean | null
+  discount_percent?: number | null
+  free_shipping_enabled?: boolean | null
+}
+
 export function FastInvoiceForm({
   token,
   products,
@@ -87,6 +109,8 @@ export function FastInvoiceForm({
   requiredMemberId,
   adminOnly = false,
   customers = [],
+  coupons = [],
+  memberDiscounts = [],
 }: {
   token: string
   products: FastInvoiceProduct[]
@@ -95,9 +119,12 @@ export function FastInvoiceForm({
   requiredMemberId?: string | null
   adminOnly?: boolean
   customers?: AdminInvoiceCustomer[]
+  coupons?: AdminInvoiceCoupon[]
+  memberDiscounts?: AdminInvoiceMemberDiscount[]
 }) {
   const { currency, settings, format } = useCurrency()
   const [state, formAction, pending] = useActionState(placeFastInvoiceOrderAction, initialState)
+  const [customerCreatePending, startCustomerTransition] = useTransition()
   const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products])
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id ?? '')
@@ -108,10 +135,24 @@ export function FastInvoiceForm({
   const [couponCode, setCouponCode] = useState('')
   const [memberId, setMemberId] = useState(requiredMemberId ?? '')
   const [customerId, setCustomerId] = useState('')
+  const [customerOptions, setCustomerOptions] = useState(customers)
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
+  const [customerCreatorOpen, setCustomerCreatorOpen] = useState(false)
+  const [customerCreateState, setCustomerCreateState] = useState<ActionResult<AdminInvoiceCustomer>>({ success: false })
+  const [newCustomerDraft, setNewCustomerDraft] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: 'Lahore',
+    zip: '',
+    memberId: '',
+    notes: '',
+  })
   const [poNumber, setPoNumber] = useState('')
   const [ntnNumber, setNtnNumber] = useState('')
+  const [invoiceDate, setInvoiceDate] = useState('')
   const [customerDetails, setCustomerDetails] = useState({
     fullName: '',
     email: recipientEmail ?? '',
@@ -124,7 +165,16 @@ export function FastInvoiceForm({
   })
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null)
   const [couponChecking, setCouponChecking] = useState(false)
+  const [couponOptions, setCouponOptions] = useState(coupons)
+  const [memberOptions, setMemberOptions] = useState(memberDiscounts)
+  const [couponCreatorOpen, setCouponCreatorOpen] = useState(false)
+  const [memberCreatorOpen, setMemberCreatorOpen] = useState(false)
+  const [couponCreateState, setCouponCreateState] = useState<ActionResult<{ code: string }>>({ success: false })
+  const [memberCreateState, setMemberCreateState] = useState<ActionResult<{ memberId: string }>>({ success: false })
+  const [couponDraft, setCouponDraft] = useState({ code: '', discountPercent: '10', maxUses: '' })
+  const [memberDraft, setMemberDraft] = useState({ memberId: '', discountPercent: '10', freeShipping: false })
   const [previewReady, setPreviewReady] = useState(false)
+  const [documentType, setDocumentType] = useState<'invoice' | 'estimate'>(adminOnly && paymentOptions[0]?.value !== 'cod' ? 'estimate' : 'invoice')
   const memberDiscountLocked = Boolean(requiredMemberId?.trim())
 
   const invoiceItems = selectedItems.flatMap((item) => {
@@ -132,11 +182,14 @@ export function FastInvoiceForm({
     if (!product) return []
     const pricing = getProductPricing(product)
     const stock = evaluateProductOrderability(product, item.quantity)
+    const defaultIsbn = product.isbn ?? (product.metadata?.isbn as string | undefined) ?? undefined
     return [{
       ...item,
       product,
-      price: pricing.displayPrice,
-      lineTotal: pricing.displayPrice * item.quantity,
+      name: adminOnly && item.name !== undefined ? item.name : product.name,
+      isbn: adminOnly && item.isbn !== undefined ? item.isbn : defaultIsbn,
+      price: adminOnly && item.price !== undefined ? item.price : pricing.displayPrice,
+      lineTotal: (adminOnly && item.price !== undefined ? item.price : pricing.displayPrice) * item.quantity,
       stock,
     }]
   })
@@ -153,11 +206,11 @@ export function FastInvoiceForm({
 
   const filteredCustomers = useMemo(() => {
     const term = customerSearch.trim().toLowerCase()
-    if (!term) return customers
-    return customers
+    if (!term) return customerOptions
+    return customerOptions
       .filter((customer) => [customer.name, customer.email ?? '', customer.phone ?? '', customer.member_id ?? ''].some((value) => value.toLowerCase().includes(term)))
       .slice(0, 100)
-  }, [customers, customerSearch])
+  }, [customerOptions, customerSearch])
 
   useEffect(() => {
     const code = couponCode.trim()
@@ -242,6 +295,46 @@ export function FastInvoiceForm({
     setCustomerDetails((current) => ({ ...current, [field]: value }))
   }
 
+  function updateNewCustomerField(field: keyof typeof newCustomerDraft, value: string) {
+    setNewCustomerDraft((current) => ({ ...current, [field]: value }))
+  }
+
+  function openCustomerCreator() {
+    setCustomerCreateState({ success: false })
+    setNewCustomerDraft({
+      name: customerDetails.fullName,
+      email: customerDetails.email,
+      phone: customerDetails.phone,
+      address: customerDetails.address,
+      city: customerDetails.city,
+      zip: customerDetails.zip,
+      memberId: customerDetails.memberId,
+      notes: customerDetails.notes,
+    })
+    setCustomerCreatorOpen(true)
+  }
+
+  function saveNewCustomer() {
+    const formData = new FormData()
+    formData.set('name', newCustomerDraft.name)
+    formData.set('email', newCustomerDraft.email)
+    formData.set('phone', newCustomerDraft.phone)
+    formData.set('address', newCustomerDraft.address)
+    formData.set('city', newCustomerDraft.city)
+    formData.set('zip', newCustomerDraft.zip)
+    formData.set('memberId', newCustomerDraft.memberId)
+    formData.set('notes', newCustomerDraft.notes)
+    startCustomerTransition(async () => {
+      const result = await createFastInvoiceCustomerAction({ success: false }, formData)
+      setCustomerCreateState(result)
+      if (result.success && result.data) {
+        setCustomerOptions((current) => [result.data!, ...current.filter((customer) => customer.id !== result.data!.id)])
+        selectCustomer(result.data)
+        setCustomerCreatorOpen(false)
+      }
+    })
+  }
+
   function addSelectedProduct() {
     const product = productMap.get(selectedProductId)
     if (!product) return
@@ -255,13 +348,29 @@ export function FastInvoiceForm({
       if (currentItem) {
         return current.map((item) => item.productId === selectedProductId ? { ...item, quantity: nextQuantity } : item)
       }
-      return [...current, { productId: selectedProductId, quantity: addQuantity }]
+      return [...current, {
+        productId: selectedProductId,
+        quantity: addQuantity,
+        name: product.name,
+        price: getProductPricing(product).displayPrice,
+        isbn: product.isbn ?? (product.metadata?.isbn as string | undefined),
+      }]
     })
     setPreviewReady(false)
   }
 
   function updateQuantity(productId: string, quantity: number) {
     setSelectedItems((current) => current.map((item) => item.productId === productId ? { ...item, quantity } : item))
+    setPreviewReady(false)
+  }
+
+  function updateItemField(productId: string, field: 'name' | 'isbn' | 'price', value: string) {
+    if (!adminOnly) return
+    setSelectedItems((current) => current.map((item) => {
+      if (item.productId !== productId) return item
+      if (field === 'price') return { ...item, price: value === '' ? undefined : Math.max(0, Number(value) || 0) }
+      return { ...item, [field]: value }
+    }))
     setPreviewReady(false)
   }
 
@@ -286,6 +395,40 @@ export function FastInvoiceForm({
     setPreviewReady(true)
   }
 
+  function createCoupon() {
+    const formData = new FormData()
+    formData.set('code', couponDraft.code)
+    formData.set('discountPercent', couponDraft.discountPercent)
+    formData.set('maxUses', couponDraft.maxUses)
+    startCustomerTransition(async () => {
+      const result = await createFastInvoiceCouponAction({ success: false }, formData)
+      setCouponCreateState(result)
+      if (result.success && result.data) {
+        const nextCoupon = { code: result.data.code, active: true, discount_percent: Number(couponDraft.discountPercent), discount_amount: null }
+        setCouponOptions((current) => [nextCoupon, ...current.filter((coupon) => coupon.code !== nextCoupon.code)])
+        setCouponCode(result.data.code)
+        setCouponCreatorOpen(false)
+      }
+    })
+  }
+
+  function createMemberDiscount() {
+    const formData = new FormData()
+    formData.set('memberId', memberDraft.memberId)
+    formData.set('discountPercent', memberDraft.discountPercent)
+    if (memberDraft.freeShipping) formData.set('freeShipping', 'on')
+    startCustomerTransition(async () => {
+      const result = await createFastInvoiceMemberDiscountAction({ success: false }, formData)
+      setMemberCreateState(result)
+      if (result.success && result.data) {
+        const nextMember = { member_id: result.data.memberId, active: true, discount_percent: Number(memberDraft.discountPercent), free_shipping_enabled: memberDraft.freeShipping }
+        setMemberOptions((current) => [nextMember, ...current.filter((member) => member.member_id !== nextMember.member_id)])
+        setMemberId(result.data.memberId)
+        setMemberCreatorOpen(false)
+      }
+    })
+  }
+
   return (
     <form
       action={formAction}
@@ -302,6 +445,7 @@ export function FastInvoiceForm({
       <input type="hidden" name="country" value="Pakistan" />
       <input type="hidden" name="displayCurrency" value={currency} />
       {adminOnly ? <input type="hidden" name="customerId" value={customerId} /> : null}
+      {adminOnly ? <input type="hidden" name="documentType" value={documentType} /> : null}
 
       <section className="min-w-0 space-y-5 rounded-lg border bg-card p-4 sm:p-6">
         {state.error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</p> : null}
@@ -374,8 +518,8 @@ export function FastInvoiceForm({
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="break-words font-semibold">{item.product.name}</p>
-                    {item.product.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</p> : null}
+                    <p className="break-words font-semibold">{item.name}</p>
+                    {item.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.isbn}</p> : null}
                     {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
                   </div>
                   <Button
@@ -384,11 +528,27 @@ export function FastInvoiceForm({
                     size="icon-sm"
                     className="shrink-0 rounded-lg text-destructive"
                     onClick={() => removeItem(item.productId)}
-                    aria-label={`Remove ${item.product.name}`}
+                    aria-label={`Remove ${item.name}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
+                {adminOnly ? (
+                  <div className="mt-3 grid gap-2 rounded-lg bg-[#F8FBFF] p-3 sm:grid-cols-3">
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Item name</Label>
+                      <Input value={item.name} onChange={(event) => updateItemField(item.productId, 'name', event.target.value)} className="rounded-lg bg-white" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">ISBN</Label>
+                      <Input value={item.isbn ?? ''} onChange={(event) => updateItemField(item.productId, 'isbn', event.target.value)} className="rounded-lg bg-white font-mono" />
+                    </div>
+                    <div className="space-y-1 sm:col-span-3">
+                      <Label className="text-xs">Unit price</Label>
+                      <Input type="number" min="0" step="0.01" value={item.price} onChange={(event) => updateItemField(item.productId, 'price', event.target.value)} className="rounded-lg bg-white" />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quantity</span>
                   <QuantityStepper
@@ -437,8 +597,14 @@ export function FastInvoiceForm({
                   <tr key={item.productId}>
                     <td className="px-4 py-3 text-center font-mono text-xs text-slate-500">{index + 1}</td>
                     <td className="px-4 py-3">
-                      <p className="font-semibold">{item.product.name}</p>
-                      {item.product.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</p> : null}
+                      {adminOnly ? (
+                        <Input value={item.name} onChange={(event) => updateItemField(item.productId, 'name', event.target.value)} className="rounded-lg bg-background" />
+                      ) : (
+                        <p className="font-semibold">{item.name}</p>
+                      )}
+                      {adminOnly ? (
+                        <Input value={item.isbn ?? ''} onChange={(event) => updateItemField(item.productId, 'isbn', event.target.value)} placeholder="ISBN" className="mt-2 rounded-lg bg-background font-mono text-xs" />
+                      ) : item.isbn ? <p className="mt-1 font-mono text-xs text-muted-foreground">ISBN: {item.isbn}</p> : null}
                       {item.stock.message ? <p className="mt-1 text-xs font-medium text-amber-700">{item.stock.message}</p> : null}
                     </td>
                     <td className="px-4 py-3">
@@ -452,7 +618,11 @@ export function FastInvoiceForm({
                         inputClassName="h-8 w-10 text-xs"
                       />
                     </td>
-                    <td className="px-4 py-3 text-right">{format(item.price)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {adminOnly ? (
+                        <Input type="number" min="0" step="0.01" value={item.price} onChange={(event) => updateItemField(item.productId, 'price', event.target.value)} className="ml-auto w-28 rounded-lg bg-background text-right" />
+                      ) : format(item.price)}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold">{format(item.lineTotal)}</td>
                     <td className="px-4 py-3 text-right">
                       <Button type="button" variant="ghost" size="icon-sm" className="rounded-lg text-destructive" onClick={() => removeItem(item.productId)}>
@@ -473,9 +643,14 @@ export function FastInvoiceForm({
 
         {adminOnly ? (
           <div className="space-y-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4">
-            <div>
-              <Label htmlFor="fast-customer-search">Assign invoice to customer *</Label>
-              <p className="mt-1 text-xs text-slate-600">Select a customer to load their saved contact and delivery details. You can still adjust them for this invoice.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Label htmlFor="fast-customer-search">Assign invoice to customer *</Label>
+                <p className="mt-1 text-xs text-slate-600">Select a customer to load their saved contact and delivery details. You can still adjust them for this invoice.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="rounded-lg border-[#93C5FD] bg-white" onClick={openCustomerCreator}>
+                <Plus className="h-4 w-4" /> Customer
+              </Button>
             </div>
             <div className="relative">
               <UserRound className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#1D4ED8]" />
@@ -510,16 +685,40 @@ export function FastInvoiceForm({
                       </span>
                     </button>
                   ))}
-                  {!filteredCustomers.length ? <p className="px-3 py-4 text-sm text-muted-foreground">No matching customers.</p> : null}
+                  {!filteredCustomers.length ? <p className="px-3 py-4 text-sm text-muted-foreground">No matching customers. Use the Customer button to add one.</p> : null}
                 </div>
               ) : null}
             </div>
+            {customerCreatorOpen ? (
+              <div className="space-y-3 rounded-xl border border-[#93C5FD] bg-white p-3">
+                <div>
+                  <p className="font-semibold text-slate-900">Add customer for future invoices</p>
+                  <p className="mt-1 text-xs text-muted-foreground">This saves the customer in the admin directory and selects them for this invoice.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input value={newCustomerDraft.name} onChange={(event) => updateNewCustomerField('name', event.target.value)} placeholder="Full name *" className="rounded-lg" />
+                  <Input type="email" value={newCustomerDraft.email} onChange={(event) => updateNewCustomerField('email', event.target.value)} placeholder="Email (optional)" className="rounded-lg" />
+                  <Input value={newCustomerDraft.phone} onChange={(event) => updateNewCustomerField('phone', event.target.value)} placeholder="Phone *" className="rounded-lg" />
+                  <Input value={newCustomerDraft.city} onChange={(event) => updateNewCustomerField('city', event.target.value)} placeholder="City" className="rounded-lg" />
+                  <Input value={newCustomerDraft.address} onChange={(event) => updateNewCustomerField('address', event.target.value)} placeholder="Address" className="rounded-lg sm:col-span-2" />
+                  <Input value={newCustomerDraft.zip} onChange={(event) => updateNewCustomerField('zip', event.target.value)} placeholder="Postal code" className="rounded-lg" />
+                  <Input value={newCustomerDraft.memberId} onChange={(event) => updateNewCustomerField('memberId', event.target.value)} placeholder="Member ID (optional)" className="rounded-lg font-mono" />
+                  <textarea value={newCustomerDraft.notes} onChange={(event) => updateNewCustomerField('notes', event.target.value)} placeholder="Notes (optional)" rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none sm:col-span-2" />
+                </div>
+                {customerCreateState.error ? <p className="text-xs text-destructive">{customerCreateState.error}</p> : null}
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" className="rounded-lg" onClick={() => setCustomerCreatorOpen(false)}>Cancel</Button>
+                  <Button type="button" size="sm" className="rounded-lg bg-[#1D4ED8]" onClick={saveNewCustomer} disabled={customerCreatePending}>
+                    {customerCreatePending ? 'Saving...' : 'Save customer'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             {customerId ? <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Customer selected. Details loaded below.</p> : <p className="text-xs font-medium text-amber-700">Choose a customer before submitting this admin invoice.</p>}
           </div>
         ) : null}
 
-        {adminOnly ? (
-          <div className="grid gap-4 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-4 sm:grid-cols-2">
+        <div className={`grid gap-4 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-4 ${adminOnly ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
             <div className="space-y-2">
               <Label htmlFor="fast-po-number">PO Number (optional)</Label>
               <Input id="fast-po-number" name="poNumber" value={poNumber} onChange={(event) => setPoNumber(event.target.value)} placeholder="Shown below the invoice number" className="rounded-xl bg-white" />
@@ -528,8 +727,13 @@ export function FastInvoiceForm({
               <Label htmlFor="fast-ntn-number">NTN Number (optional)</Label>
               <Input id="fast-ntn-number" name="ntnNumber" value={ntnNumber} onChange={(event) => setNtnNumber(event.target.value)} placeholder="Shown below the invoice number" className="rounded-xl bg-white" />
             </div>
-          </div>
-        ) : null}
+            {adminOnly ? (
+              <div className="space-y-2">
+                <Label htmlFor="fast-invoice-date">Invoice date (optional)</Label>
+                <Input id="fast-invoice-date" name="invoiceDate" type="datetime-local" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} className="rounded-xl bg-white" />
+              </div>
+            ) : null}
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -569,28 +773,66 @@ export function FastInvoiceForm({
             <Input id="fast-zip" name="zip" value={customerDetails.zip} onChange={(event) => updateCustomerField('zip', event.target.value)} className="rounded-xl" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fast-coupon">Coupon Code</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="fast-coupon">Coupon Code</Label>
+              {adminOnly ? <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => { setCouponCreateState({ success: false }); setCouponCreatorOpen((open) => !open) }}>Create new</Button> : null}
+            </div>
             <Input
               id="fast-coupon"
               name="couponCode"
+              list={adminOnly ? 'fast-coupon-options' : undefined}
               value={couponCode}
               disabled={memberDiscountLocked}
               onChange={(event) => updateCouponCode(event.target.value)}
               className="rounded-xl"
             />
+            {adminOnly ? <datalist id="fast-coupon-options">{couponOptions.filter((coupon) => coupon.active !== false).map((coupon) => <option key={coupon.code} value={coupon.code} />)}</datalist> : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fast-member">{adminOnly ? 'Discount Member ID (optional)' : 'Member ID'}</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="fast-member">{adminOnly ? 'Discount Member ID (optional)' : 'Member ID'}</Label>
+              {adminOnly && !memberDiscountLocked ? <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => { setMemberCreateState({ success: false }); setMemberCreatorOpen((open) => !open) }}>Create new</Button> : null}
+            </div>
             <Input
               id="fast-member"
               name="memberId"
+              list={adminOnly ? 'fast-member-options' : undefined}
               value={memberId}
               readOnly={memberDiscountLocked}
               onChange={(event) => updateMemberId(event.target.value)}
               className="rounded-xl font-mono"
             />
+            {adminOnly ? <datalist id="fast-member-options">{memberOptions.filter((member) => member.active !== false).map((member) => <option key={member.member_id} value={member.member_id} />)}</datalist> : null}
           </div>
         </div>
+        {adminOnly && couponCreatorOpen ? (
+          <div className="space-y-3 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-4">
+            <p className="font-semibold">Create coupon for future invoices</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input value={couponDraft.code} onChange={(event) => setCouponDraft((current) => ({ ...current, code: event.target.value }))} placeholder="Coupon code *" className="rounded-lg bg-white" />
+              <Input type="number" min="1" max="100" value={couponDraft.discountPercent} onChange={(event) => setCouponDraft((current) => ({ ...current, discountPercent: event.target.value }))} placeholder="Discount % *" className="rounded-lg bg-white" />
+              <Input type="number" min="1" value={couponDraft.maxUses} onChange={(event) => setCouponDraft((current) => ({ ...current, maxUses: event.target.value }))} placeholder="Max uses (optional)" className="rounded-lg bg-white" />
+            </div>
+            {couponCreateState.error ? <p className="text-xs text-destructive">{couponCreateState.error}</p> : null}
+            <div className="flex justify-end">
+              <Button type="button" size="sm" className="rounded-lg bg-[#1D4ED8]" onClick={createCoupon} disabled={customerCreatePending}>Save coupon</Button>
+            </div>
+          </div>
+        ) : null}
+        {adminOnly && memberCreatorOpen ? (
+          <div className="space-y-3 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-4">
+            <p className="font-semibold">Create member discount for future invoices</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input value={memberDraft.memberId} onChange={(event) => setMemberDraft((current) => ({ ...current, memberId: event.target.value }))} placeholder="Member ID *" className="rounded-lg bg-white font-mono" />
+              <Input type="number" min="1" max="100" value={memberDraft.discountPercent} onChange={(event) => setMemberDraft((current) => ({ ...current, discountPercent: event.target.value }))} placeholder="Discount % *" className="rounded-lg bg-white" />
+              <label className="flex items-center gap-2 rounded-lg border bg-white px-3 text-sm"><input type="checkbox" checked={memberDraft.freeShipping} onChange={(event) => setMemberDraft((current) => ({ ...current, freeShipping: event.target.checked }))} /> Free shipping</label>
+            </div>
+            {memberCreateState.error ? <p className="text-xs text-destructive">{memberCreateState.error}</p> : null}
+            <div className="flex justify-end">
+              <Button type="button" size="sm" className="rounded-lg bg-[#1D4ED8]" onClick={createMemberDiscount} disabled={customerCreatePending}>Save Member ID</Button>
+            </div>
+          </div>
+        ) : null}
         {(couponCode.trim() || memberId.trim()) && (
           <p className={`text-xs ${couponChecking ? 'text-muted-foreground' : couponPreview?.valid ? 'text-emerald-700' : 'text-destructive'}`}>
             {couponChecking
@@ -614,7 +856,10 @@ export function FastInvoiceForm({
                   name="paymentMethod"
                   value={option.value}
                   checked={paymentMethod === option.value}
-                  onChange={() => setPaymentMethod(option.value)}
+                  onChange={() => {
+                    setPaymentMethod(option.value)
+                    if (adminOnly && option.value !== 'cod') setDocumentType('estimate')
+                  }}
                   className="sr-only"
                 />
                 <span className="block font-semibold">{option.title}</span>
@@ -656,8 +901,18 @@ export function FastInvoiceForm({
         <div className="mt-6 space-y-3 border-t pt-5">
           {previewReady ? (
             <>
-              <Button type="submit" disabled={pending || !invoiceItems.length} className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
-                {pending ? 'Creating invoice...' : 'Place Order'}
+              {adminOnly ? (
+                <div className="space-y-2 rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] p-3">
+                  <p className="text-sm font-semibold">Choose document after review</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={documentType === 'invoice' ? 'default' : 'outline'} className="rounded-lg" onClick={() => setDocumentType('invoice')} disabled={paymentMethod !== 'cod'}>Invoice</Button>
+                    <Button type="button" variant={documentType === 'estimate' ? 'default' : 'outline'} className="rounded-lg" onClick={() => setDocumentType('estimate')}>Estimate</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Estimates show EST without an invoice number and do not deduct stock until the admin confirms payment or delivery.</p>
+                </div>
+              ) : null}
+              <Button type="submit" disabled={pending || !invoiceItems.length || (adminOnly && !customerId)} className="w-full rounded-xl bg-[#D30000] hover:bg-[#D30000]/90">
+                {pending ? 'Creating document...' : documentType === 'estimate' ? 'Create Estimate' : 'Create Invoice'}
               </Button>
               <Button type="button" variant="outline" className="w-full rounded-xl" onClick={() => setPreviewReady(false)}>
                 Back to Edit
@@ -693,6 +948,8 @@ function FastPreview({
 }: {
   items: Array<SelectedItem & {
     product: FastInvoiceProduct
+    name: string
+    isbn?: string
     price: number
     lineTotal: number
     stock: { status: ProductStockStatus; message?: string; ok: boolean }
@@ -720,8 +977,8 @@ function FastPreview({
               <span className="flex min-w-0 gap-2">
                 <span className="font-mono text-xs font-semibold text-slate-500">{index + 1}.</span>
                 <span className="min-w-0">
-                  <span className="block break-words font-semibold">{item.product.name}</span>
-                  {item.product.isbn ? <span className="mt-1 block font-mono text-xs text-muted-foreground">ISBN: {item.product.isbn}</span> : null}
+                  <span className="block break-words font-semibold">{item.name}</span>
+                  {item.isbn ? <span className="mt-1 block font-mono text-xs text-muted-foreground">ISBN: {item.isbn}</span> : null}
                   <span className="text-xs text-muted-foreground">{item.quantity} x {format(item.price)}</span>
                 </span>
               </span>

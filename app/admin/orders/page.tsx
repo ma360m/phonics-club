@@ -5,6 +5,7 @@ import {
   adminUpdateOrderDetailsFormAction,
   confirmPaymentFormAction,
   finalizeCodDeliveryFormAction,
+  promoteEstimateToInvoiceFormAction,
   updateOrderInvoiceNumberFormAction,
   updateOrderShippingFormAction,
   updateOrderStatusFormAction,
@@ -180,20 +181,36 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
             <section className="rounded-xl border bg-[#F8FAFC] p-4">
               <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">Admin controls</h2>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <form action={updateOrderInvoiceNumberFormAction} className="flex max-w-sm flex-wrap items-center gap-2">
-                  <input type="hidden" name="orderId" value={order.id} />
-                  <input
-                    name="invoiceNumber"
-                    defaultValue={order.invoice_number ?? ''}
-                    placeholder="INV_001"
-                    className="w-36 rounded-xl border bg-white px-3 py-1.5 font-mono text-sm"
-                  />
-                  <Button type="submit" size="sm" variant="outline" className="rounded-xl bg-white">
-                    Save invoice #
-                  </Button>
-                </form>
+                {order.document_type !== 'estimate' ? (
+                  <form action={updateOrderInvoiceNumberFormAction} className="flex max-w-sm flex-wrap items-center gap-2">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <input
+                      name="invoiceNumber"
+                      defaultValue={order.invoice_number ?? ''}
+                      placeholder="INV_001"
+                      className="w-36 rounded-xl border bg-white px-3 py-1.5 font-mono text-sm"
+                    />
+                    <Button type="submit" size="sm" variant="outline" className="rounded-xl bg-white">
+                      Rename invoice #
+                    </Button>
+                  </form>
+                ) : null}
 
-                {needsBankFinalization ? (
+                {order.document_type === 'estimate' && !order.finalized_at ? (
+                  <form action={promoteEstimateToInvoiceFormAction} className="flex max-w-xl flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <input
+                      name="invoiceNumber"
+                      placeholder="Optional INV_001"
+                      className="w-40 rounded-xl border border-emerald-200 bg-white px-3 py-1.5 font-mono text-sm"
+                    />
+                    <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
+                      {isCod ? 'Confirm Delivery & Promote to INV' : 'Confirm Payment & Promote to INV'}
+                    </Button>
+                  </form>
+                ) : null}
+
+                {needsBankFinalization && order.document_type !== 'estimate' ? (
                   <form action={confirmPaymentFormAction}>
                     <input type="hidden" name="orderId" value={order.id} />
                     <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
@@ -202,7 +219,7 @@ function AdminOrderCard({ order, products }: { order: Order; products: EditableO
                   </form>
                 ) : null}
 
-                {needsCodFinalization ? (
+                {needsCodFinalization && order.document_type !== 'estimate' ? (
                   <form action={finalizeCodDeliveryFormAction}>
                     <input type="hidden" name="orderId" value={order.id} />
                     <Button type="submit" size="sm" className="rounded-xl bg-emerald-600">
